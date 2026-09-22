@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Ihsan Finance">
+  <!--
+    Penanda sementara, bukan logo resmi: pemilik belum menyetujui berkas logo (DESIGN.md §10, R-23).
+    Bentuknya motif garis buku besar: halaman dengan garis kolom dan takik di tepi kiri.
+    Ganti berkas ini setelah logo disetujui.
+  -->
+  <rect width="64" height="64" rx="12" fill="#f6f2ea" />
+  <rect x="14" y="12" width="36" height="40" rx="4" fill="none" stroke="#243b7a" stroke-width="2.5" />
+  <g stroke="#243b7a" stroke-width="2.5" stroke-linecap="round">
+    <line x1="22" y1="22" x2="42" y2="22" />
+    <line x1="22" y1="30" x2="42" y2="30" />
+    <line x1="22" y1="38" x2="34" y2="38" />
+  </g>
+  <g stroke="#141b22" stroke-width="2.5" stroke-linecap="round">
+    <line x1="14" y1="22" x2="18" y2="22" />
+    <line x1="14" y1="30" x2="18" y2="30" />
+    <line x1="14" y1="38" x2="18" y2="38" />
+  </g>
+</svg>

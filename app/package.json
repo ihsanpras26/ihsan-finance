@@ -1,0 +1,21 @@
+{
+  "name": "ihsan-finance",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Aplikasi keuangan pribadi (P0); web responsif + PWA. Implementasi PRD v1.0.",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "server": "node --watch server/src/main.ts",
+    "web": "pnpm --dir web dev",
+    "seed": "node server/src/tools/seed.ts",
+    "verify": "pnpm --dir server verify && pnpm --dir web verify",
+    "test": "pnpm --dir server test",
+    "typecheck": "pnpm --dir server typecheck && pnpm --dir web typecheck",
+    "build": "pnpm --dir web build",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}

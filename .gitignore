@@ -1,0 +1,32 @@
+# Dependensi
+node_modules/
+
+# Hasil build
+dist/
+*.tsbuildinfo
+
+# Basis data lokal dan berkas pendampingnya. Data contoh dibuat ulang dengan `pnpm seed`.
+*.db
+*.db-wal
+*.db-shm
+data/
+
+# Rahasia lingkungan
+.env
+.env.*
+!.env.example
+
+# Keluaran sementara
+*.log
+coverage/
+tmp/
+
+# Sistem operasi dan editor
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Salinan skill untuk agen yang membaca .claude/skills.
+# Dibuat ulang dengan satu perintah di skills/README.md, jadi tidak disimpan di sini
+# supaya isi skill tidak ada dua kali di repositori.
+.claude/

@@ -1,0 +1,27 @@
+{
+  "name": "Ihsan Finance",
+  "short_name": "Ihsan Finance",
+  "description": "Buku kas pribadi: catat pendapatan, pengeluaran, utang, piutang, dan tujuan tabungan dalam satu tempat.",
+  "lang": "id",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f6f2ea",
+  "theme_color": "#f6f2ea",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

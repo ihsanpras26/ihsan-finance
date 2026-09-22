@@ -1,0 +1,6 @@
+packages:
+  - server
+  - web
+# esbuild ships a platform binary through a postinstall script; Vite cannot run without it.
+allowBuilds:
+  esbuild: true

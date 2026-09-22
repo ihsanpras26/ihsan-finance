@@ -1,0 +1,22 @@
+{
+  "name": "@ihsan/server",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "API + ledger engine (double-entry). Node 24 native TS + node:sqlite.",
+  "scripts": {
+    "dev": "node --watch src/main.ts",
+    "start": "node src/main.ts",
+    "test": "node --test --test-concurrency=1 \"test/*.test.ts\"",
+    "verify": "tsc --noEmit && node --test --test-concurrency=1 \"test/*.test.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "fastify": "^5.2.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}
