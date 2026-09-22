@@ -1,17 +1,19 @@
-// routes/rencana/parts/DebtTab.tsx : debts (payable) and receivables (receivable) as two ledgers.
-// Each row states the remaining principal, the due date in plain words, and its status.
+// routes/rencana/parts/DebtTab.tsx : debts (payable) and receivables (receivable) as two groups of cards.
+// Each card states the counterparty, the due date in plain words, the remaining principal at the
+// card's right edge, and how much of the principal has already been paid down.
 import { useState, type ReactNode } from 'react';
 import { api, type Debt, type Wallet } from '../../../lib/api.ts';
 import { useAsync } from '../../../lib/hooks.ts';
 import { useSession } from '../../../lib/session.tsx';
 import {
-  Button, EmptyState, ErrorState, LedgerRow, LoadingRows, Money, SectionHead, StatusPill, useToast,
+  Button, Card, EmptyState, ErrorState, IconTile, LoadingRows, Money, ProgressBar, RowTitle, SectionHead, StatusPill, useToast,
 } from '../../../components/ui.tsx';
+import { IconDebt, IconReceivable } from '../../../components/icons.tsx';
 import { DebtForm } from '../../../components/forms/DebtForm.tsx';
 import { PaymentForm } from '../../../components/forms/PaymentForm.tsx';
 import { WriteOffForm } from '../../../components/forms/WriteOffForm.tsx';
 import { SwitchRow } from '../../../components/forms/support.tsx';
-import { formatIDR, relativeDay } from '../../../lib/format.ts';
+import { relativeDay, toMinor } from '../../../lib/format.ts';
 import { sumMinor } from './money.ts';
 
 type FormState =
@@ -51,22 +53,27 @@ export function DebtTab() {
   const nothingYet = all.length === 0;
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="rounded-panel border border-hairline bg-raised px-4 py-4">
+    <div className="flex flex-col gap-3 lg:gap-4">
+      {/* Ringkasan: satu angka pokok tersisa untuk tiap arah. */}
+      <Card className="px-4 py-4 lg:px-5">
         <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
           <div>
             <p className="text-xs text-muted">Sisa pokok utang</p>
-            <Money value={payableTotal} direction="out" size="lg" />
+            <p className="mt-1">
+              <Money value={payableTotal} direction="out" size="lg" />
+            </p>
           </div>
           <div className="text-right">
             <p className="text-xs text-muted">Sisa pokok piutang</p>
-            <Money value={receivableTotal} direction="in" size="lg" />
+            <p className="mt-1">
+              <Money value={receivableTotal} direction="in" size="lg" />
+            </p>
           </div>
         </div>
-        <p className="mt-2.5 text-xs text-muted">
+        <p className="mt-3 text-xs text-muted">
           Sisa pokok dihitung dari jurnal dan bukan seluruh kewajiban masa depan. Utang dan piutang tidak termasuk saldo uang yang dapat dipakai.
         </p>
-      </div>
+      </Card>
 
       {wallets.error ? (
         <ErrorState message={`Daftar dompet gagal dimuat, jadi cicilan dan pencatatan baru belum bisa disimpan. ${wallets.error.display}`} onRetry={wallets.reload} />
@@ -74,6 +81,8 @@ export function DebtTab() {
 
       {debts.error && debts.data ? <ErrorState message={debts.error.display} onRetry={debts.reload} /> : null}
 
+      {/* Aksi utama layar ini: mencatat catatan baru. Tombol di keadaan kosong memakai gaya
+          sekunder supaya hanya ada satu tombol utama di layar. */}
       <div className="flex flex-wrap gap-2">
         <Button onClick={() => setForm({ mode: 'create', direction: 'payable' })}>Catat utang</Button>
         <Button variant="secondary" onClick={() => setForm({ mode: 'create', direction: 'receivable' })}>
@@ -87,7 +96,9 @@ export function DebtTab() {
           body="Catat utang saat Anda meminjam uang, dan piutang saat Anda meminjamkan. Sisa pokok serta jatuh temponya lalu terpantau di sini."
           action={
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => setForm({ mode: 'create', direction: 'payable' })}>Catat utang</Button>
+              <Button variant="secondary" onClick={() => setForm({ mode: 'create', direction: 'payable' })}>
+                Catat utang
+              </Button>
               <Button variant="secondary" onClick={() => setForm({ mode: 'create', direction: 'receivable' })}>
                 Catat piutang
               </Button>
@@ -96,24 +107,32 @@ export function DebtTab() {
         />
       ) : (
         <>
-          <DebtList
+          <DebtGroup
             title="Utang (kewajiban)"
             hint="Uang yang harus Anda bayar."
             items={sortDebts(payable)}
             emptyTitle="Belum ada utang"
             emptyBody="Catat utang supaya sisa pokok dan jatuh temponya terpantau."
-            emptyAction={<Button onClick={() => setForm({ mode: 'create', direction: 'payable' })}>Catat utang</Button>}
+            emptyAction={
+              <Button variant="secondary" onClick={() => setForm({ mode: 'create', direction: 'payable' })}>
+                Catat utang
+              </Button>
+            }
             onPay={setPaying}
             onEdit={(debt) => setForm({ mode: 'edit', debt })}
             onWriteOff={setWritingOff}
           />
-          <DebtList
+          <DebtGroup
             title="Piutang (hak tagih)"
             hint="Uang yang harus diterima dari pihak lain."
             items={sortDebts(receivable)}
             emptyTitle="Belum ada piutang"
             emptyBody="Catat piutang supaya tagihan Anda tidak terlewat."
-            emptyAction={<Button onClick={() => setForm({ mode: 'create', direction: 'receivable' })}>Catat piutang</Button>}
+            emptyAction={
+              <Button variant="secondary" onClick={() => setForm({ mode: 'create', direction: 'receivable' })}>
+                Catat piutang
+              </Button>
+            }
             onPay={setPaying}
             onEdit={(debt) => setForm({ mode: 'edit', debt })}
             onWriteOff={setWritingOff}
@@ -121,14 +140,14 @@ export function DebtTab() {
         </>
       )}
 
-      <div className="rounded-panel border border-hairline px-4">
+      <Card className="px-4">
         <SwitchRow
           label="Tampilkan catatan yang sudah selesai"
           hint="Lunas, dihapuskan, dan diarsipkan. Catatan selesai tetap masuk laporan."
           checked={showDone}
           onChange={setShowDone}
         />
-      </div>
+      </Card>
 
       {form ? (
         <DebtForm
@@ -171,7 +190,11 @@ function sortDebts(list: Debt[]): Debt[] {
   });
 }
 
-function DebtPill({ debt }: { debt: Debt }) {
+/**
+ * Lencana status pada kartu, sama seperti sebelumnya: lunas, dihapuskan, diarsipkan, lewat jatuh
+ * tempo, belum ada jatuh tempo, atau jatuh tempo dalam hitungan hari.
+ */
+function debtPill(debt: Debt): ReactNode {
   if (debt.status === 'paid') return <StatusPill tone="in">Lunas</StatusPill>;
   if (debt.status === 'written_off') return <StatusPill tone="neutral">Dihapuskan (non-kas)</StatusPill>;
   if (debt.status === 'archived') return <StatusPill tone="neutral">Diarsipkan</StatusPill>;
@@ -186,7 +209,7 @@ function dueText(debt: Debt): string {
   return `Jatuh tempo ${relativeDay(debt.dueDate)}`;
 }
 
-function DebtList({
+function DebtGroup({
   title, hint, items, emptyTitle, emptyBody, emptyAction, onPay, onEdit, onWriteOff,
 }: {
   title: string;
@@ -202,49 +225,82 @@ function DebtList({
   return (
     <section>
       <SectionHead title={title} />
-      <p className="text-xs text-muted">{hint}</p>
+      <p className="px-0.5 text-xs text-muted">{hint}</p>
       {items.length === 0 ? (
         <div className="mt-3">
           <EmptyState title={emptyTitle} body={emptyBody} action={emptyAction} />
         </div>
       ) : (
-        <ul className="mt-1">
+        <ul className="mt-3 grid gap-3 lg:grid-cols-2 lg:gap-4">
           {items.map((debt) => (
-            <LedgerRow as="li" key={debt.id}>
-              <div className="flex w-full flex-col gap-1.5 py-0.5">
-                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                  <span className="text-sm font-semibold text-fg">{debt.counterpartyName}</span>
-                  <DebtPill debt={debt} />
-                </div>
-                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                  <span className="text-xs text-muted">
-                    {dueText(debt)} · Pokok awal {formatIDR(debt.principal)}
-                  </span>
-                  <span className="flex items-baseline gap-2">
-                    <span className="text-xs text-muted">Sisa pokok</span>
-                    <Money value={debt.remaining} direction={debt.direction === 'payable' ? 'out' : 'in'} />
-                  </span>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                  {debt.status === 'active' ? (
-                    <Button variant="secondary" onClick={() => onPay(debt)}>
-                      {debt.direction === 'payable' ? 'Catat cicilan' : 'Catat penerimaan'}
-                    </Button>
-                  ) : null}
-                  <Button variant="ghost" onClick={() => onEdit(debt)}>
-                    Ubah
-                  </Button>
-                  {debt.status === 'active' ? (
-                    <Button variant="ghost" onClick={() => onWriteOff(debt)}>
-                      Hapuskan (non-kas)
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
-            </LedgerRow>
+            <DebtCard key={debt.id} debt={debt} onPay={onPay} onEdit={onEdit} onWriteOff={onWriteOff} />
           ))}
         </ul>
       )}
     </section>
+  );
+}
+
+function DebtCard({
+  debt, onPay, onEdit, onWriteOff,
+}: { debt: Debt; onPay: (debt: Debt) => void; onEdit: (debt: Debt) => void; onWriteOff: (debt: Debt) => void }) {
+  const payable = debt.direction === 'payable';
+  const principal = toMinor(debt.principal);
+  const remaining = toMinor(debt.remaining);
+  // Berapa bagian pokok yang sudah turun. Sisa yang lebih besar dari pokok awal tidak pernah
+  // menghasilkan isian negatif pada bilah.
+  const paidDown = principal > 0 ? (principal - Math.max(0, remaining)) / principal : 0;
+  const direction = payable ? 'out' : 'in';
+  const pill = debtPill(debt);
+
+  return (
+    <Card as="li" className="px-4 py-4 lg:px-5">
+      {/* flex-wrap + basis: saat nominal panjang tidak muat lagi di sebelah nama, kolom nominal
+          turun ke barisnya sendiri dan tetap rata kanan, jadi tidak pernah ada geser mendatar. */}
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+        <div className="flex min-w-0 flex-1 basis-40 items-start gap-3">
+          <IconTile tone={payable ? 'out' : 'in'}>{payable ? <IconDebt /> : <IconReceivable />}</IconTile>
+          <div className="min-w-0 flex-1">
+            <RowTitle title={debt.counterpartyName} meta={dueText(debt)} />
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-col items-end">
+          <Money value={debt.remaining} direction={direction} size="lg" />
+          <span className="text-2xs text-muted">Sisa pokok</span>
+        </div>
+      </div>
+
+      {pill ? <div className="mt-2 flex flex-wrap items-center gap-2">{pill}</div> : null}
+
+      <div className="mt-3">
+        <ProgressBar
+          ratio={paidDown}
+          tone={paidDown >= 1 ? 'in' : 'accent'}
+          showPercent
+          label={payable ? `Progres pembayaran utang ${debt.counterpartyName}` : `Progres penerimaan piutang ${debt.counterpartyName}`}
+        />
+      </div>
+
+      <div className="mt-2 flex items-baseline justify-between gap-3 text-xs text-muted">
+        <span>Pokok awal</span>
+        <Money value={debt.principal} size="sm" />
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {debt.status === 'active' ? (
+          <Button variant="secondary" onClick={() => onPay(debt)}>
+            {payable ? 'Catat cicilan' : 'Catat penerimaan'}
+          </Button>
+        ) : null}
+        <Button variant="ghost" onClick={() => onEdit(debt)}>
+          Ubah
+        </Button>
+        {debt.status === 'active' ? (
+          <Button variant="ghost" onClick={() => onWriteOff(debt)}>
+            Hapuskan (non-kas)
+          </Button>
+        ) : null}
+      </div>
+    </Card>
   );
 }

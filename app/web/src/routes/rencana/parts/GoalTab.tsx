@@ -1,16 +1,19 @@
 // routes/rencana/parts/GoalTab.tsx : savings goals: progress, shortfall, and a monthly plan.
 // A passed target date offers to change the plan instead of producing a negative or zero division.
-import { useId, useState, type FormEvent } from 'react';
+// Each goal is one card: name and date first, the bar with its percentage, then the two figures
+// (Terkumpul and Target) stacked in the sign column so a list of goals compares down one edge.
+import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import { api, type Goal } from '../../../lib/api.ts';
 import { useAsync } from '../../../lib/hooks.ts';
 import { useSession } from '../../../lib/session.tsx';
 import {
-  Button, ConfirmDialog, EmptyState, ErrorState, LoadingRows, Money, ProgressBar, SectionHead, Sheet, StatusPill, TextInput, useToast,
+  Button, Card, ConfirmDialog, EmptyState, ErrorState, IconTile, LoadingRows, Money, ProgressBar, RowTitle, SectionHead, Sheet, StatusPill, TextInput, useToast,
 } from '../../../components/ui.tsx';
+import { IconGoal } from '../../../components/icons.tsx';
 import { GoalForm } from '../../../components/forms/GoalForm.tsx';
 import { AllocationForm } from '../../../components/forms/AllocationForm.tsx';
 import { errorMessage, issuesFrom, RadioGroup, type FormIssues } from '../../../components/forms/support.tsx';
-import { formatDateLong, formatIDR, formatPercent, parseIso, toMinor, todayIso } from '../../../lib/format.ts';
+import { formatDateLong, formatIDR, parseIso, toMinor, todayIso } from '../../../lib/format.ts';
 import { sumMinor } from './money.ts';
 
 type PlanState =
@@ -61,22 +64,24 @@ export function GoalTab() {
   if (goals.error && !goals.data) return <ErrorState message={goals.error.display} onRetry={goals.reload} />;
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="rounded-panel border border-hairline bg-raised px-4 py-4">
+    <div className="flex flex-col gap-3 lg:gap-4">
+      <Card className="px-4 py-4 lg:px-5">
         <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
           <div>
             <p className="text-xs text-muted">Total teralokasi</p>
-            <Money value={totalAllocated} direction="in" size="lg" />
+            <p className="mt-1">
+              <Money value={totalAllocated} direction="in" size="lg" />
+            </p>
           </div>
           <div className="text-right">
             <p className="text-xs text-muted">Tujuan aktif</p>
-            <span className="figure text-xl leading-tight text-fg">{activeList.length}</span>
+            <p className="tnum mt-1 text-xl leading-tight font-medium text-fg">{activeList.length}</p>
           </div>
         </div>
-        <p className="mt-2.5 text-xs text-muted">
+        <p className="mt-3 text-xs text-muted">
           Alokasi menandai sebagian saldo dompet dan tidak menggerakkan uang. Dana yang sama tidak bisa dipakai dua tujuan sekaligus.
         </p>
-      </div>
+      </Card>
 
       {wallets.error ? (
         <ErrorState message={`Daftar dompet gagal dimuat, jadi alokasi belum bisa disimpan. ${wallets.error.display}`} onRetry={wallets.reload} />
@@ -95,29 +100,33 @@ export function GoalTab() {
         <EmptyState
           title="Belum ada tujuan"
           body="Tujuan menampung dana untuk keperluan tertentu, misalnya dana pendidikan atau uang muka rumah. Buat tujuan lalu alokasikan dana dari dompet."
-          action={<Button onClick={() => setCreating(true)}>Buat tujuan</Button>}
+          action={
+            <Button variant="secondary" onClick={() => setCreating(true)}>
+              Buat tujuan
+            </Button>
+          }
         />
       ) : (
-        <section className="flex flex-col gap-3">
+        <section>
           <SectionHead title="Tujuan keuangan" />
-          {list.map((goal) => (
-            <GoalCard
-              key={goal.id}
-              goal={goal}
-              onAllocate={() => setPlan({ mode: 'allocate', goal })}
-              onRelease={() => setPlan({ mode: 'release', goal })}
-              onEdit={() => setPlan({ mode: 'edit', goal })}
-              onArchive={() => setArchiving(goal)}
-              onAchieve={() => void markAchieved(goal)}
-              onReactivate={() => void reactivate(goal)}
-            />
-          ))}
+          <ul className="grid gap-3 lg:grid-cols-2 lg:gap-4">
+            {list.map((goal) => (
+              <GoalCard
+                key={goal.id}
+                goal={goal}
+                onAllocate={() => setPlan({ mode: 'allocate', goal })}
+                onRelease={() => setPlan({ mode: 'release', goal })}
+                onEdit={() => setPlan({ mode: 'edit', goal })}
+                onArchive={() => setArchiving(goal)}
+                onAchieve={() => void markAchieved(goal)}
+                onReactivate={() => void reactivate(goal)}
+              />
+            ))}
+          </ul>
         </section>
       )}
 
-      {creating ? (
-        <GoalForm open onClose={() => setCreating(false)} onSaved={refresh} />
-      ) : null}
+      {creating ? <GoalForm open onClose={() => setCreating(false)} onSaved={refresh} /> : null}
 
       {plan && plan.mode !== 'edit' ? (
         <AllocationForm
@@ -131,9 +140,7 @@ export function GoalTab() {
         />
       ) : null}
 
-      {plan && plan.mode === 'edit' ? (
-        <GoalForm open onClose={() => setPlan(null)} onSaved={refresh} goal={plan.goal} />
-      ) : null}
+      {plan && plan.mode === 'edit' ? <GoalForm open onClose={() => setPlan(null)} onSaved={refresh} goal={plan.goal} /> : null}
 
       {archiving && toMinor(archiving.allocated) > 0 ? (
         <ArchiveGoalSheet goal={archiving} onClose={() => setArchiving(null)} onSaved={refresh} />
@@ -178,37 +185,43 @@ function GoalCard({
   const achieved = goal.status === 'achieved';
 
   return (
-    <article className={`rounded-panel border border-hairline bg-raised p-4 ${archived ? 'opacity-80' : ''}`}>
-      <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-        <h3 className="text-lg font-semibold text-fg">{goal.name}</h3>
-        <div className="flex flex-wrap items-center gap-2">
-          {achieved ? <StatusPill tone="in">Tercapai</StatusPill> : null}
-          {archived ? <StatusPill tone="neutral">Diarsipkan</StatusPill> : null}
-          <StatusPill tone="neutral">{PRIORITY_LABEL[String(goal.priority)] ?? 'Sedang'}</StatusPill>
+    <Card as="li" className={`px-4 py-4 lg:px-5 ${archived ? 'opacity-80' : ''}`}>
+      <div className="flex items-start gap-3">
+        <IconTile tone={archived ? 'neutral' : 'accent-2'}>
+          <IconGoal />
+        </IconTile>
+        <div className="min-w-0 flex-1">
+          <RowTitle title={goal.name} meta={goal.targetDate ? `Target ${formatDateLong(goal.targetDate)}` : 'Belum ada tanggal target'} />
         </div>
-      </header>
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {achieved ? <StatusPill tone="in">Tercapai</StatusPill> : null}
+        {archived ? <StatusPill tone="neutral">Diarsipkan</StatusPill> : null}
+        <StatusPill tone="neutral">{PRIORITY_LABEL[String(goal.priority)] ?? 'Sedang'}</StatusPill>
+      </div>
 
       <div className="mt-3 flex flex-col gap-2">
         <ProgressBar
           ratio={goal.progress}
           tone={goal.progress >= 1 ? 'in' : 'accent'}
+          showPercent
           label={`Progres tujuan ${goal.name}`}
         />
-        <div className="flex flex-wrap items-baseline justify-between gap-x-4">
-          <span className="text-xs text-muted">Progres {formatPercent(goal.progress)}</span>
-          <span className="text-xs text-muted">Target {formatIDR(goal.target)}</span>
-        </div>
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-        <span className="flex items-baseline gap-2">
-          <span className="text-xs text-muted">Teralokasi</span>
-          <Money value={goal.allocated} direction="in" />
-        </span>
-        <span className="flex items-baseline gap-2">
-          <span className="text-xs text-muted">{shortfall > 0 ? 'Kekurangan' : 'Melebihi target'}</span>
-          <Money value={Math.abs(shortfall)} direction={shortfall > 0 ? 'out' : 'in'} />
-        </span>
+        <dl className="grid grid-cols-[auto_1fr] items-baseline gap-x-3 gap-y-1 text-xs text-muted">
+          <dt>Terkumpul</dt>
+          <dd className="text-right">
+            <Money value={goal.allocated} direction="in" />
+          </dd>
+          <dt>Target</dt>
+          <dd className="text-right">
+            <Money value={goal.target} />
+          </dd>
+          <dt>{shortfall > 0 ? 'Kekurangan' : 'Melebihi target'}</dt>
+          <dd className="text-right">
+            <Money value={Math.abs(shortfall)} direction={shortfall > 0 ? 'out' : 'in'} />
+          </dd>
+        </dl>
       </div>
 
       <div className="mt-3">
@@ -217,12 +230,12 @@ function GoalCard({
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {!archived ? (
-          <Button onClick={onAllocate}>
+          <Button variant="secondary" onClick={onAllocate}>
             Alokasikan dana
           </Button>
         ) : null}
         {!archived && allocated > 0 ? (
-          <Button variant="secondary" onClick={onRelease}>
+          <Button variant="ghost" onClick={onRelease}>
             Lepas alokasi
           </Button>
         ) : null}
@@ -239,13 +252,13 @@ function GoalCard({
           </Button>
         )}
       </div>
-    </article>
+    </Card>
   );
 }
 
 function PlanLine({
   goal, shortfall, onChangePlan, onAchieve,
-}: { goal: Goal; shortfall: number; onChangePlan: () => void; onAchieve: () => void }) {
+}: { goal: Goal; shortfall: number; onChangePlan: () => void; onAchieve: () => void }): ReactNode {
   const today = todayIso();
 
   if (shortfall <= 0) {

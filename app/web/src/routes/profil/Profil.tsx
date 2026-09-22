@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../lib/session.tsx';
 import { countDrafts } from '../../lib/offline.ts';
-import { Button, ConfirmDialog, LoadingRows, PageHeader, SectionHead } from '../../components/ui.tsx';
+import { Avatar, Button, Card, ConfirmDialog, LoadingRows, PageHeader, SectionHead } from '../../components/ui.tsx';
 import { WalletSection } from './parts/WalletSection.tsx';
 import { CategorySection } from './parts/CategorySection.tsx';
 import { PreferenceSection } from './parts/PreferenceSection.tsx';
@@ -33,7 +33,7 @@ export function ProfilPage() {
     return (
       <div className="flex flex-col">
         <PageHeader title="Profil" subtitle="Dompet, kategori, preferensi, keamanan, dan pengelolaan data." />
-        <div className="mt-6">
+        <div className="mt-3">
           <LoadingRows rows={3} label="Memuat profil" />
         </div>
       </div>
@@ -41,8 +41,20 @@ export function ProfilPage() {
   }
 
   return (
-    <div className="flex flex-col gap-7">
-      <PageHeader title="Profil" subtitle={`${user.displayName} · ${user.workspaceName}`} />
+    <div className="flex flex-col">
+      <PageHeader title="Profil" subtitle="Dompet, kategori, preferensi, keamanan, dan pengelolaan data." />
+
+      {/* Kartu identitas: siapa yang sedang masuk dan di ruang keuangan mana. */}
+      <Card className="mt-3 flex items-center gap-3 px-4 py-4">
+        <Avatar name={user.displayName} size="lg" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-base font-semibold text-fg">{user.displayName}</p>
+          <p className="truncate text-xs text-muted">{user.email}</p>
+          <p className="truncate text-xs text-muted">
+            {user.workspaceName} · {user.timezone}
+          </p>
+        </div>
+      </Card>
 
       <WalletSection />
       <CategorySection />
@@ -52,16 +64,18 @@ export function ProfilPage() {
 
       <section>
         <SectionHead title="Keluar" />
-        <p className="mt-1 text-sm text-muted">
-          {drafts > 0
-            ? `Ada ${drafts} draf di perangkat ini yang belum dikirim. Keluar akan menghapus draf tersebut.`
-            : 'Keluar dari aplikasi di perangkat ini. Draf yang belum dikirim tidak akan tersimpan.'}
-        </p>
-        <div className="mt-3">
-          <Button variant="secondary" onClick={() => setConfirmingOut(true)}>
-            Keluar
-          </Button>
-        </div>
+        <Card className="px-4 py-4">
+          <p className="text-sm text-muted">
+            {drafts > 0
+              ? `Ada ${drafts} draf di perangkat ini yang belum dikirim. Keluar akan menghapus draf tersebut.`
+              : 'Keluar dari aplikasi di perangkat ini. Draf yang belum dikirim tidak akan tersimpan.'}
+          </p>
+          <div className="mt-3">
+            <Button variant="secondary" onClick={() => setConfirmingOut(true)}>
+              Keluar
+            </Button>
+          </div>
+        </Card>
       </section>
 
       <ConfirmDialog

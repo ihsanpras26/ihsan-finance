@@ -245,3 +245,71 @@ export const IconEdit = (p: IconProps) => (
     <path d="M12.2 4.8l3 3" />
   </Base>
 );
+
+/** Panah naik ke kanan: arah perubahan positif pada lencana (DESIGN.md §10). */
+export const IconArrowUpRight = (p: IconProps) => (
+  <Base {...p}>
+    <path d="M6 14 14 6" />
+    <path d="M7.6 6H14v6.4" />
+  </Base>
+);
+
+/** Panah turun ke kanan: arah perubahan negatif pada lencana (DESIGN.md §10). */
+export const IconArrowDownRight = (p: IconProps) => (
+  <Base {...p}>
+    <path d="M6 6l8 8" />
+    <path d="M14 7.6V14H7.6" />
+  </Base>
+);
+
+/** Lonceng: pemberitahuan pengingat. */
+export const IconBell = (p: IconProps) => (
+  <Base {...p}>
+    <path d="M5.6 8.4a4.4 4.4 0 0 1 8.8 0c0 3 .9 4.4 1.4 5.1H4.2c.5-.7 1.4-2.1 1.4-5.1Z" />
+    <path d="M8.4 16a1.8 1.8 0 0 0 3.2 0" />
+  </Base>
+);
+
+/** Tiga titik: menu tindakan per baris. */
+export const IconMoreVertical = (p: IconProps) => (
+  <Base {...p}>
+    <circle cx="10" cy="4.8" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="10" cy="10" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="10" cy="15.2" r="1.1" fill="currentColor" stroke="none" />
+  </Base>
+);
+
+/** Mata: kendali tampilkan atau sembunyikan nominal. */
+export const IconEye = (p: IconProps) => (
+  <Base {...p}>
+    <path d="M2.4 10S5.4 5.2 10 5.2 17.6 10 17.6 10 14.6 14.8 10 14.8 2.4 10 2.4 10Z" />
+    <circle cx="10" cy="10" r="2.2" />
+  </Base>
+);
+
+/** Mata dicoret: nominal sedang disembunyikan. */
+export const IconEyeOff = (p: IconProps) => (
+  <Base {...p}>
+    <path d="M3.4 10s2.6-4.2 6.6-4.2c1 0 1.9.2 2.7.6" />
+    <path d="M16.2 11.4c.8-1 1.4-1.4 1.4-1.4s-3-4.8-7.6-4.8" />
+    <path d="M4.4 5 15.6 15" />
+    <path d="M8.2 8.4a2.2 2.2 0 0 0 3 3" />
+    <path d="M13.4 11.8A9.6 9.6 0 0 1 10 14.8c-1.4 0-2.7-.4-3.8-1" />
+  </Base>
+);
+
+/** Tabungan: celengan dengan celah koin. */
+export const IconSavings = (p: IconProps) => (
+  <Base {...p}>
+    <path d="M3.6 11.6a5.6 5.6 0 0 1 5.6-5.6h1.6a5.6 5.6 0 0 1 5.6 5.6v2a1.4 1.4 0 0 1-1.4 1.4h-1v1.4H8.6V16.4h-1A1.4 1.4 0 0 1 6.2 15h-1a1.4 1.4 0 0 1-1.4-1.4v-2Z" />
+    <path d="M8.6 6v-.6a1.4 1.4 0 0 1 1.4-1.4h.6" />
+    <path d="M13.6 10.6h.1" />
+  </Base>
+);
+
+/** Urut: tiga garis mengecil dengan panah. */
+export const IconSort = (p: IconProps) => (
+  <Base {...p}>
+    <path d="M4.4 5.6h11.2M6.4 10h7.2M8.4 14.4h3.2" />
+  </Base>
+);

@@ -5,7 +5,7 @@ import { useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SelectControl } from '../../components/forms/fields.tsx';
 import { IconAlert, IconCheck } from '../../components/icons.tsx';
-import { Button, Field, Tabs, TextInput, useToast } from '../../components/ui.tsx';
+import { Button, Card, Field, Tabs, TextInput, useToast } from '../../components/ui.tsx';
 import { api, ApiError, type SessionUser } from '../../lib/api.ts';
 import { useSession } from '../../lib/session.tsx';
 
@@ -14,7 +14,7 @@ type Mode = 'masuk' | 'daftar' | 'pulihkan';
 const MODES: { id: Mode; label: string }[] = [
   { id: 'masuk', label: 'Masuk' },
   { id: 'daftar', label: 'Daftar' },
-  { id: 'pulihkan', label: 'Pulihkan akses' },
+  { id: 'pulihkan', label: 'Pulihkan' },
 ];
 
 const TIMEZONES = ['Asia/Jakarta', 'Asia/Pontianak', 'Asia/Makassar', 'Asia/Jayapura'];
@@ -165,26 +165,31 @@ export function AuthPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-[440px] flex-col justify-center px-4 py-10">
-      <header className="flex items-baseline gap-2">
-        <h1 className="text-xl font-semibold text-fg">Ihsan Finance</h1>
-        <span className="text-2xs font-semibold text-muted" title="Penanda tempat logo. Berkas logo belum ada.">
-          [LOGO]
+    <div className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col justify-center px-4 py-10">
+      <div className="flex items-center gap-2.5">
+        <span className="inline-flex size-11 items-center justify-center rounded-control bg-accent text-lg font-bold text-accent-fg" aria-hidden="true">
+          IF
         </span>
-      </header>
-      <p className="mt-2 text-sm text-muted">
+        <div className="min-w-0">
+          <h1 className="text-lg font-semibold text-fg">Ihsan Finance</h1>
+          <p className="text-2xs text-muted" title="Penanda tempat logo. Berkas logo belum ada.">
+            [LOGO]
+          </p>
+        </div>
+      </div>
+      <p className="mt-3 text-sm text-muted">
         Buku kas pribadi: catat pendapatan, pengeluaran, utang, piutang, dan tujuan tabungan dalam satu tempat.
       </p>
 
       {issuedCode ? (
-        <section className="mt-6 rounded-panel border border-hairline bg-raised p-5" aria-labelledby="kode-pemulihan">
+        <Card className="mt-6 px-5 py-5" as="section">
           <h2 id="kode-pemulihan" className="text-lg font-semibold text-fg">
             Simpan kode pemulihan
           </h2>
           <p className="mt-2 text-sm text-muted">
             Kode ini dipakai untuk masuk kembali bila kata sandi terlupa. Kode hanya ditampilkan sekali di layar ini.
           </p>
-          <p className="tnum mt-4 select-all rounded-control border border-hairline bg-surface px-3 py-3 text-lg font-semibold tracking-wide text-fg">
+          <p className="tnum mt-4 select-all rounded-control bg-sunken px-3 py-3 text-lg font-semibold tracking-wide text-fg">
             {issuedCode}
           </p>
           <div className="mt-4 flex flex-col gap-2">
@@ -205,12 +210,10 @@ export function AuthPage() {
             <IconAlert size={15} className="mt-0.5 shrink-0" />
             <span>Tanpa kode ini, pemulihan akses tidak bisa dilakukan dari aplikasi.</span>
           </p>
-        </section>
+        </Card>
       ) : (
-        <>
-          <div className="mt-6 [&_[role=tab]]:min-h-[44px]">
-            <Tabs tabs={MODES} active={mode} onChange={switchMode} label="Pilihan akses akun" />
-          </div>
+        <Card className="mt-6 px-5 py-5">
+          <Tabs tabs={MODES} active={mode} onChange={switchMode} label="Pilihan akses akun" />
 
           <form onSubmit={handleSubmit} noValidate className="mt-5 flex flex-col gap-4">
             {mode === 'daftar' ? (
@@ -308,7 +311,7 @@ export function AuthPage() {
             ) : null}
 
             {formError ? (
-              <div role="alert" className="flex items-start gap-2 rounded-panel border border-out/40 px-4 py-3">
+              <div role="alert" className="flex items-start gap-2 rounded-control bg-out/8 px-4 py-3">
                 <IconAlert size={18} className="mt-0.5 shrink-0 text-out" />
                 <span className="text-sm text-fg">{formError}</span>
               </div>
@@ -318,16 +321,16 @@ export function AuthPage() {
               {mode === 'masuk' ? 'Masuk ke akun' : mode === 'daftar' ? 'Buat akun' : 'Simpan kata sandi baru'}
             </Button>
           </form>
-
-          <p className="mt-4 flex items-start gap-2 text-xs text-muted">
-            <IconCheck size={15} className="mt-0.5 shrink-0" />
-            <span>
-              Aplikasi ini mencatat dan merangkum keuangan. Rilis awal tidak melakukan pembayaran dan tidak menyimpan
-              kredensial bank.
-            </span>
-          </p>
-        </>
+        </Card>
       )}
+
+      <p className="mt-4 flex items-start gap-2 text-xs text-muted">
+        <IconCheck size={15} className="mt-0.5 shrink-0" />
+        <span>
+          Aplikasi ini mencatat dan merangkum keuangan. Rilis awal tidak melakukan pembayaran dan tidak menyimpan
+          kredensial bank.
+        </span>
+      </p>
     </div>
   );
 }

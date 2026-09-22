@@ -5,39 +5,45 @@
 
 /* ── Palette and scales (DESIGN.md §2, §3, §4). Light first, dark overrides on .dark. ───── */
 :root {
-  --surface: #fbfaf9;
+  --surface: #f4f4f5;
   --surface-raised: #ffffff;
-  --surface-sunken: #f3f1ee;
-  --fg: #14171a;
-  --fg-muted: #696f76;
-  --hairline: #e7e4e0;
-  --accent: #0f6b5c;
+  --surface-sunken: #eceef0;
+  --fg: #0f1720;
+  --fg-muted: #59616d;
+  --hairline: #e4e7ea;
+  --accent: #0256ff;
   --accent-fg: #ffffff;
-  --accent-soft: #0f6b5c14;
-  --in: #12734a;
-  --out: #ad2f22;
-  --warn: #8a5a00;
-  --overlay: rgb(20 23 26 / 0.44);
-  --shadow-float: 0 16px 40px -16px rgb(9 12 14 / 0.28);
-  --shadow-lift: 0 2px 8px -2px rgb(9 12 14 / 0.14);
+  --accent-soft: #0256ff14;
+  --accent-2: #ffb700;
+  --accent-2-soft: #ffb7001f;
+  --in: #07714e;
+  --out: #c81a1a;
+  --warn: #96450a;
+  --overlay: rgb(15 23 32 / 0.44);
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04);
+  --shadow-lift: 0 8px 24px -12px rgb(16 24 40 / 0.18);
+  --shadow-float: 0 24px 48px -20px rgb(16 24 40 / 0.32);
 }
 
 .dark {
-  --surface: #0e1113;
-  --surface-raised: #181c1f;
-  --surface-sunken: #090b0c;
-  --fg: #e9e7e4;
-  --fg-muted: #9aa0a6;
-  --hairline: #272c30;
-  --accent: #4fd1b5;
-  --accent-fg: #06201a;
-  --accent-soft: #4fd1b51f;
-  --in: #5cc98d;
-  --out: #f0857a;
-  --warn: #e0b45c;
+  --surface: #0b0f14;
+  --surface-raised: #141a21;
+  --surface-sunken: #090c10;
+  --fg: #e9edf1;
+  --fg-muted: #98a2b3;
+  --hairline: #242c36;
+  --accent: #4d8bff;
+  --accent-fg: #06132b;
+  --accent-soft: #4d8bff24;
+  --accent-2: #ffc93c;
+  --accent-2-soft: #ffc93c24;
+  --in: #3ddc97;
+  --out: #ff6b6b;
+  --warn: #f0b45c;
   --overlay: rgb(0 0 0 / 0.62);
-  --shadow-float: 0 16px 40px -16px rgb(0 0 0 / 0.62);
-  --shadow-lift: 0 2px 8px -2px rgb(0 0 0 / 0.4);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.32);
+  --shadow-lift: 0 8px 24px -12px rgb(0 0 0 / 0.5);
+  --shadow-float: 0 24px 48px -20px rgb(0 0 0 / 0.66);
 }
 
 @theme inline {
@@ -50,6 +56,7 @@
   --color-accent: var(--accent);
   --color-accent-fg: var(--accent-fg);
   --color-accent-soft: var(--accent-soft);
+  --color-accent-2: var(--accent-2);
   --color-in: var(--in);
   --color-out: var(--out);
   --color-warn: var(--warn);
@@ -57,7 +64,7 @@
   --font-sans: 'Schibsted Grotesk Variable', ui-sans-serif, system-ui, sans-serif;
   --font-figure: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
 
-  /* Type scale (DESIGN.md §3): six clear jumps, nothing below 11.5px. */
+  /* Type scale (DESIGN.md §3): eight clear jumps, nothing below 11.5px. */
   --text-2xs: 11.5px;
   --text-2xs--line-height: 1.35;
   --text-xs: 13px;
@@ -70,15 +77,19 @@
   --text-lg--line-height: 1.35;
   --text-xl: 26px;
   --text-xl--line-height: 1.2;
-  --text-2xl: 36px;
+  --text-2xl: 34px;
   --text-2xl--line-height: 1.1;
-  --text-3xl: 48px;
+  --text-3xl: 44px;
   --text-3xl--line-height: 1.05;
 
-  --radius-chip: 4px;
-  --radius-control: 8px;
-  --radius-panel: 12px;
-  --radius-sheet: 16px;
+  --radius-chip: 999px;
+  --radius-control: 12px;
+  --radius-panel: 18px;
+  --radius-sheet: 26px;
+
+  --shadow-card: var(--shadow-card);
+  --shadow-lift: var(--shadow-lift);
+  --shadow-float: var(--shadow-float);
 }
 
 @layer base {
@@ -98,7 +109,30 @@
     font-size: var(--text-base);
     line-height: 1.55;
     -webkit-font-smoothing: antialiased;
+    /* Kill the rubber-band bounce that makes a PWA feel like a web page (mobile-first). */
     overscroll-behavior-y: none;
+    /* Prevent iOS text inflation in landscape without disabling zoom. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* Tap highlight: a faint accent wash instead of the grey system block (mobile-first). */
+  button,
+  a,
+  [role='button'],
+  label,
+  summary {
+    -webkit-tap-highlight-color: color-mix(in srgb, var(--accent) 14%, transparent);
+  }
+
+  /* Every scrollable strip must claim its axis, or a vertical swipe inside it scrolls the page. */
+  [class*='overflow-x-auto'] {
+    touch-action: pan-x pan-y;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  [class*='overflow-x-auto']::-webkit-scrollbar {
+    display: none;
   }
 
   /* Headings carry their own weight; never rely on the browser default h1 size. */
@@ -107,6 +141,12 @@
   h3 {
     line-height: 1.2;
     text-wrap: balance;
+  }
+
+  /* Anchored targets must clear the sticky header (56px + safe area). */
+  :target,
+  [id] {
+    scroll-margin-top: calc(72px + env(safe-area-inset-top));
   }
 
   p {
@@ -124,7 +164,7 @@
   :focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
-    border-radius: var(--radius-chip);
+    border-radius: var(--radius-control);
   }
 
   ::selection {
@@ -169,10 +209,21 @@
     flex: none;
   }
 
-  /* A section heading sitting on a sunken surface instead of under a heavy rule. */
-  .head-band {
-    background: var(--surface-sunken);
-    border-bottom: 1px solid var(--hairline);
+  /* The card: white surface on the grey canvas, the unit every screen is built from (DESIGN.md §6). */
+  .card {
+    background: var(--surface-raised);
+    border-radius: var(--radius-panel);
+    box-shadow: var(--shadow-card);
+  }
+
+  /* A card that lifts on hover, for cards that are themselves a target. */
+  .card-link {
+    transition:
+      box-shadow 150ms ease-out,
+      transform 150ms ease-out;
+  }
+  .card-link:hover {
+    box-shadow: var(--shadow-lift);
   }
 
   /* Hairline that stops short of the figure column, so the numbers read as one continuous edge. */
@@ -183,17 +234,32 @@
     border-bottom: 0;
   }
 
+  /* Header band inside a card, one step darker than the card surface (DESIGN.md §6). */
+  .head-band {
+    background: var(--surface-sunken);
+    border-bottom: 1px solid var(--hairline);
+  }
+
   .sheet-enter {
     transition:
-      transform 180ms cubic-bezier(0.2, 0.8, 0.3, 1),
-      opacity 180ms cubic-bezier(0.2, 0.8, 0.3, 1);
-    /* Only floating layers carry elevation; list rows and panels never do (DESIGN.md §4, R-12). */
+      transform 200ms cubic-bezier(0.2, 0.8, 0.3, 1),
+      opacity 200ms cubic-bezier(0.2, 0.8, 0.3, 1);
+    /* Only floating layers carry elevation; cards stay flat (DESIGN.md §4, R-12). */
     box-shadow: var(--shadow-float);
   }
 
   /* Press feedback: a 1px settle, so the control feels physical (DESIGN.md §8). */
   .press:active {
     transform: translateY(1px);
+  }
+
+  /* Icon tile: the soft square that gives every list row a scannable anchor (DESIGN.md §6). */
+  .icon-tile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    border-radius: var(--radius-control);
   }
 }
 

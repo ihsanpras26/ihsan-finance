@@ -1,10 +1,13 @@
 // routes/laporan/Laporan.tsx : period summary, category composition, cashflow, net worth, debts, goals.
 // FR18: the chart always ships with its table; FR19: the CSV export uses the range shown on screen.
+// v2 shape: setiap kelompok informasi adalah kartu; angka fokus layar ini adalah neto periode
+// (DESIGN.md §7), jadi ia duduk sendiri di ukuran 2xl dengan empat angka pendukung di bawahnya.
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, type SummaryReport } from '../../lib/api.ts';
 import { useAsync } from '../../lib/hooks.ts';
-import { Button, ErrorState, LoadingRows, Money, PageHeader, SectionHead, useToast } from '../../components/ui.tsx';
+import { Button, Card, CardHead, ErrorState, LoadingRows, Money, PageHeader, useToast } from '../../components/ui.tsx';
+import { IconDownload } from '../../components/icons.tsx';
 import { errorMessage } from '../../components/forms/support.tsx';
 import { formatDateShort, toMinor } from '../../lib/format.ts';
 import { RangePicker } from './parts/RangePicker.tsx';
@@ -50,12 +53,13 @@ export function LaporanPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-3">
       <PageHeader
         title="Laporan"
         subtitle={`Rentang aktif: ${current.label}.`}
         action={
-          <Button variant="secondary" onClick={() => void downloadCsv()} loading={exporting} disabled={!usable}>
+          <Button onClick={() => void downloadCsv()} loading={exporting} disabled={!usable}>
+            <IconDownload size={18} />
             Unduh CSV
           </Button>
         }
@@ -64,36 +68,32 @@ export function LaporanPage() {
       <RangePicker draft={draft} onChange={setDraft} />
 
       {!usable ? (
-        <div className="rounded-panel border border-warn/50 px-4 py-3">
-          <p className="text-sm text-fg">Rentang tanggal belum benar. Tanggal mulai harus lebih dulu dari tanggal akhir, dan keduanya harus terisi.</p>
-          <p className="mt-1 text-xs text-muted">Perbaiki rentang di atas untuk memuat laporan.</p>
-        </div>
+        <ErrorState message="Rentang tanggal belum benar. Tanggal mulai harus lebih dulu dari tanggal akhir, dan keduanya harus terisi.">
+          <p className="text-xs text-muted">Perbaiki rentang di atas untuk memuat laporan.</p>
+        </ErrorState>
       ) : (
         <>
-          <section>
-            <SectionHead title={`Ringkasan ${current.label}`} />
-            {summary.loading && !summary.data ? <LoadingRows rows={4} label="Memuat ringkasan periode" /> : null}
-            {summary.error ? <ErrorState message={summary.error.display} onRetry={summary.reload} /> : null}
-            {summary.data ? (
-              <>
-                <SummaryPanel report={summary.data} />
-                <ComparisonPanel current={current} previous={previous}>
-                  {compared.loading && !compared.data ? <LoadingRows rows={3} label="Memuat periode pembanding" /> : null}
-                  {compared.error ? <ErrorState message={compared.error.display} onRetry={compared.reload} /> : null}
-                  {compared.data ? (
-                    <>
-                      <DeltaLine label="Pendapatan" current={summary.data.income} previous={compared.data.income} previousLabel={previous.label} />
-                      <DeltaLine label="Pengeluaran" current={summary.data.expense} previous={compared.data.expense} previousLabel={previous.label} />
-                      <DeltaLine label="Neto" current={summary.data.net} previous={compared.data.net} previousLabel={previous.label} />
-                      <p className="mt-2 text-xs text-muted">
-                        Angka pembanding diambil dari {formatDateShort(previous.from)} sampai {formatDateShort(previous.to)}.
-                      </p>
-                    </>
-                  ) : null}
-                </ComparisonPanel>
-              </>
-            ) : null}
-          </section>
+          {summary.loading && !summary.data ? <LoadingRows rows={4} label="Memuat ringkasan periode" /> : null}
+          {summary.error ? <ErrorState message={summary.error.display} onRetry={summary.reload} /> : null}
+          {summary.data ? (
+            <>
+              <SummaryPanel report={summary.data} label={current.label} />
+              <ComparisonPanel current={current} previous={previous}>
+                {compared.loading && !compared.data ? <LoadingRows rows={3} label="Memuat periode pembanding" /> : null}
+                {compared.error ? <ErrorState message={compared.error.display} onRetry={compared.reload} /> : null}
+                {compared.data ? (
+                  <>
+                    <DeltaLine label="Pendapatan" current={summary.data.income} previous={compared.data.income} previousLabel={previous.label} />
+                    <DeltaLine label="Pengeluaran" current={summary.data.expense} previous={compared.data.expense} previousLabel={previous.label} />
+                    <DeltaLine label="Neto" current={summary.data.net} previous={compared.data.net} previousLabel={previous.label} />
+                    <p className="mt-2 text-xs text-muted">
+                      Angka pembanding diambil dari {formatDateShort(previous.from)} sampai {formatDateShort(previous.to)}.
+                    </p>
+                  </>
+                ) : null}
+              </ComparisonPanel>
+            </>
+          ) : null}
 
           {summary.data ? (
             <>
@@ -114,59 +114,56 @@ export function LaporanPage() {
             </>
           ) : null}
 
-          <section>
-            {cashflow.loading && !cashflow.data ? <LoadingRows rows={4} label="Memuat arus kas" /> : null}
-            {cashflow.error ? <ErrorState message={cashflow.error.display} onRetry={cashflow.reload} /> : null}
-            {cashflow.data ? <CashflowTables report={cashflow.data} /> : null}
-          </section>
+          {cashflow.loading && !cashflow.data ? <LoadingRows rows={4} label="Memuat arus kas" /> : null}
+          {cashflow.error ? <ErrorState message={cashflow.error.display} onRetry={cashflow.reload} /> : null}
+          {cashflow.data ? <CashflowTables report={cashflow.data} /> : null}
 
-          <section>
-            {netWorth.loading && !netWorth.data ? <LoadingRows rows={4} label="Memuat kekayaan bersih" /> : null}
-            {netWorth.error ? <ErrorState message={netWorth.error.display} onRetry={netWorth.reload} /> : null}
-            {netWorth.data ? <NetWorthPanel report={netWorth.data} /> : null}
-          </section>
+          {netWorth.loading && !netWorth.data ? <LoadingRows rows={4} label="Memuat kekayaan bersih" /> : null}
+          {netWorth.error ? <ErrorState message={netWorth.error.display} onRetry={netWorth.reload} /> : null}
+          {netWorth.data ? <NetWorthPanel report={netWorth.data} /> : null}
 
-          <section>
-            {debts.loading && !debts.data ? <LoadingRows rows={3} label="Memuat daftar utang" /> : null}
-            {debts.error ? <ErrorState message={debts.error.display} onRetry={debts.reload} /> : null}
-            {debts.data ? (
-              <DebtTables
-                report={debts.data}
-                emptyAction={
-                  <Button variant="secondary" onClick={() => void navigate('/rencana')}>
-                    Catat utang di Rencana
-                  </Button>
-                }
-              />
-            ) : null}
-          </section>
+          {debts.loading && !debts.data ? <LoadingRows rows={3} label="Memuat daftar utang" /> : null}
+          {debts.error ? <ErrorState message={debts.error.display} onRetry={debts.reload} /> : null}
+          {debts.data ? (
+            <DebtTables
+              report={debts.data}
+              emptyAction={
+                <Button variant="secondary" onClick={() => void navigate('/rencana')}>
+                  Catat utang di Rencana
+                </Button>
+              }
+            />
+          ) : null}
 
-          <section>
-            {goals.loading && !goals.data ? <LoadingRows rows={3} label="Memuat daftar tujuan" /> : null}
-            {goals.error ? <ErrorState message={goals.error.display} onRetry={goals.reload} /> : null}
-            {goals.data ? (
-              <GoalTable
-                goals={goals.data}
-                emptyAction={
-                  <Button variant="secondary" onClick={() => void navigate('/rencana')}>
-                    Buat tujuan di Rencana
-                  </Button>
-                }
-              />
-            ) : null}
-          </section>
+          {goals.loading && !goals.data ? <LoadingRows rows={3} label="Memuat daftar tujuan" /> : null}
+          {goals.error ? <ErrorState message={goals.error.display} onRetry={goals.reload} /> : null}
+          {goals.data ? (
+            <GoalTable
+              goals={goals.data}
+              emptyAction={
+                <Button variant="secondary" onClick={() => void navigate('/rencana')}>
+                  Buat tujuan di Rencana
+                </Button>
+              }
+            />
+          ) : null}
         </>
       )}
     </div>
   );
 }
 
-function SummaryPanel({ report }: { report: SummaryReport }) {
+/** SummaryPanel: angka fokus layar ini (neto periode) plus empat angka pendukungnya. */
+function SummaryPanel({ report, label }: { report: SummaryReport; label: string }) {
   const net = toMinor(report.net);
   return (
-    <div className="rounded-panel border border-hairline bg-raised px-4 py-4">
-      <p className="text-xs text-muted">Neto {report.period.label}</p>
-      <Money value={Math.abs(net)} direction={net > 0 ? 'in' : net < 0 ? 'out' : 'zero'} size="xl" />
+    <Card className="px-4 py-4">
+      <CardHead title={`Ringkasan ${label}`} />
+
+      <p className="mt-3 text-xs text-muted">Neto {report.period.label}</p>
+      <div className="mt-0.5">
+        <Money value={Math.abs(net)} direction={net > 0 ? 'in' : net < 0 ? 'out' : 'zero'} size="2xl" />
+      </div>
 
       <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
         <Figure label="Pendapatan">
@@ -187,10 +184,11 @@ function SummaryPanel({ report }: { report: SummaryReport }) {
         Rentang dihitung dari tanggal efektif {formatDateShort(report.period.start)} sampai {formatDateShort(report.period.end)}. Pokok pinjaman, pokok piutang, transfer,
         saldo awal, dan penyesuaian saldo tidak dihitung sebagai pendapatan atau pengeluaran.
       </p>
-    </div>
+    </Card>
   );
 }
 
+/** Figure: satu angka pendukung dengan labelnya sendiri, lurus dalam kolomnya (DESIGN.md §5). */
 function Figure({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5">

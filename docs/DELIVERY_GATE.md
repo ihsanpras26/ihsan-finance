@@ -154,3 +154,151 @@ Satu batasan kejujuran: saya tidak dapat melihat gambar, jadi audit visual dijal
 struktur DOM, gaya terhitung, dan pengukuran geometri, bukan lewat tangkapan layar. Yang bisa
 diukur sudah diukur dan angkanya dilaporkan di atas; yang murni soal selera visual belum
 diverifikasi oleh mata manusia dan sebaiknya Anda lihat sendiri.
+
+---
+
+# Gerbang D-15 · Setel ulang arah visual ke referensi pemilik
+
+**Tanggal:** 22 September 2026
+**Ruang lingkup:** seluruh lapisan tampilan `app/web` (28 berkas diubah, 4 berkas baru).
+**Tidak berubah:** perilaku, kontrak API, skema basis data, seluruh teks antarmuka, cakupan PRD.
+
+## Yang dikerjakan
+
+Referensi pemilik (dua tangkapan dasbor fintech) direverse-engineering menjadi spesifikasi angka:
+kanvas `#f4f4f5`, kartu putih, aksen biru `#0256ff`, warna data kedua `#ffb700`, lencana pil, dan
+bilah progres berlabel. Spesifikasi itu ditulis ke `docs/DESIGN.md`, lalu dibangun berlapis:
+
+| Lapisan | Berkas | Isi |
+|---|---|---|
+| Token | `src/styles/index.css` | Palet terang dan gelap, skala huruf delapan langkah, skala radius, elevasi, `.figure`, `.sign-col`, `.card`, `.row-divide`, `.icon-tile` |
+| Primitif | `src/components/ui.tsx` | Kartu, tombol, lencana, bilah progres, lembar, dialog konfirmasi, tab, keadaan wajib |
+| Grafik | `src/components/charts.tsx` | Bilah kategori, garis tren, cincin, bilah progres berlabel. SVG gambar sendiri, tanpa pustaka |
+| Kerangka | `src/components/layout/AppShell.tsx` | HP: kepala ringkas + bilah bawah 5 tujuan + tombol Tambah jempol. Desktop: rel 248 px |
+| Layar | `src/routes/**` | Beranda, Transaksi, Rencana, Laporan, Profil, Masuk, Notifikasi |
+| Chrome PWA | `manifest.webmanifest`, `index.html`, `icon.svg`, `icon-maskable.svg` | Warna dan ikon keluar dari palet lama |
+
+Empat layar besar dikerjakan sebagai aliran kerja paralel dengan berkas terpisah supaya tidak ada
+tabrakan tulis: Beranda, Transaksi, Laporan (4 berkas), dan Rencana (4 berkas). Lapisan bersama,
+layar Masuk, Profil (5 berkas), Notifikasi, dan chrome PWA dikerjakan di jalur utama.
+
+## Verifikasi
+
+Alat: `~/ihsan-verify/` (Playwright + Chromium, viewport HP 390x844, `isMobile`, `hasTouch`).
+Berkas bukti: `verify-report.json` dan `shots/` di folder yang sama.
+
+**1. Gerbang repositori**
+
+| Perintah | Hasil |
+|---|---|
+| `pnpm verify` | typecheck bersih, **74/74** tes server, **6/6** tes web, build sukses |
+| `pnpm smoke` | **50/50** cek HTTP lulus |
+| `pnpm build` | 436 kB js (gzip 124 kB), 36 kB css |
+
+**2. Click-through nyata di peramban**
+
+`node verify.mjs` menempuh masuk, lima layar, lembar input cepat, mode gelap, dan lebar desktop:
+
+```
+HASIL: 24/24 lulus, 0 gagal
+```
+
+Termasuk: nol galat konsol, nol galat halaman, nol geser horizontal di 390 px pada kelima layar,
+tombol Tambah di y=776 dari 844 (jangkauan jempol), bilah bawah menempel di dasar, rel samping
+tampil di 1280 px, dan mode gelap serta terang bolak-balik tanpa kehilangan keadaan.
+
+**3. Angka yang tampil sama dengan angka API**
+
+`node probe.mjs` dan `probe2.mjs` membandingkan teks yang dirender dengan respons API:
+saldo `27.090.000` = jumlah tiga dompet, pendapatan `9.750.000`, pengeluaran `1.510.000`, neto
+`8.240.000`, dan setiap bilah anggaran (`55%`, `16%`, `64%`, `94%`) sama dengan `ratio` dari
+server. Angka Laporan direkonsiliasi: saldo awal `19.350.000` + pendapatan `9.750.000` −
+pengeluaran `1.510.000` − pokok utang `500.000` = saldo akhir `27.090.000`, dan `/reports/
+networth-check` tetap `derived = ledger = 22.340.000`.
+
+**4. Kontras WCAG AA, diukur bukan dikira**
+
+`node contrast.mjs` menghitung rasio kontras sebenarnya dari gaya terhitung di kelima layar, dua
+mode. Temuan awal: **19 kegagalan AA di mode terang** (label 12 px `#6b7280` hanya 4.16:1 di atas
+sumur; nominal hijau `#0e9f6e` 3.39:1; merah `#e02424` 4.30:1; peringatan `#b45309` 4.14:1 di atas
+tintnya sendiri). Token digelapkan dan diukur ulang: **0 kegagalan di kedua mode**.
+
+Satu penanda yang masih dilaporkan alat adalah label persen di dalam bilah progres, karena label
+adalah saudara dari isian sehingga penelusuran gaya menemukan trek, bukan isian. Diselesaikan
+dengan mengukur piksel yang benar-benar dicat (`node pixels.mjs`): label `55%` berada di atas
+`rgb(2,86,255)` dengan rasio **5.56:1**, lulus AA.
+
+Satu cacat struktural nyata ditemukan dan diperbaiki di sini: label persen sebelumnya selalu putih,
+padahal di bawah 22 persen labelnya jatuh di atas trek abu terang sehingga praktis tidak terbaca.
+Sekarang label pindah ke sisi kanan berwarna `muted` ketika isian terlalu sempit untuk memuatnya.
+
+**5. Pemeriksaan mata**
+
+Tangkapan layar kelima layar ditinjau dengan model penglihatan. Dua kecurigaan yang muncul
+(`55%` terbaca `66%`, dan bilah `0%` terlihat penuh) diperiksa ke DOM dan ternyata salah baca
+gambar berukuran kecil, bukan cacat aplikasi; angka sebenarnya sudah dikonfirmasi di poin 3 dan
+lewat pengukuran piksel.
+
+## Kesimpulan
+
+Kelima blok **PASS**. Tidak ada item FAIL. Satu catatan jujur: model penglihatan yang dipakai untuk
+pemeriksaan mata bekerja tidak stabil pada gambar besar, jadi penilaian selera visual akhir tetap
+sebaiknya dilakukan pemilik langsung. Yang bisa diukur sudah diukur dan angkanya ada di atas.
+
+---
+
+# D-16 · Lapisan sentuh diperketat untuk pemakaian harian di HP
+
+Audit kedua dijalankan karena pemilik menegaskan aplikasi akan banyak dipakai di HP. Semua angka di
+bawah diukur pada viewport 390x844 dengan `isMobile: true` dan `hasTouch: true`, ditambah 360x740
+dan 320x568 untuk pemeriksaan tepi.
+
+**1. Yang diperbaiki**
+
+| Temuan | Ukuran sebelum | Ukuran sesudah |
+| --- | --- | --- |
+| Radius kontrol / panel / lembar | 10 / 16 / 24 px | 12 / 18 / 26 px |
+| Tab di dalam strip | 8 px (terlihat setingkat dengan strip) | 9 px (bersarang) |
+| Strip gulir horizontal: `touch-action` | tidak ada (sapuan vertikal tertelan) | `pan-x pan-y` |
+| Lembar: `overscroll-behavior` | `auto` (gulir menembus ke halaman) | `contain` |
+| Baris buku besar | 56 px | 60 px, dengan `:active` |
+| Kepala layar: safe-area atas | tidak ada | `pt-[env(safe-area-inset-top)]` |
+| Target ber-anchor: `scroll-margin-top` | tidak ada | `calc(72px + env(safe-area-inset-top))` |
+| Padding kartu strip tab Rencana | 12 px (kartu lain 16 px) | 16 px |
+| Penanda wajib `Nominal` / `Jenis` | tidak ada | ada, dengan `sr-only` |
+| Aksi per dompet di Profil | 3 tombol teks per baris | 1 menu `Lainnya` |
+
+**2. Yang diperiksa dan ternyata bukan cacat**
+
+Dua kecurigaan awal gugur setelah diukur ulang, dan dicatat supaya tidak dikejar lagi:
+
+- **Klirens konten terhadap bilah navigasi.** Probe pertama melaporkan tumpang tindih 61px. Probe
+  itu salah: ia mengambil elemen terakhir dari pemilih yang terlalu luas sehingga kena pembungkus
+  setinggi viewport, bukan konten. Setelah dibatasi ke elemen berteks di dalam `main`, klirens
+  sebenarnya **37 sampai 63 px** di semua layar dan semua tinggi viewport yang diuji.
+- **Aturan safe-area.** Pemindaian `document.styleSheets` mengembalikan nol kemunculan
+  `env(safe-area-inset-*)` dan tampak seperti aturan yang hilang. Penyebabnya CSSOM tidak
+  mengekspos aturan dari stylesheet yang disuntik Vite. Membaca CSS terkompilasi menunjukkan aturan
+  itu **ada**: `pt-[env(safe-area-inset-top)]`, `pb-[calc(5.75rem+env(safe-area-inset-bottom))]`,
+  dan `pb-[max(1rem,env(safe-area-inset-bottom))]`.
+
+**3. Angka akhir**
+
+| Pemeriksaan | Hasil |
+| --- | --- |
+| `pnpm verify` | 74/74 server, 6/6 web |
+| `pnpm smoke` | 50/50 |
+| Click-through HP (`verify.mjs`) | 24/24, 0 gagal |
+| Overflow horizontal di 6 layar | 0 px di semuanya |
+| Kontras di bawah AA (dua mode) | 0 |
+| Target sentuh di bawah 44 px | 0 (di luar tautan lewati `.sr-only`) |
+| Angka uang tanpa mono/tabular | 0 dari 141 |
+| Strip gulir tanpa `touch-action` | 0 |
+| Status fokus saat lembar dibuka | fokus di dalam dialog |
+
+**4. Catatan kejujuran**
+
+Dua probe pertama sesi ini menghasilkan temuan palsu sebelum diperbaiki, dan keduanya berasal dari
+alat ukur yang salah sasaran, bukan dari aplikasi. Pelajarannya dicatat di berkas skill: CSSOM bukan
+sumber kebenaran untuk aturan yang disuntik, dan pengukuran klirens harus dibatasi ke elemen berteks.
+

@@ -1,0 +1,128 @@
+{
+  "base": "http://127.0.0.1:5173",
+  "results": [
+    {
+      "name": "halaman masuk tampil",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "beranda tampil setelah masuk",
+      "ok": true,
+      "detail": "Lompat ke konten |  | Keuangan Keluarga |  | Beranda |  | M | Total saldo dompet |  | ·Rp27.090.00"
+    },
+    {
+      "name": "beranda tanpa geser horizontal",
+      "ok": true,
+      "detail": "390 vs 390"
+    },
+    {
+      "name": "layar transaksi tampil",
+      "ok": true,
+      "detail": "Lompat ke konten |  | Keuangan Keluarga |  | Transaksi |  | M | Transaksi |  | Riwayat S"
+    },
+    {
+      "name": "layar transaksi tanpa geser horizontal",
+      "ok": true,
+      "detail": "390 vs 390"
+    },
+    {
+      "name": "layar rencana tampil",
+      "ok": true,
+      "detail": "Lompat ke konten |  | Keuangan Keluarga |  | Rencana |  | M | Rencana |  | Utang dan piu"
+    },
+    {
+      "name": "layar rencana tanpa geser horizontal",
+      "ok": true,
+      "detail": "390 vs 390"
+    },
+    {
+      "name": "layar laporan tampil",
+      "ok": true,
+      "detail": "Lompat ke konten |  | Keuangan Keluarga |  | Laporan |  | M | Laporan |  | Rentang aktif"
+    },
+    {
+      "name": "layar laporan tanpa geser horizontal",
+      "ok": true,
+      "detail": "390 vs 390"
+    },
+    {
+      "name": "layar profil tampil",
+      "ok": true,
+      "detail": "Lompat ke konten |  | Keuangan Keluarga |  | Profil |  | M | Profil |  | Dompet, kategor"
+    },
+    {
+      "name": "layar profil tanpa geser horizontal",
+      "ok": true,
+      "detail": "390 vs 390"
+    },
+    {
+      "name": "layar notifikasi tampil",
+      "ok": true,
+      "detail": "Lompat ke konten |  | Keuangan Keluarga |  | Ihsan Finance |  | M | Notifikasi |  | 2 pe"
+    },
+    {
+      "name": "layar notifikasi tanpa geser horizontal",
+      "ok": true,
+      "detail": "390 vs 390"
+    },
+    {
+      "name": "bilah bawah tampil di HP",
+      "ok": true,
+      "detail": "links=4 h=61 bottom=844/844"
+    },
+    {
+      "name": "tombol tambah ada",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "tombol tambah dalam jangkauan jempol",
+      "ok": true,
+      "detail": "y=776 h=56"
+    },
+    {
+      "name": "lembar input cepat terbuka",
+      "ok": true,
+      "detail": "Lompat ke konten |  | Keuangan Keluarga |  | Beranda |  | M | Total saldo dompet |  | ·R"
+    },
+    {
+      "name": "mode gelap menyala dari kepala",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "beranda gelap tanpa geser horizontal",
+      "ok": true,
+      "detail": "390 vs 390"
+    },
+    {
+      "name": "mode terang kembali menyala",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop tanpa geser horizontal",
+      "ok": true,
+      "detail": "1280 vs 1280"
+    },
+    {
+      "name": "rel samping tampil di desktop",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "tanpa galat konsol",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "tanpa galat halaman",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "at": "2026-09-22T17:14:41.493Z"
+}

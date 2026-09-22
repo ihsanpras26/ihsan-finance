@@ -81,8 +81,15 @@ Semua rute di bawah ada di `/api/v1` dan tercakup oleh `pnpm smoke`.
 | Laporan | `routes/laporan/Laporan.tsx` | Selesai |
 | Profil: dompet, kategori, preferensi, ekspor | `routes/profil/Profil.tsx` | Selesai |
 | Primitif UI, ikon gambar sendiri | `components/ui.tsx`, `components/icons.tsx` | Selesai |
+| Grafik SVG gambar sendiri (bilah, garis, cincin, progres) | `components/charts.tsx` | Selesai |
+| Notifikasi jatuh tempo | `routes/notifikasi/Notifikasi.tsx` | Selesai |
 | PWA: manifest, service worker, ikon | `web/public/` | Selesai |
 | Draf lokal saat jaringan bermasalah | `lib/offline.ts` | Selesai |
+
+**Lapisan sentuh (D-16).** Skala radius 12/18/26px, `touch-action: pan-x pan-y` pada strip gulir,
+`overscroll-behavior: contain` di lembar, baris buku besar 60px, safe-area di kepala dan bilah bawah,
+`scroll-margin-top` pada target anchor, dan menu `Lainnya` menggantikan tiga tombol teks per dompet.
+Diukur pada 390x844, 360x740, dan 320x568.
 
 ### Skema basis data
 

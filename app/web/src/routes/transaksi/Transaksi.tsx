@@ -1,17 +1,19 @@
 // routes/transaksi/Transaksi.tsx - daftar baris buku besar dengan pencarian, filter, paginasi,
 // detail di lembar bawah, pembatalan berdampak, dan koreksi (PRD FR07, ARCHITECTURE §8).
-// Daftar memakai baris bergaris, bukan kartu bertumpuk: 40 transaksi harus terasa seperti satu buku (DESIGN.md §4).
+// Susunan v2 (DESIGN.md §6, §7): pencarian dan saringan menyatu dalam satu kartu di atas, lalu
+// satu kartu daftar tempat setiap transaksi menjadi LedgerRow dengan kolom tanda yang lurus.
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { SelectControl } from '../../components/forms/fields.tsx';
 import { useShell } from '../../components/layout/AppShell.tsx';
 import { DataError } from '../../components/layout/DataError.tsx';
 import {
-  IconAlert, IconChevronLeft, IconChevronRight, IconFilter, IconIn, IconOut, IconSearch, IconTransfer,
+  IconAlert, IconChevronLeft, IconChevronRight, IconFilter, IconIn, IconLedger, IconOut, IconRepeat,
+  IconSearch, IconTransfer,
 } from '../../components/icons.tsx';
 import {
-  AmountInput, Button, ConfirmDialog, EmptyState, Field, LedgerRow, LoadingRows, Money, PageHeader, Sheet,
-  StatusPill, TextInput, Textarea, useToast,
+  AmountInput, Button, Card, ConfirmDialog, EmptyState, Field, IconTile, LedgerRow, LoadingRows, Money,
+  PageHeader, RowTitle, Sheet, StatusPill, TextInput, Textarea, useToast,
 } from '../../components/ui.tsx';
 import { api, ApiError, type Category, type Transaction, type TxType, type Wallet } from '../../lib/api.ts';
 import {
@@ -44,25 +46,52 @@ const SOURCE_LABEL: Record<string, string> = {
 /** Koreksi hanya untuk jenis yang bisa dicatat ulang dari form ini (ARCHITECTURE §8). */
 const CORRECTABLE: TxType[] = ['income', 'expense', 'transfer'];
 
-function rowSubtitle(tx: Transaction): string {
+/**
+ * Nada kotak ikon mengikuti arah uang, bukan warnanya saja: masuk hijau, keluar merah,
+ * jenis tanpa arah tetap kotak netral (DESIGN.md §2, NFR06).
+ */
+function rowTone(type: TxType): 'in' | 'out' | 'neutral' {
+  const direction = directionOf(type);
+  if (direction === 'in') return 'in';
+  if (direction === 'out') return 'out';
+  return 'neutral';
+}
+
+/** Glyph per jenis: panah masuk/keluar untuk uang, lalu glyph sendiri untuk jenis tanpa arah. */
+function RowIcon({ type }: { type: TxType }) {
+  if (type === 'transfer') return <IconTransfer size={18} />;
+  if (type === 'refund') return <IconIn size={18} />;
+  if (type === 'reversal') return <IconRepeat size={18} />;
+  const direction = directionOf(type);
+  if (direction === 'in') return <IconIn size={18} />;
+  if (direction === 'out') return <IconOut size={18} />;
+  return <IconLedger size={18} />;
+}
+
+/** Nama dompet baris: transfer menyebut kedua kakinya, baris tanpa dompet tetap jujur. */
+function rowWallets(tx: Transaction): string {
+  const names = tx.wallets.map((leg) => leg.walletName);
+  return names.length > 0 ? names.join(', ') : 'Tanpa dompet';
+}
+
+/** Judul baris: keterangan yang paling menjelaskan isinya, jatuh ke nama jenis bila kosong. */
+function rowTitle(tx: Transaction): string {
+  if (tx.note?.trim()) return tx.note.trim();
+  if (tx.category?.name) return tx.category.name;
   if (tx.type === 'transfer') {
     const from = tx.wallets.find((leg) => leg.direction === 'out')?.walletName;
     const to = tx.wallets.find((leg) => leg.direction === 'in')?.walletName;
     if (from && to) return `${from} ke ${to}`;
   }
-  const parts: string[] = [];
-  if (tx.category?.name) parts.push(tx.category.name);
-  if (tx.counterparty?.name) parts.push(tx.counterparty.name);
-  if (!tx.category && tx.wallets.length > 0) parts.push(tx.wallets.map((leg) => leg.walletName).join(', '));
-  if (tx.note) parts.push(tx.note);
-  return parts.length > 0 ? parts.join(' · ') : 'Tanpa keterangan';
+  if (tx.counterparty?.name) return tx.counterparty.name;
+  return TYPE_LABEL[tx.type] ?? tx.type;
 }
 
-function RowIcon({ type }: { type: TxType }) {
-  if (type === 'income' || type === 'receivable_payment') return <IconIn size={18} className="shrink-0 text-in" />;
-  if (type === 'expense' || type === 'debt_payment') return <IconOut size={18} className="shrink-0 text-out" />;
-  if (type === 'transfer') return <IconTransfer size={18} className="shrink-0 text-muted" />;
-  return null;
+/** Baris meta: tanggal, dompet, jenis, lalu pihak lawan bila ada (DESIGN.md §6: dua baris teks). */
+function rowMeta(tx: Transaction): string {
+  const parts = [formatDateShort(tx.effectiveDate), rowWallets(tx), TYPE_LABEL[tx.type] ?? tx.type];
+  if (tx.counterparty?.name) parts.push(tx.counterparty.name);
+  return parts.join(' · ');
 }
 
 function formatDateTime(value: string): string {
@@ -155,105 +184,107 @@ export function TransaksiPage() {
         }
       />
 
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden="true">
-            <IconSearch size={18} />
-          </span>
-          <TextInput
-            id="tx-search"
-            type="search"
-            className="pl-10"
-            aria-label="Cari transaksi berdasarkan catatan"
-            placeholder="Cari catatan transaksi"
-            value={q}
-            onChange={(event) => setQ(event.target.value)}
-          />
-        </div>
-        <Button variant="secondary" aria-expanded={filtersOpen} aria-controls="tx-filters" onClick={() => setFiltersOpen((value) => !value)}>
-          <IconFilter size={18} />
-          {activeFilters > 0 ? `Filter (${activeFilters})` : 'Filter'}
-        </Button>
-      </div>
-
-      {filtersOpen ? (
-        <div id="tx-filters" className="mt-3 grid grid-cols-1 gap-3 rounded-panel border border-hairline p-4 sm:grid-cols-2">
-          <Field label="Periode" htmlFor="tx-period">
-            <SelectControl id="tx-period" value={period} onChange={(event) => setPeriod(event.target.value)}>
-              <option value="all">Seluruh periode</option>
-              {periodOptions(18).map((option) => (
-                <option key={option} value={option}>
-                  {formatPeriod(option)}
-                </option>
-              ))}
-            </SelectControl>
-          </Field>
-          <Field label="Jenis" htmlFor="tx-type">
-            <SelectControl id="tx-type" value={type} onChange={(event) => setType(event.target.value as TxType | 'all')}>
-              {TYPE_OPTIONS.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </SelectControl>
-          </Field>
-          <Field label="Dompet" htmlFor="tx-wallet">
-            <SelectControl id="tx-wallet" value={walletId} onChange={(event) => setWalletId(event.target.value)}>
-              <option value="">Semua dompet</option>
-              {wallets.map((wallet) => (
-                <option key={wallet.id} value={wallet.id}>
-                  {wallet.name}
-                </option>
-              ))}
-            </SelectControl>
-          </Field>
-          <Field label="Kategori" htmlFor="tx-category">
-            <SelectControl id="tx-category" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
-              <option value="">Semua kategori</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {`${category.name} · ${category.kind === 'income' ? 'Pendapatan' : 'Pengeluaran'}`}
-                </option>
-              ))}
-            </SelectControl>
-          </Field>
-          <Field label="Nominal minimum" htmlFor="tx-min" hint="Kosongkan bila tidak dibatasi.">
-            <TextInput
-              id="tx-min"
-              inputMode="numeric"
-              placeholder="0"
-              value={minText}
-              onChange={(event) => setMinText(event.target.value)}
-            />
-          </Field>
-          <Field label="Nominal maksimum" htmlFor="tx-max" hint="Kosongkan bila tidak dibatasi.">
-            <TextInput
-              id="tx-max"
-              inputMode="numeric"
-              placeholder="0"
-              value={maxText}
-              onChange={(event) => setMaxText(event.target.value)}
-            />
-          </Field>
-          <div className="sm:col-span-2">
-            <Button variant="ghost" onClick={resetFilters}>
-              Hapus filter
+      <div className="mt-3 flex flex-col gap-3">
+        {/* Pencarian dan saringan satu kartu: satu tempat untuk mempersempit daftar (DESIGN.md §7). */}
+        <Card className="px-4 py-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden="true">
+                <IconSearch size={18} />
+              </span>
+              <TextInput
+                id="tx-search"
+                type="search"
+                className="pl-10"
+                aria-label="Cari transaksi berdasarkan catatan"
+                placeholder="Cari catatan transaksi"
+                value={q}
+                onChange={(event) => setQ(event.target.value)}
+              />
+            </div>
+            <Button variant="secondary" aria-expanded={filtersOpen} aria-controls="tx-filters" onClick={() => setFiltersOpen((value) => !value)}>
+              <IconFilter size={18} />
+              {activeFilters > 0 ? `Filter (${activeFilters})` : 'Filter'}
             </Button>
           </div>
-        </div>
-      ) : null}
 
-      {list.loading && !list.data ? (
-        <div className="mt-6">
+          {filtersOpen ? (
+            <div
+              id="tx-filters"
+              className="mt-3 grid grid-cols-1 gap-3 border-t border-hairline pt-4 sm:grid-cols-2 lg:grid-cols-3"
+            >
+              <Field label="Periode" htmlFor="tx-period">
+                <SelectControl id="tx-period" value={period} onChange={(event) => setPeriod(event.target.value)}>
+                  <option value="all">Seluruh periode</option>
+                  {periodOptions(18).map((option) => (
+                    <option key={option} value={option}>
+                      {formatPeriod(option)}
+                    </option>
+                  ))}
+                </SelectControl>
+              </Field>
+              <Field label="Jenis" htmlFor="tx-type">
+                <SelectControl id="tx-type" value={type} onChange={(event) => setType(event.target.value as TxType | 'all')}>
+                  {TYPE_OPTIONS.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </SelectControl>
+              </Field>
+              <Field label="Dompet" htmlFor="tx-wallet">
+                <SelectControl id="tx-wallet" value={walletId} onChange={(event) => setWalletId(event.target.value)}>
+                  <option value="">Semua dompet</option>
+                  {wallets.map((wallet) => (
+                    <option key={wallet.id} value={wallet.id}>
+                      {wallet.name}
+                    </option>
+                  ))}
+                </SelectControl>
+              </Field>
+              <Field label="Kategori" htmlFor="tx-category">
+                <SelectControl id="tx-category" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
+                  <option value="">Semua kategori</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {`${category.name} · ${category.kind === 'income' ? 'Pendapatan' : 'Pengeluaran'}`}
+                    </option>
+                  ))}
+                </SelectControl>
+              </Field>
+              <Field label="Nominal minimum" htmlFor="tx-min" hint="Kosongkan bila tidak dibatasi.">
+                <TextInput
+                  id="tx-min"
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={minText}
+                  onChange={(event) => setMinText(event.target.value)}
+                />
+              </Field>
+              <Field label="Nominal maksimum" htmlFor="tx-max" hint="Kosongkan bila tidak dibatasi.">
+                <TextInput
+                  id="tx-max"
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={maxText}
+                  onChange={(event) => setMaxText(event.target.value)}
+                />
+              </Field>
+              <div className="sm:col-span-2 lg:col-span-3">
+                <Button variant="ghost" onClick={resetFilters}>
+                  Hapus filter
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </Card>
+
+        {list.loading && !list.data ? (
           <LoadingRows rows={8} label="Memuat daftar transaksi" />
-        </div>
-      ) : list.error && !list.data ? (
-        <div className="mt-6">
+        ) : list.error && !list.data ? (
           <DataError error={list.error} onRetry={list.reload} />
-        </div>
-      ) : list.data && list.data.items.length === 0 ? (
-        <div className="mt-6">
-          {activeFilters > 0 || search.trim() || period !== currentPeriod() ? (
+        ) : list.data && list.data.items.length === 0 ? (
+          activeFilters > 0 || search.trim() || period !== currentPeriod() ? (
             <EmptyState
               title="Tidak ada transaksi yang cocok"
               body="Periode, jenis, dompet, kategori, atau nominal yang dipilih belum menemukan baris apa pun. Longgarkan filter lalu cari lagi."
@@ -267,52 +298,64 @@ export function TransaksiPage() {
             <EmptyState
               title="Belum ada transaksi"
               body="Transaksi pertama bisa dicatat dalam beberapa detik: isi nominal, pilih kategori, lalu simpan."
-              action={<Button onClick={() => openQuickEntry()}>Catat transaksi</Button>}
+              action={
+                <Button variant="secondary" onClick={() => openQuickEntry()}>
+                  Catat transaksi
+                </Button>
+              }
             />
-          )}
-        </div>
-      ) : (
-        <>
-          <ul className="mt-4 flex flex-col">
-            {list.data?.items.map((tx) => (
-              <LedgerRow key={tx.id} as="li" onClick={() => setDetailId(tx.id)}>
-                <RowIcon type={tx.type} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm text-fg">{TYPE_LABEL[tx.type] ?? tx.type}</span>
-                    {tx.status !== 'posted' ? <StatusPill tone="neutral">{STATUS_LABEL[tx.status] ?? tx.status}</StatusPill> : null}
-                  </div>
-                  <p className="truncate text-xs text-muted">{rowSubtitle(tx)}</p>
-                </div>
-                <div className="shrink-0 text-right">
-                  <Money value={tx.amount} direction={directionOf(tx.type)} />
-                  <p className="tnum text-2xs text-muted">{formatDateShort(tx.effectiveDate)}</p>
-                </div>
-              </LedgerRow>
-            ))}
-          </ul>
+          )
+        ) : (
+          <Card className="px-4 py-2">
+            <ul className="flex flex-col">
+              {list.data?.items.map((tx) => (
+                <LedgerRow
+                  key={tx.id}
+                  as="li"
+                  onClick={() => setDetailId(tx.id)}
+                  leading={
+                    <IconTile tone={rowTone(tx.type)}>
+                      <RowIcon type={tx.type} />
+                    </IconTile>
+                  }
+                  trailing={
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <Money value={tx.amount} direction={directionOf(tx.type)} size="md" />
+                      {tx.status !== 'posted' ? (
+                        <StatusPill tone="neutral">{STATUS_LABEL[tx.status] ?? tx.status}</StatusPill>
+                      ) : null}
+                    </div>
+                  }
+                >
+                  <RowTitle title={rowTitle(tx)} meta={rowMeta(tx)} />
+                </LedgerRow>
+              ))}
+            </ul>
 
-          <div className="row-divide mt-2 flex flex-wrap items-center justify-between gap-3 py-3">
-            <p className="text-xs text-muted">
-              {total === 0 ? 'Tidak ada baris' : `Baris ${start} sampai ${end} dari ${total}`}
-            </p>
-            <div className="flex items-center gap-1">
-              <Button variant="secondary" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>
-                <IconChevronLeft size={18} />
-                Sebelumnya
-              </Button>
-              <Button variant="secondary" disabled={end >= total} onClick={() => setPage((value) => value + 1)}>
-                Berikutnya
-                <IconChevronRight size={18} />
-              </Button>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-hairline py-3">
+              <p className="text-xs text-muted">
+                {total === 0 ? 'Tidak ada baris' : `Baris ${start} sampai ${end} dari ${total}`}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button variant="secondary" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>
+                  <IconChevronLeft size={18} />
+                  Sebelumnya
+                </Button>
+                <Button variant="secondary" disabled={end >= total} onClick={() => setPage((value) => value + 1)}>
+                  Berikutnya
+                  <IconChevronRight size={18} />
+                </Button>
+              </div>
             </div>
-          </div>
-        </>
-      )}
+          </Card>
+        )}
 
-      {list.error && list.data ? (
-        <p className="mt-2 text-xs text-out">Daftar terakhir gagal diperbarui: {list.error.display}</p>
-      ) : null}
+        {list.error && list.data ? (
+          <Card className="px-4 py-3" as="div">
+            <p className="text-xs text-out" role="status">Daftar terakhir gagal diperbarui: {list.error.display}</p>
+          </Card>
+        ) : null}
+      </div>
 
       {detailId ? (
         <DetailPanel
@@ -529,7 +572,7 @@ function DetailPanel({
             </dl>
 
             <section aria-labelledby="dampak-dompet">
-              <h3 id="dampak-dompet" className="text-xs font-semibold text-muted">
+              <h3 id="dampak-dompet" className="text-xs font-semibold tracking-wide text-muted uppercase">
                 Dampak ke dompet
               </h3>
               {tx.wallets.length === 0 ? (
@@ -548,7 +591,7 @@ function DetailPanel({
             </section>
 
             <section aria-labelledby="riwayat-koreksi">
-              <h3 id="riwayat-koreksi" className="text-xs font-semibold text-muted">
+              <h3 id="riwayat-koreksi" className="text-xs font-semibold tracking-wide text-muted uppercase">
                 Riwayat koreksi
               </h3>
               {tx.history.length === 0 ? (
@@ -647,7 +690,7 @@ function DetailPanel({
                 </Field>
 
                 {formError ? (
-                  <div role="alert" className="flex items-start gap-2 rounded-panel border border-out/40 px-4 py-3">
+                  <div role="alert" className="flex items-start gap-2 rounded-control bg-out/8 px-4 py-3">
                     <IconAlert size={18} className="mt-0.5 shrink-0 text-out" />
                     <span className="text-sm text-fg">{formError}</span>
                   </div>

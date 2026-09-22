@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { api, type Category } from '../../../lib/api.ts';
 import { useAsync } from '../../../lib/hooks.ts';
 import {
-  Button, ConfirmDialog, EmptyState, ErrorState, LedgerRow, LoadingRows, SectionHead, StatusPill, Tabs, useToast,
+  Button, Card, ConfirmDialog, EmptyState, ErrorState, IconTile, LoadingRows, SectionHead, StatusPill, Tabs, useToast,
 } from '../../../components/ui.tsx';
+import { IconIn, IconOut } from '../../../components/icons.tsx';
 import { CategoryForm } from '../../../components/forms/CategoryForm.tsx';
 import { errorMessage } from '../../../components/forms/support.tsx';
 
@@ -46,10 +47,14 @@ export function CategorySection() {
     <section>
       <SectionHead
         title="Kategori"
-        action={<Button onClick={() => setCreating(true)}>Kategori baru</Button>}
+        action={
+          <Button size="sm" onClick={() => setCreating(true)}>
+            Kategori baru
+          </Button>
+        }
       />
 
-      <div className="mt-2">
+      <div className="mb-3">
         <Tabs
           label="Saring kategori"
           active={filter}
@@ -67,39 +72,42 @@ export function CategorySection() {
 
       {categories.data ? (
         filtered.length === 0 ? (
-          <div className="mt-3">
-            <EmptyState
-              title={filter === 'income' ? 'Belum ada kategori pendapatan' : filter === 'expense' ? 'Belum ada kategori pengeluaran' : 'Belum ada kategori'}
-              body="Kategori mengelompokkan transaksi dan menjadi dasar anggaran bulanan. Kategori yang tidak dipakai lagi diarsipkan, bukan dihapus."
-              action={<Button onClick={() => setCreating(true)}>Kategori baru</Button>}
-            />
-          </div>
+          <EmptyState
+            title={filter === 'income' ? 'Belum ada kategori pendapatan' : filter === 'expense' ? 'Belum ada kategori pengeluaran' : 'Belum ada kategori'}
+            body="Kategori mengelompokkan transaksi dan menjadi dasar anggaran bulanan. Kategori yang tidak dipakai lagi diarsipkan, bukan dihapus."
+            action={<Button onClick={() => setCreating(true)}>Kategori baru</Button>}
+          />
         ) : (
-          <ul className="mt-2">
-            {filtered.map((category) => (
-              <LedgerRow as="li" key={category.id}>
-                <div className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-2 py-0.5">
-                  <span className="flex flex-wrap items-center gap-2.5">
-                    <span className="text-sm font-semibold text-fg">{category.name}</span>
-                    <StatusPill tone={category.kind === 'income' ? 'in' : 'out'}>
-                      {category.kind === 'income' ? 'Pendapatan' : 'Pengeluaran'}
-                    </StatusPill>
-                    {category.archivedAt ? <StatusPill tone="neutral">Diarsipkan</StatusPill> : null}
-                  </span>
-                  <span className="flex flex-wrap items-center gap-2">
-                    <Button variant="ghost" onClick={() => setEditing(category)}>
+          <Card className="px-4">
+            <ul className="flex flex-col">
+              {filtered.map((category) => (
+                <li key={category.id} className="row-divide flex flex-wrap items-center gap-3 py-3">
+                  <IconTile tone={category.kind === 'income' ? 'in' : 'out'}>
+                    {category.kind === 'income' ? <IconIn size={18} /> : <IconOut size={18} />}
+                  </IconTile>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="truncate text-sm font-semibold text-fg">{category.name}</span>
+                      <StatusPill tone={category.kind === 'income' ? 'in' : 'out'}>
+                        {category.kind === 'income' ? 'Pendapatan' : 'Pengeluaran'}
+                      </StatusPill>
+                      {category.archivedAt ? <StatusPill tone="neutral">Diarsipkan</StatusPill> : null}
+                    </div>
+                  </div>
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <Button variant="ghost" size="sm" onClick={() => setEditing(category)}>
                       Ubah nama
                     </Button>
                     {category.archivedAt ? null : (
-                      <Button variant="ghost" onClick={() => setArchiving(category)}>
+                      <Button variant="ghost" size="sm" onClick={() => setArchiving(category)}>
                         Arsipkan
                       </Button>
                     )}
                   </span>
-                </div>
-              </LedgerRow>
-            ))}
-          </ul>
+                </li>
+              ))}
+            </ul>
+          </Card>
         )
       ) : null}
 

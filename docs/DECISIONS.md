@@ -174,3 +174,68 @@ self-host; dua yang lama keluar. Motif identitas berpindah dari garis bertakik k
 Dial naik dari ENERGY 1 / RHYTHM 2 / MOTION 1 ke ENERGY 2 / RHYTHM 2 / MOTION 2.
 **Status:** Selesai dan terverifikasi; laporan gerbang ada di `docs/DELIVERY_GATE.md`.
 
+## D-15 · Arah visual disetel ulang ke referensi pemilik
+
+**Tanggal:** 22 September 2026
+**Konteks:** Pemilik menyatakan belum puas dengan hasil D-14 dan melampirkan dua tangkapan
+antarmuka yang diinginkan: dasbor fintech bergaya kartu, kanvas abu terang, kartu putih, aksen
+biru, lencana pil, dan bilah progres. D-14 sudah mengganti arah, tetapi paletnya masih membawa sisa
+arah kertas (kanvas `#fbfaf9` yang hangat) dan tidak punya bahasa grafik sama sekali. Chrome PWA
+juga masih memakai nilai lama: `manifest.webmanifest` dan meta `theme-color` menyebut `#f6f2ea`,
+dan `icon.svg` memakai stroke biru `#243b7a` di atas kanvas krem.
+**Keputusan:** Arah D-14 dipertahankan sebagai kerangka (rupa huruf, kolom tanda, skala huruf) dan
+disetel ulang pada empat titik:
+1. Kanvas menjadi abu netral `#f4f4f5`; biru `#0256ff` menjadi aksen struktural dan kuning
+   `#ffb700` menjadi warna data kedua.
+2. `components/charts.tsx` ditambahkan sebagai perangkat grafik SVG gambar-sendiri: bilah kategori,
+   garis tren, cincin, dan bilah progres. Tanpa pustaka grafik pihak ketiga.
+3. Setiap layar dibangun ulang di atas primitif yang sama; layar Notifikasi ditambahkan karena
+   endpoint-nya sudah ada di server tetapi belum punya rumah di antarmuka.
+4. Chrome PWA diselaraskan: manifest, meta `theme-color`, `icon.svg`, dan `icon-maskable.svg`
+   memakai palet baru, dan ikon maskable dipisahkan supaya aman dari pemotongan topeng peluncur.
+**Alasan:** Referensi pemilik adalah bahasa fintech yang sudah matang, dan tujuannya adalah aplikasi
+yang dipakai tiap hari di HP. Menyisakan permukaan hangat dari arah kertas akan terbaca sebagai dua
+bahasa visual yang bertabrakan, dan chrome PWA adalah hal pertama yang dilihat pengguna saat
+memasang aplikasi, jadi tidak boleh memakai warna di luar sistem.
+**Konsekuensi:** Lima nilai token digelapkan supaya lolos WCAG AA di seluruh layar, terukur dengan
+alat, bukan dikira-kira: `--fg-muted` `#59616d`, `--in` `#07714e`, `--out` `#c81a1a`, dan `--warn`
+`#96450a`. Tabel palet di `docs/DESIGN.md` ikut diperbarui. Grafik sekarang menjadi bagian bahasa
+desain, bukan tempelan per layar.
+**Status:** Selesai dan terverifikasi; bukti ada di `docs/DELIVERY_GATE.md` bagian D-15.
+
+## D-16 · Lapisan sentuh diperketat untuk pemakaian harian di HP
+
+**Tanggal:** 23 September 2026
+**Konteks:** Pemilik menegaskan aplikasi akan banyak dipakai di HP dan meminta kualitas setara
+studio agensi SaaS, dengan fokus pada margin, UI/UX, layout, dan alur. Audit terukur pada viewport
+390x844 menemukan lapisan sentuh yang belum diperketat: skala radius masih 10/16/24 (terlalu tajam
+untuk ibu jari dan tidak konsisten dengan pil 999px di sebelahnya), strip tab yang bisa digulir
+horizontal tidak punya `touch-action` sehingga sapuan vertikal di atasnya tertelan dan halaman
+tidak ikut bergulir, baris buku besar 56px terasa rapat, dan label `Jenis`/`Nominal` di lembar
+entri tidak memakai penanda wajib seperti kolom lain di formulir yang sama.
+**Keputusan:**
+1. Skala radius dinaikkan menjadi 12/18/26 untuk kontrol, panel, dan lembar, mengikuti bahasa
+   referensi pemilik; tab di dalam strip disetel ke 9px supaya tetap terlihat sebagai elemen
+   bersarang, bukan elemen setingkat.
+2. `[class*='overflow-x-auto']` mendapat `touch-action: pan-x pan-y` dan `-webkit-overflow-scrolling:
+   touch`, sehingga sapuan vertikal di atas strip tetap menggulir halaman.
+3. Lembar diberi `overscroll-contain` pada wadah dan `min-h-0` pada badan yang menggulir, supaya
+   gulir tidak menembus ke halaman di belakangnya dan papan ketik di layar tidak meremukkan isi.
+4. Baris buku besar naik ke 60px dengan `:active` yang terlihat; kepala layar mendapat
+   `pt-[env(safe-area-inset-top)]`; setiap elemen ber-`id` mendapat `scroll-margin-top` agar tidak
+   tersembunyi di bawah kepala yang lengket.
+5. Konsistensi formulir: `Nominal` dan `Jenis` di lembar entri kini memakai penanda wajib yang sama
+   dengan kolom lain, dengan teks `sr-only` untuk pembaca layar.
+6. Aksi berulang per dompet di Profil diringkas menjadi satu menu `Lainnya`; tiga tombol teks per
+   baris terlalu padat di lebar HP dan mendorong baris menjadi dua tingkat.
+**Alasan:** Semua temuan berasal dari pengukuran, bukan kesan: `document.scrollWidth` versus
+`clientWidth`, tinggi baris hasil `getBoundingClientRect`, dan pembacaan CSS terkompilasi untuk
+memastikan aturan benar-benar terkirim. Kualitas yang bisa dirasakan ibu jari berasal dari ukuran
+yang bisa diukur.
+**Konsekuensi:** `docs/DESIGN.md` bagian skala radius dan bagian baru tentang perilaku mobile ikut
+diperbarui. Empat belas temuan audit ditutup; dua di antaranya ternyata bukan cacat setelah diukur
+ulang (klirens konten terhadap bilah navigasi aman 37-63px di semua layar dan tinggi, dan aturan
+safe-area memang sudah terkirim ke CSS terkompilasi) dan dicatat apa adanya supaya tidak
+"diperbaiki" lagi di kemudian hari.
+**Status:** Selesai dan terverifikasi; bukti ada di `docs/DELIVERY_GATE.md` bagian D-16.
+

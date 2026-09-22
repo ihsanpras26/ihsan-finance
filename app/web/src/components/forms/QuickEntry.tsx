@@ -219,6 +219,10 @@ export function QuickEntry({
         <div className="flex flex-col gap-1.5">
           <label htmlFor="qe-amount" className="text-xs font-semibold text-muted">
             Nominal
+            <span className="ml-0.5 text-out" aria-hidden="true">
+              *
+            </span>
+            <span className="sr-only"> (wajib)</span>
           </label>
           <AmountInput
             id="qe-amount"
@@ -237,8 +241,14 @@ export function QuickEntry({
         </div>
 
         <div role="group" aria-label="Jenis transaksi" className="flex flex-col gap-1.5">
-          <span className="text-xs font-semibold text-muted">Jenis</span>
-          <div className="grid grid-cols-3 gap-2">
+          <span className="text-xs font-semibold text-muted">
+            Jenis
+            <span className="ml-0.5 text-out" aria-hidden="true">
+              *
+            </span>
+            <span className="sr-only"> (wajib)</span>
+          </span>
+          <div className="grid grid-cols-3 gap-1 rounded-control bg-sunken p-1">
             {TYPE_CHOICES.map((choice) => {
               const selected = choice.id === type;
               return (
@@ -247,8 +257,8 @@ export function QuickEntry({
                   type="button"
                   aria-pressed={selected}
                   onClick={() => setType(choice.id)}
-                  className={`min-h-[44px] rounded-control border px-2 text-sm font-semibold ${
-                    selected ? 'border-accent text-accent' : 'border-hairline text-muted hover:text-fg'
+                  className={`press min-h-[44px] rounded-[8px] px-2 text-sm font-semibold transition-colors duration-150 ${
+                    selected ? 'bg-raised text-fg shadow-[0_1px_2px_rgb(16_24_40/0.08)]' : 'text-muted hover:text-fg'
                   }`}
                 >
                   {choice.label}
@@ -259,7 +269,7 @@ export function QuickEntry({
         </div>
 
         {wallets.error ? (
-          <div role="alert" className="flex flex-col items-start gap-2 rounded-panel border border-out/40 px-4 py-3">
+          <div role="alert" className="flex flex-col items-start gap-2 rounded-control bg-out/8 px-4 py-3">
             <p className="text-sm text-fg">{wallets.error.display}</p>
             <Button variant="secondary" onClick={wallets.reload}>
               Muat ulang dompet
@@ -350,13 +360,13 @@ export function QuickEntry({
           />
         </Field>
 
-        <div className="row-divide pt-3">
+        <div className="pt-3">
           <button
             type="button"
             aria-expanded={detailOpen}
             aria-controls="qe-detail"
             onClick={() => setDetailOpen((value) => !value)}
-            className="flex min-h-[44px] w-full items-center justify-between gap-2 text-left text-sm font-semibold text-fg"
+            className="press flex min-h-[44px] w-full items-center justify-between gap-2 rounded-control text-left text-sm font-semibold text-fg"
           >
             Detail tambahan
             <IconChevronDown size={18} className={`transition-transform duration-150 ${detailOpen ? 'rotate-180' : ''}`} />
@@ -389,7 +399,7 @@ export function QuickEntry({
         ) : null}
 
         {formError ? (
-          <div role="alert" className="flex items-start gap-2 rounded-panel border border-out/40 px-4 py-3">
+          <div role="alert" className="flex items-start gap-2 rounded-control bg-out/8 px-4 py-3">
             <IconAlert size={18} className="mt-0.5 shrink-0 text-out" />
             <span className="text-sm text-fg">{formError}</span>
           </div>

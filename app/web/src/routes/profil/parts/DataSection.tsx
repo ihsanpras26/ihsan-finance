@@ -1,7 +1,7 @@
 // routes/profil/parts/DataSection.tsx : CSV export, full backup, and the retention policy (PRD FR19, NFR07).
 import { useState } from 'react';
 import { api } from '../../../lib/api.ts';
-import { Button, SectionHead, useToast } from '../../../components/ui.tsx';
+import { Button, Card, SectionHead, useToast } from '../../../components/ui.tsx';
 import { errorMessage } from '../../../components/forms/support.tsx';
 import { currentPeriod, formatDateLong, todayIso } from '../../../lib/format.ts';
 
@@ -44,7 +44,7 @@ export function DataSection() {
     <section>
       <SectionHead title="Data" />
 
-      <div className="mt-2 rounded-panel border border-hairline bg-raised px-4 py-3">
+      <Card className="px-4 py-4">
         <p className="text-sm text-fg">
           Ekspor CSV memuat ID transaksi, tanggal, jenis, dompet, kategori, nominal, status, serta referensi utang atau tujuan.
         </p>
@@ -69,7 +69,7 @@ export function DataSection() {
             <li className="text-sm text-muted">Pemulihan dari cadangan belum tersedia lewat aplikasi. Prosedurnya masih dijalankan manual oleh pengelola.</li>
           </ul>
         </div>
-      </div>
+      </Card>
     </section>
   );
 }

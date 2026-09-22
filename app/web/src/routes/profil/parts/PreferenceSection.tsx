@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../../../lib/api.ts';
 import { useAsync } from '../../../lib/hooks.ts';
 import { useSession } from '../../../lib/session.tsx';
-import { Button, ErrorState, Field, LoadingRows, SectionHead, Select, useToast } from '../../../components/ui.tsx';
+import { Button, Card, ErrorState, Field, LoadingRows, SectionHead, Select, useToast } from '../../../components/ui.tsx';
 import { RadioGroup, SwitchRow, errorMessage } from '../../../components/forms/support.tsx';
 
 const ZONES: { value: string; label: string }[] = [
@@ -71,29 +71,29 @@ export function PreferenceSection() {
       {workspace.error ? <ErrorState message={workspace.error.display} onRetry={workspace.reload} /> : null}
 
       {workspace.data ? (
-        <div className="mt-2 flex flex-col gap-4">
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="min-w-[220px] flex-1">
-              <Field
-                label="Zona waktu ruang"
-                htmlFor="profil-zona"
-                hint="Dipakai untuk batas periode laporan dan jadwal pengingat."
-              >
-                <Select id="profil-zona" value={timezone} onChange={(event) => setTimezone(event.target.value)}>
-                  {zoneOptions.map((zone) => (
-                    <option key={zone.value} value={zone.value}>
-                      {zone.label}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
+        <div className="flex flex-col gap-3">
+          <Card className="flex flex-col gap-3 px-4 py-4">
+            <Field
+              label="Zona waktu ruang"
+              htmlFor="profil-zona"
+              hint="Dipakai untuk batas periode laporan dan jadwal pengingat."
+            >
+              <Select id="profil-zona" value={timezone} onChange={(event) => setTimezone(event.target.value)}>
+                {zoneOptions.map((zone) => (
+                  <option key={zone.value} value={zone.value}>
+                    {zone.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <div>
+              <Button onClick={() => void saveTimezone()} loading={savingZone} disabled={!zoneChanged}>
+                Simpan zona waktu
+              </Button>
             </div>
-            <Button onClick={() => void saveTimezone()} loading={savingZone} disabled={!zoneChanged}>
-              Simpan zona waktu
-            </Button>
-          </div>
+          </Card>
 
-          <div className="rounded-panel border border-hairline px-4">
+          <Card className="px-4">
             <SwitchRow
               label="Sembunyikan nominal"
               hint="Angka uang diganti titik di seluruh aplikasi. Cocok saat membuka aplikasi di tempat umum."
@@ -109,20 +109,20 @@ export function PreferenceSection() {
               checked={preferences.remindersOn}
               onChange={(next) => void toggleReminders(next)}
             />
-          </div>
+          </Card>
 
-          <div className="rounded-panel border border-hairline px-4 py-3">
+          <Card className="px-4 py-4">
             <RadioGroup
               legend="Tema tampilan"
               value={theme}
               onChange={(next) => void chooseTheme(next)}
               options={[
-                { value: 'light', label: 'Terang', hint: 'Kertas buku kas, latar terang.' },
-                { value: 'dark', label: 'Gelap', hint: 'Papan tulis malam untuk ruangan gelap.' },
+                { value: 'light', label: 'Terang', hint: 'Latar terang untuk ruangan terang.' },
+                { value: 'dark', label: 'Gelap', hint: 'Latar gelap untuk ruangan gelap.' },
                 { value: 'system', label: 'Ikuti sistem', hint: 'Mengikuti pengaturan perangkat.' },
               ]}
             />
-          </div>
+          </Card>
         </div>
       ) : null}
     </section>

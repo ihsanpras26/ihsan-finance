@@ -3,8 +3,9 @@ import { useState } from 'react';
 import { api, ApiError, type Wallet } from '../../../lib/api.ts';
 import { useAsync } from '../../../lib/hooks.ts';
 import {
-  Button, ConfirmDialog, EmptyState, ErrorState, LedgerRow, LoadingRows, Money, SectionHead, StatusPill, useToast,
+  Button, Card, ConfirmDialog, EmptyState, ErrorState, IconTile, LoadingRows, Money, SectionHead, StatusPill, useToast,
 } from '../../../components/ui.tsx';
+import { IconChevronDown, IconWallet } from '../../../components/icons.tsx';
 import { WalletForm } from '../../../components/forms/WalletForm.tsx';
 import { ReconcileForm } from '../../../components/forms/ReconcileForm.tsx';
 import { errorMessage } from '../../../components/forms/support.tsx';
@@ -65,70 +66,97 @@ export function WalletSection() {
     <section>
       <SectionHead
         title="Dompet"
-        action={<Button onClick={() => setCreating(true)}>Dompet baru</Button>}
+        action={
+          <Button size="sm" onClick={() => setCreating(true)}>
+            Dompet baru
+          </Button>
+        }
       />
 
       {wallets.loading && !wallets.data ? <LoadingRows rows={3} label="Memuat dompet" /> : null}
       {wallets.error ? <ErrorState message={wallets.error.display} onRetry={wallets.reload} /> : null}
 
       {wallets.data ? (
-        <>
-          <p className="mt-1 text-xs text-muted">
-            Total saldo dompet aktif <span className="tnum font-semibold text-fg">{formatIDR(activeTotal)}</span> dari {active.length} dompet.
-          </p>
+        list.length === 0 ? (
+          <EmptyState
+            title="Belum ada dompet"
+            body="Dompet adalah tempat uang Anda dicatat, misalnya kas harian, rekening bank, atau e-wallet. Saldo awal dicatat sebagai jurnal pembukaan, bukan pendapatan."
+            action={<Button onClick={() => setCreating(true)}>Dompet baru</Button>}
+          />
+        ) : (
+          <div className="flex flex-col gap-3">
+            {/* Ringkasan saldo aktif: satu angka, satu tepi kanan. */}
+            <Card className="flex items-center justify-between gap-3 px-4 py-3">
+              <span className="text-xs text-muted">Total saldo dompet aktif dari {active.length} dompet</span>
+              <span className="figure text-sm font-semibold text-fg">{formatIDR(activeTotal)}</span>
+            </Card>
 
-          {list.length === 0 ? (
-            <div className="mt-3">
-              <EmptyState
-                title="Belum ada dompet"
-                body="Dompet adalah tempat uang Anda dicatat, misalnya kas harian, rekening bank, atau e-wallet. Saldo awal dicatat sebagai jurnal pembukaan, bukan pendapatan."
-                action={<Button onClick={() => setCreating(true)}>Dompet baru</Button>}
-              />
-            </div>
-          ) : (
-            <ul className="mt-2">
-              {list.map((wallet) => (
-                <LedgerRow as="li" key={wallet.id}>
-                  <div className="flex w-full flex-col gap-1.5 py-0.5">
-                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                      <span className="text-sm font-semibold text-fg">{wallet.name}</span>
-                      <StatusPill tone="neutral">{WALLET_TYPE_LABEL[wallet.type] ?? wallet.type}</StatusPill>
-                      {wallet.archivedAt ? <StatusPill tone="neutral">Diarsipkan</StatusPill> : null}
+            <Card className="px-4">
+              <ul className="flex flex-col">
+                {list.map((wallet) => (
+                  <li key={wallet.id} className="row-divide flex flex-col gap-2 py-3">
+                    <div className="flex items-center gap-3">
+                      <IconTile tone={wallet.archivedAt ? 'neutral' : 'accent'}>
+                        <IconWallet size={18} />
+                      </IconTile>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="truncate text-sm font-semibold text-fg">{wallet.name}</span>
+                          <StatusPill tone="neutral">{WALLET_TYPE_LABEL[wallet.type] ?? wallet.type}</StatusPill>
+                          {wallet.archivedAt ? <StatusPill tone="neutral">Diarsipkan</StatusPill> : null}
+                        </div>
+                        <p className="truncate text-xs text-muted">
+                          Mulai {formatDateShort(wallet.openedOn)}
+                          {wallet.note ? ` · ${wallet.note}` : ''}
+                        </p>
+                      </div>
+                      <Money value={wallet.balance} />
                     </div>
-                    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                      <span className="text-xs text-muted">
-                        Mulai {formatDateShort(wallet.openedOn)}
-                        {wallet.note ? ` · ${wallet.note}` : ''}
-                      </span>
-                      <span className="flex items-baseline gap-2">
-                        <span className="text-xs text-muted">Saldo</span>
-                        <Money value={wallet.balance} />
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                      <Button variant="ghost" onClick={() => setEditing(wallet)}>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Button variant="ghost" size="sm" onClick={() => setEditing(wallet)}>
                         Ubah
                       </Button>
-                      <Button variant="ghost" onClick={() => setReconciling(wallet)}>
-                        Rekonsiliasi saldo
+                      <Button variant="ghost" size="sm" onClick={() => setReconciling(wallet)}>
+                        Rekonsiliasi
                       </Button>
-                      {wallet.archivedAt ? null : (
-                        <Button variant="ghost" onClick={() => setArchiving(wallet)}>
-                          Arsipkan
-                        </Button>
-                      )}
-                      {wallet.archivedAt ? null : (
-                        <Button variant="ghost" onClick={() => setDeleting(wallet)}>
+                      {wallet.archivedAt ? (
+                        <Button variant="ghost" size="sm" onClick={() => setDeleting(wallet)}>
                           Hapus
                         </Button>
+                      ) : (
+                        <details className="relative">
+                          <summary
+                            className="press inline-flex min-h-[36px] cursor-pointer list-none items-center gap-1 rounded-control px-2.5 text-xs font-semibold text-muted transition-colors duration-150 hover:bg-fg/6 hover:text-fg [&::-webkit-details-marker]:hidden"
+                            aria-label={`Aksi lain untuk ${wallet.name}`}
+                          >
+                            Lainnya
+                            <IconChevronDown size={14} />
+                          </summary>
+                          <div className="absolute right-0 z-20 mt-1 flex w-44 flex-col overflow-hidden rounded-control border border-hairline bg-raised py-1 shadow-lift">
+                            <button
+                              type="button"
+                              className="press min-h-[44px] px-3 text-left text-sm text-fg hover:bg-fg/6"
+                              onClick={() => setArchiving(wallet)}
+                            >
+                              Arsipkan dompet
+                            </button>
+                            <button
+                              type="button"
+                              className="press min-h-[44px] px-3 text-left text-sm text-out hover:bg-out/8"
+                              onClick={() => setDeleting(wallet)}
+                            >
+                              Hapus dompet
+                            </button>
+                          </div>
+                        </details>
                       )}
                     </div>
-                  </div>
-                </LedgerRow>
-              ))}
-            </ul>
-          )}
-        </>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          </div>
+        )
       ) : null}
 
       {creating ? <WalletForm open onClose={() => setCreating(false)} onSaved={refresh} /> : null}

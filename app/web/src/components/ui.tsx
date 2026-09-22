@@ -6,7 +6,7 @@ import {
   type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes,
 } from 'react';
 import { formatIDR, formatAmountInput, parseAmountInput, signGlyph, toMinor } from '../lib/format.ts';
-import { IconAlert, IconCheck, IconClose } from './icons.tsx';
+import { IconAlert, IconArrowDownRight, IconArrowUpRight, IconCheck, IconClose } from './icons.tsx';
 
 // ── visibilitas nominal (PRD §03: pengguna dapat menyembunyikan nominal) ─────
 const VisibilityContext = createContext<{ hidden: boolean; toggle: () => void }>({ hidden: false, toggle: () => {} });
@@ -45,7 +45,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {items.map((item) => (
           <div
             key={item.id}
-            className="sheet-enter pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-panel bg-raised px-4 py-3 text-sm ring-1 ring-hairline"
+            className="sheet-enter pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-panel bg-raised px-4 py-3 text-sm"
           >
             <span className={item.tone === 'error' ? 'mt-0.5 text-out' : item.tone === 'success' ? 'mt-0.5 text-in' : 'mt-0.5 text-muted'}>
               {item.tone === 'error' ? <IconAlert size={18} /> : <IconCheck size={18} />}
@@ -74,17 +74,53 @@ export function useToast() {
   return useContext(ToastContext);
 }
 
+// ── kartu (DESIGN.md §6): unit susunan setiap layar ──────────────────────────
+export function Card({ className = '', children, as = 'section' }: { className?: string; children: ReactNode; as?: 'section' | 'div' | 'li' | 'article' }) {
+  const Tag = as;
+  return <Tag className={`card ${className}`}>{children}</Tag>;
+}
+
+/**
+ * CardHead: judul kartu 20px semibold dengan aksi di kanan, dan subjudul opsional.
+ * Hierarki datang dari ukuran huruf dan jarak, bukan dari garis.
+ */
+export function CardHead({ title, subtitle, action, className = '' }: { title: string; subtitle?: string; action?: ReactNode; className?: string }) {
+  return (
+    <div className={`flex items-start justify-between gap-3 ${className}`}>
+      <div className="min-w-0">
+        <h2 className="text-lg font-semibold text-fg">{title}</h2>
+        {subtitle ? <p className="mt-0.5 text-xs text-muted">{subtitle}</p> : null}
+      </div>
+      {action ? <div className="flex shrink-0 items-center gap-1">{action}</div> : null}
+    </div>
+  );
+}
+
+/** IconTile: kotak lembut di kiri baris daftar, memberi jangkar yang bisa dipindai (DESIGN.md §6). */
+export function IconTile({ tone = 'neutral', children, size = 'md' }: { tone?: 'neutral' | 'in' | 'out' | 'warn' | 'accent' | 'accent-2'; children: ReactNode; size?: 'sm' | 'md' }) {
+  const tones: Record<string, string> = {
+    neutral: 'bg-sunken text-muted',
+    in: 'bg-in/12 text-in',
+    out: 'bg-out/12 text-out',
+    warn: 'bg-warn/14 text-warn',
+    accent: 'bg-accent-soft text-accent',
+    'accent-2': 'bg-accent-2/18 text-accent-2',
+  };
+  const sizes = { sm: 'size-8', md: 'size-10' };
+  return <span className={`icon-tile ${sizes[size]} ${tones[tone]}`} aria-hidden="true">{children}</span>;
+}
+
 // ── tombol ──────────────────────────────────────────────────────────────────
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
 const BUTTON_BASE =
-  'press inline-flex items-center justify-center gap-2 rounded-control font-semibold transition-[background-color,border-color,color,transform] duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50';
+  'press inline-flex items-center justify-center gap-2 rounded-control font-semibold transition-[background-color,border-color,color,transform,box-shadow] duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50';
 
 const BUTTON_VARIANT: Record<ButtonVariant, string> = {
-  primary: 'bg-accent text-accent-fg hover:brightness-108',
-  secondary: 'border border-hairline bg-raised text-fg hover:border-fg/25 hover:bg-sunken',
+  primary: 'bg-accent text-accent-fg shadow-[0_1px_2px_rgb(16_24_40/0.12)] hover:brightness-110',
+  secondary: 'border border-hairline bg-raised text-fg hover:border-fg/20 hover:bg-sunken',
   ghost: 'text-fg hover:bg-fg/6',
-  danger: 'border border-out/45 text-out hover:bg-out/8',
+  danger: 'border border-out/40 bg-raised text-out hover:bg-out/8',
 };
 
 // Every size keeps a >= 44px hit area; `sm` differs in padding and type size only.
@@ -231,7 +267,8 @@ const MONEY_SIZE = {
   sm: 'text-xs',
   md: 'text-sm',
   lg: 'text-lg',
-  xl: 'text-2xl',
+  xl: 'text-xl',
+  '2xl': 'text-2xl',
   hero: 'text-3xl',
 } as const;
 
@@ -247,7 +284,7 @@ export function Money({
   const minor = toMinor(value);
   const sizeClass = MONEY_SIZE[size];
   const tone = direction === 'in' ? 'text-in' : direction === 'out' ? 'text-out' : 'text-fg';
-  const weight = size === 'xl' || size === 'hero' ? 'font-medium' : 'font-normal';
+  const weight = size === 'xl' || size === '2xl' || size === 'hero' ? 'font-medium' : 'font-normal';
 
   if (hidden && !forceVisible) {
     return (
@@ -266,57 +303,103 @@ export function Money({
 }
 
 // ── struktur ────────────────────────────────────────────────────────────────
-/** SectionHead: hierarki dari permukaan, bukan dari garis tebal (DESIGN.md §6). */
+/** SectionHead: judul bagian di atas kartu, gaya label kecil, dengan aksi di kanan. */
 export function SectionHead({ title, action }: { title: string; action?: ReactNode }) {
   return (
-    <div className="head-band -mx-4 mt-6 mb-3 flex items-center justify-between gap-3 px-4 py-2 sm:-mx-6 sm:px-6">
-      <h2 className="text-2xs font-semibold tracking-wide text-muted uppercase">{title}</h2>
+    <div className="mt-6 mb-2 flex items-center justify-between gap-3 px-0.5">
+      <h2 className="text-xs font-semibold tracking-wide text-muted uppercase">{title}</h2>
       {action}
     </div>
   );
 }
 
 export function LedgerRow({
-  onClick, children, className = '', as = 'div',
-}: { onClick?: () => void; children: ReactNode; className?: string; as?: 'div' | 'li' }) {
+  onClick, children, className = '', as = 'div', leading, trailing,
+}: { onClick?: () => void; children: ReactNode; className?: string; as?: 'div' | 'li'; leading?: ReactNode; trailing?: ReactNode }) {
   const Tag = as;
+  const body = (
+    <>
+      {leading}
+      <div className="min-w-0 flex-1">{children}</div>
+      {trailing}
+    </>
+  );
   if (!onClick) {
-    return <Tag className={`row-divide flex min-h-[52px] items-center gap-3 py-3 ${className}`}>{children}</Tag>;
+    return <Tag className={`row-divide flex min-h-[60px] items-center gap-3 py-3 ${className}`}>{body}</Tag>;
   }
   return (
     <Tag className={`row-divide ${className}`}>
       <button
         type="button"
         onClick={onClick}
-        className="flex min-h-[52px] w-full items-center gap-3 py-3 text-left transition-colors duration-150 hover:bg-fg/4"
+        className="flex min-h-[60px] w-full items-center gap-3 py-3 text-left transition-colors duration-150 hover:bg-fg/4 active:bg-fg/6"
       >
-        {children}
+        {body}
       </button>
     </Tag>
   );
 }
 
-export function StatusPill({ tone, children }: { tone: 'neutral' | 'in' | 'out' | 'warn' | 'accent'; children: ReactNode }) {
+/** RowTitle: dua baris teks baris daftar (nama dan meta), dipakai hampir semua daftar. */
+export function RowTitle({ title, meta }: { title: string; meta?: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="truncate text-sm font-medium text-fg">{title}</p>
+      {meta ? <p className="truncate text-xs text-muted">{meta}</p> : null}
+    </div>
+  );
+}
+
+export function StatusPill({ tone, children }: { tone: 'neutral' | 'in' | 'out' | 'warn' | 'accent' | 'accent-2'; children: ReactNode }) {
   const tones: Record<string, string> = {
     neutral: 'bg-sunken text-muted',
     in: 'bg-in/12 text-in',
     out: 'bg-out/12 text-out',
     warn: 'bg-warn/14 text-warn',
     accent: 'bg-accent-soft text-accent',
+    'accent-2': 'bg-accent-2/18 text-warn',
   };
   return (
-    <span className={`inline-flex items-center rounded-chip px-1.5 py-0.5 text-2xs font-semibold whitespace-nowrap ${tones[tone]}`}>
+    <span className={`inline-flex items-center rounded-chip px-2 py-0.5 text-2xs font-semibold whitespace-nowrap ${tones[tone]}`}>
       {children}
     </span>
   );
 }
 
-export function ProgressBar({ ratio, tone = 'accent', label }: { ratio: number; tone?: 'accent' | 'in' | 'out' | 'warn'; label: string }) {
-  const clamped = Math.max(0, Math.min(1, Number.isFinite(ratio) ? ratio : 0));
-  const colors: Record<string, string> = { accent: 'bg-accent', in: 'bg-in', out: 'bg-out', warn: 'bg-warn' };
+/** DeltaPill: lencana arah perubahan dengan panah, gaya fintech (DESIGN.md §10). */
+export function DeltaPill({ value, tone, label }: { value: string; tone: 'in' | 'out' | 'neutral'; label?: string }) {
+  const tones: Record<string, string> = {
+    in: 'bg-in/12 text-in',
+    out: 'bg-out/12 text-out',
+    neutral: 'bg-sunken text-muted',
+  };
   return (
-    <div className="h-2 w-full overflow-hidden rounded-chip bg-sunken ring-1 ring-hairline ring-inset" role="progressbar" aria-valuenow={Math.round(clamped * 100)} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
+    <span className={`inline-flex items-center gap-1 rounded-chip px-2 py-0.5 text-2xs font-semibold whitespace-nowrap ${tones[tone]}`}>
+      {tone === 'in' ? <IconArrowUpRight size={13} /> : tone === 'out' ? <IconArrowDownRight size={13} /> : null}
+      {value}
+      {label ? <span className="font-normal opacity-80">{label}</span> : null}
+    </span>
+  );
+}
+
+export function ProgressBar({ ratio, tone = 'accent', label, showPercent = false }: { ratio: number; tone?: 'accent' | 'in' | 'out' | 'warn' | 'accent-2'; label: string; showPercent?: boolean }) {
+  const clamped = Math.max(0, Math.min(1, Number.isFinite(ratio) ? ratio : 0));
+  const colors: Record<string, string> = { accent: 'bg-accent', in: 'bg-in', out: 'bg-out', warn: 'bg-warn', 'accent-2': 'bg-accent-2' };
+  const percent = Math.round(clamped * 100);
+  // The label rides inside the fill only when the fill is wide enough to hold it. Below that it
+  // sits on the track, where white text would be invisible against the pale track (R-32 contrast).
+  const insideFill = clamped >= 0.22;
+  return (
+    <div className="relative h-6 w-full overflow-hidden rounded-chip bg-sunken" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
       <div className={`h-full ${colors[tone]} transition-[width] duration-240 ease-out`} style={{ width: `${clamped * 100}%` }} />
+      {showPercent ? (
+        <span
+          className={`figure absolute inset-y-0 flex items-center text-2xs font-semibold ${insideFill ? 'left-2 text-white' : 'right-2 text-muted'}`}
+          aria-hidden="true"
+        >
+          {percent}%
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -324,7 +407,7 @@ export function ProgressBar({ ratio, tone = 'accent', label }: { ratio: number; 
 // ── keadaan wajib (R-27) ────────────────────────────────────────────────────
 export function EmptyState({ title, body, action }: { title: string; body: string; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-start gap-3 rounded-panel bg-sunken px-6 py-8">
+    <div className="card flex flex-col items-start gap-3 px-5 py-6">
       <h3 className="text-lg font-semibold text-fg">{title}</h3>
       <p className="max-w-prose text-sm text-muted">{body}</p>
       {action}
@@ -334,20 +417,31 @@ export function EmptyState({ title, body, action }: { title: string; body: strin
 
 export function LoadingRows({ rows = 4, label = 'Memuat data' }: { rows?: number; label?: string }) {
   return (
-    <div aria-busy="true" aria-label={label} className="flex flex-col">
-      {Array.from({ length: rows }).map((_, index) => (
-        <div key={index} className="row-divide flex min-h-[52px] items-center gap-3 py-3">
-          <div className="h-4 w-28 animate-pulse rounded-chip bg-sunken" />
-          <div className="ml-auto h-4 w-24 animate-pulse rounded-chip bg-sunken" />
-        </div>
-      ))}
+    <div aria-busy="true" aria-label={label} className="flex flex-col gap-3">
+      <div className="card flex flex-col gap-3 px-4 py-4">
+        <div className="h-3 w-24 animate-pulse rounded-chip bg-sunken" />
+        <div className="h-8 w-40 animate-pulse rounded-chip bg-sunken" />
+        <div className="h-3 w-32 animate-pulse rounded-chip bg-sunken" />
+      </div>
+      <div className="card flex flex-col px-4">
+        {Array.from({ length: rows }).map((_, index) => (
+          <div key={index} className="row-divide flex min-h-[56px] items-center gap-3 py-2.5">
+            <div className="size-10 shrink-0 animate-pulse rounded-control bg-sunken" />
+            <div className="flex flex-1 flex-col gap-2">
+              <div className="h-3 w-32 animate-pulse rounded-chip bg-sunken" />
+              <div className="h-3 w-20 animate-pulse rounded-chip bg-sunken" />
+            </div>
+            <div className="h-4 w-24 animate-pulse rounded-chip bg-sunken" />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
 export function ErrorState({ message, onRetry, children }: { message: string; onRetry?: () => void; children?: ReactNode }) {
   return (
-    <div className="flex flex-col items-start gap-3 rounded-panel bg-out/8 px-5 py-5 ring-1 ring-out/25" role="alert">
+    <div className="card flex flex-col items-start gap-3 px-5 py-5" role="alert">
       <div className="flex items-start gap-2">
         <IconAlert size={18} className="mt-0.5 shrink-0 text-out" />
         <p className="text-sm text-fg">{message}</p>
@@ -428,9 +522,11 @@ export function Sheet({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={`sheet-enter relative flex max-h-[92dvh] w-full flex-col rounded-t-sheet bg-raised sm:rounded-sheet ${size === 'lg' ? 'sm:max-w-2xl' : 'sm:max-w-lg'}`}
+        className={`sheet-enter relative flex max-h-[92dvh] w-full flex-col overscroll-contain rounded-t-sheet bg-raised sm:rounded-sheet ${size === 'lg' ? 'sm:max-w-2xl' : 'sm:max-w-lg'}`}
       >
-        <header className="flex items-center justify-between gap-3 border-b border-hairline px-5 py-4">
+        {/* Grab handle: the affordance that tells a thumb this panel can be dismissed (mobile-first). */}
+        <div aria-hidden="true" className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-chip bg-fg/15 sm:hidden" />
+        <header className="flex items-center justify-between gap-3 px-5 pt-3 pb-3 sm:pt-4">
           <h2 id={titleId} className="text-lg font-semibold text-fg">
             {title}
           </h2>
@@ -438,7 +534,9 @@ export function Sheet({
             <IconClose />
           </IconButton>
         </header>
-        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        {/* Keyboard-safe: 100% here keeps the scrolling body from being squeezed when a phone
+            keyboard opens, which is the common cause of unreachable fields. */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-4">{children}</div>
         {footer ? <footer className="border-t border-hairline px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">{footer}</footer> : null}
       </div>
     </div>
@@ -470,10 +568,56 @@ export function ConfirmDialog({
 }
 
 // ── tab ─────────────────────────────────────────────────────────────────────
+/** Tabs: pil tersegmentasi di dalam kartu (DESIGN.md §6). */
 export function Tabs<T extends string>({
-  tabs, active, onChange, label,
-}: { tabs: { id: T; label: string; count?: number }[]; active: T; onChange: (id: T) => void; label: string }) {
+  tabs, active, onChange, label, variant = 'pill',
+}: { tabs: { id: T; label: string; count?: number }[]; active: T; onChange: (id: T) => void; label: string; variant?: 'pill' | 'underline' }) {
   const refs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  if (variant === 'pill') {
+    return (
+      <div
+        role="tablist"
+        aria-label={label}
+        className="flex gap-1 overflow-x-auto rounded-control bg-sunken p-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {tabs.map((tab) => {
+          const selected = tab.id === active;
+          return (
+            <button
+              key={tab.id}
+              ref={(node) => {
+                refs.current[tab.id] = node;
+              }}
+              role="tab"
+              type="button"
+              aria-selected={selected}
+              tabIndex={selected ? 0 : -1}
+              className={`press flex min-h-[44px] shrink-0 items-center justify-center rounded-[9px] px-3 text-sm font-semibold whitespace-nowrap transition-colors duration-150 ${
+                selected ? 'bg-raised text-fg shadow-[0_1px_2px_rgb(16_24_40/0.08)]' : 'text-muted hover:text-fg'
+              }`}
+              onClick={() => onChange(tab.id)}
+              onKeyDown={(event) => {
+                const index = tabs.findIndex((entry) => entry.id === tab.id);
+                if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+                  event.preventDefault();
+                  const next = tabs[(index + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+                  if (next) {
+                    onChange(next.id);
+                    refs.current[next.id]?.focus();
+                  }
+                }
+              }}
+            >
+              {tab.label}
+              {typeof tab.count === 'number' && tab.count > 0 ? <span className="tnum ml-1.5 text-2xs font-medium text-muted">{tab.count}</span> : null}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div role="tablist" aria-label={label} className="flex gap-1 overflow-x-auto border-b border-hairline">
       {tabs.map((tab) => {
@@ -515,19 +659,35 @@ export function Tabs<T extends string>({
 // ── header halaman ──────────────────────────────────────────────────────────
 export function PageHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-4 pt-4">
-      <div>
-        <h1 className="text-xl font-semibold text-fg">{title}</h1>
+    <div className="flex items-start justify-between gap-3 pt-5 pb-1 sm:gap-4">
+      <div className="min-w-0">
+        <h1 className="text-xl font-semibold tracking-tight text-fg sm:text-2xl">{title}</h1>
         {subtitle ? <p className="mt-1 text-sm text-muted">{subtitle}</p> : null}
       </div>
-      {action}
+      {action ? <div className="flex shrink-0 items-center gap-1">{action}</div> : null}
     </div>
+  );
+}
+
+/** Avatar: lingkaran inisial, pengganti foto yang belum ada (DESIGN.md §12). */
+export function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' | 'lg' }) {
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('');
+  const sizes = { sm: 'size-8 text-2xs', md: 'size-10 text-xs', lg: 'size-12 text-sm' };
+  return (
+    <span className={`inline-flex shrink-0 items-center justify-center rounded-chip bg-accent-soft font-semibold text-accent ${sizes[size]}`} aria-hidden="true">
+      {initials || '?'}
+    </span>
   );
 }
 
 export function OfflineBadge({ savedAt }: { savedAt: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-chip bg-warn/14 px-1.5 py-0.5 text-2xs font-semibold text-warn">
+    <span className="inline-flex items-center gap-1.5 rounded-chip bg-warn/14 px-2 py-0.5 text-2xs font-semibold text-warn">
       Draf di perangkat ini
       <span className="tnum font-normal">
         {new Date(savedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}

@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { api } from '../../../lib/api.ts';
 import { useSession } from '../../../lib/session.tsx';
-import { Button, ConfirmDialog, SectionHead, useToast } from '../../../components/ui.tsx';
+import { Button, Card, ConfirmDialog, SectionHead, useToast } from '../../../components/ui.tsx';
 import { deviceLabel, errorMessage } from '../../../components/forms/support.tsx';
 
 export function SecuritySection() {
@@ -35,8 +35,8 @@ export function SecuritySection() {
     <section>
       <SectionHead title="Keamanan" />
 
-      <div className="mt-2 rounded-panel border border-hairline bg-raised px-4 py-3">
-        <p className="text-xs text-muted">Sesi ini</p>
+      <Card className="px-4 py-4">
+        <p className="text-xs font-semibold tracking-wide text-muted uppercase">Sesi ini</p>
         <div className="mt-2 flex flex-col">
           <div className="row-divide flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2.5">
             <span className="text-sm text-muted">Akun</span>
@@ -65,7 +65,7 @@ export function SecuritySection() {
             Akhiri sesi perangkat lain
           </Button>
         </div>
-      </div>
+      </Card>
 
       <ConfirmDialog
         open={confirming}

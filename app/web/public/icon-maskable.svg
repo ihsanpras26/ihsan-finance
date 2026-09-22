@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Ihsan Finance">
+  <!-- Versi maskable: seluruh kanvas biru tanpa sudut membulat, monogram dikecilkan ke 60 persen
+       area aman supaya tidak terpotong oleh topeng peluncur (mask) sistem. -->
+  <rect width="512" height="512" fill="#0256ff" />
+  <g transform="translate(256 256) scale(0.6) translate(-256 -256)">
+    <g fill="none" stroke="#ffffff" stroke-width="34" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M132 150c34-13 66-13 100 0v212c-34-13-66-13-100 0V150Z" />
+      <path d="M380 150c-34-13-66-13-100 0v212c34-13 66-13 100 0V150Z" />
+      <path d="M256 176v168" stroke-width="26" />
+    </g>
+  </g>
+</svg>

@@ -44,8 +44,8 @@ export function RadioGroup<T extends string>({
           <label
             key={option.value}
             htmlFor={id}
-            className={`flex min-h-[44px] cursor-pointer items-start gap-3 rounded-control border px-3 py-2.5 transition-colors duration-150 ${
-              selected ? 'border-accent bg-accent/8' : 'border-hairline hover:border-fg/30'
+            className={`flex min-h-[44px] cursor-pointer items-start gap-3 rounded-control px-3 py-2.5 transition-colors duration-150 ${
+              selected ? 'bg-accent-soft' : 'hover:bg-fg/4'
             } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
           >
             <input
@@ -72,7 +72,7 @@ export function RadioGroup<T extends string>({
 /** Totals shown before a save, so the user reviews the arithmetic instead of trusting it. */
 export function ReviewList({ rows, note }: { rows: { label: string; value: ReactNode; strong?: boolean }[]; note?: string }) {
   return (
-    <div className="rounded-panel border border-hairline bg-raised px-4 py-1">
+    <div className="rounded-control bg-sunken px-4 py-1">
       {rows.map((row) => (
         <div key={row.label} className="row-divide flex items-baseline justify-between gap-3 py-2.5">
           <span className="text-sm text-muted">{row.label}</span>
@@ -101,12 +101,12 @@ export function SwitchRow({
         aria-label={label}
         disabled={disabled}
         onClick={() => onChange(!checked)}
-        className="flex min-h-[44px] w-14 shrink-0 items-center justify-center rounded-control disabled:opacity-55"
+        className="press flex min-h-[44px] w-14 shrink-0 items-center justify-center rounded-control disabled:opacity-55"
       >
-        <span className={`relative h-6 w-11 rounded-chip border transition-colors duration-150 ${checked ? 'border-accent bg-accent' : 'border-hairline bg-raised'}`}>
+        <span className={`relative h-6 w-11 rounded-chip transition-colors duration-150 ${checked ? 'bg-accent' : 'bg-hairline'}`}>
           <span
             aria-hidden="true"
-            className={`absolute top-0.5 size-4 rounded-chip transition-transform duration-150 ${checked ? 'left-[22px] bg-accent-fg' : 'left-0.5 bg-muted'}`}
+            className={`absolute top-0.5 size-5 rounded-chip bg-white shadow-[0_1px_2px_rgb(16_24_40/0.2)] transition-transform duration-150 ${checked ? 'left-[22px]' : 'left-0.5'}`}
           />
         </span>
       </button>

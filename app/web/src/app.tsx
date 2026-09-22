@@ -7,6 +7,7 @@ import { useSession } from './lib/session.tsx';
 import { AuthPage } from './routes/auth/Auth.tsx';
 import { BerandaPage } from './routes/beranda/Beranda.tsx';
 import { LaporanPage } from './routes/laporan/Laporan.tsx';
+import { NotifikasiPage } from './routes/notifikasi/Notifikasi.tsx';
 import { ProfilPage } from './routes/profil/Profil.tsx';
 import { RencanaPage } from './routes/rencana/Rencana.tsx';
 import { TransaksiPage } from './routes/transaksi/Transaksi.tsx';
@@ -41,6 +42,7 @@ export function App() {
         <Route path="/transaksi" element={<TransaksiPage />} />
         <Route path="/rencana" element={<RencanaPage />} />
         <Route path="/laporan" element={<LaporanPage />} />
+        <Route path="/notifikasi" element={<NotifikasiPage />} />
         <Route path="/profil" element={<ProfilPage />} />
         <Route path="/masuk" element={<Navigate to="/" replace />} />
         <Route path="*" element={<HalamanTidakAda />} />
