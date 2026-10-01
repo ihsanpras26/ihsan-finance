@@ -56,17 +56,17 @@ export function assertPassword(password: string): string {
   return password;
 }
 
-function recordAttempt(db: Db, emailNorm: string, ip: string | null, ok: boolean): void {
-  run(
+async function recordAttempt(db: Db, emailNorm: string, ip: string | null, ok: boolean): Promise<void> {
+  await run(
     db,
     `INSERT INTO login_attempts (id, email_norm, ip, ok, created_at) VALUES (?, ?, ?, ?, ?)`,
     uuidv7(), emailNorm, ip, ok ? 1 : 0, nowIso(),
   );
 }
 
-function assertNotThrottled(db: Db, emailNorm: string): void {
+async function assertNotThrottled(db: Db, emailNorm: string): Promise<void> {
   const since = new Date(Date.now() - ATTEMPT_WINDOW_MINUTES * 60_000).toISOString();
-  const failures = scalar(
+  const failures = await scalar(
     db,
     `SELECT COUNT(*) FROM login_attempts WHERE email_norm = ? AND ok = 0 AND created_at >= ?`,
     emailNorm, since,
@@ -87,12 +87,12 @@ export interface SessionRow {
   revoked_at: string | null;
 }
 
-export function createSession(db: Db, userId: string, deviceLabel: string | null): { token: string; sessionId: string; expiresAt: string } {
+export async function createSession(db: Db, userId: string, deviceLabel: string | null): Promise<{ token: string; sessionId: string; expiresAt: string }> {
   const token = randomToken(32);
   const id = uuidv7();
   const now = nowIso();
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 86_400_000).toISOString();
-  run(
+  await run(
     db,
     `INSERT INTO sessions (id, user_id, token_hash, device_label, created_at, last_seen_at, expires_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -111,22 +111,22 @@ export interface SessionUser {
   role: string;
 }
 
-export function resolveSession(db: Db, token: string): SessionUser | null {
+export async function resolveSession(db: Db, token: string): Promise<SessionUser | null> {
   if (!token) return null;
-  const session = one<SessionRow>(db, `SELECT * FROM sessions WHERE token_hash = ?`, sha256(token));
+  const session = await one<SessionRow>(db, `SELECT * FROM sessions WHERE token_hash = ?`, sha256(token));
   if (!session) return null;
   if (session.revoked_at) return null;
   if (session.expires_at <= nowIso()) return null;
-  const user = one<UserRow>(db, `SELECT * FROM users WHERE id = ?`, session.user_id);
+  const user = await one<UserRow>(db, `SELECT * FROM users WHERE id = ?`, session.user_id);
   if (!user || user.status !== 'active') return null;
-  const membership = one<{ workspace_id: string; role: string }>(
+  const membership = await one<{ workspace_id: string; role: string }>(
     db,
     `SELECT workspace_id, role FROM memberships WHERE user_id = ? AND status = 'active' ORDER BY created_at LIMIT 1`,
     user.id,
   );
   if (!membership) return null;
-  const workspace = one<{ timezone: string }>(db, `SELECT timezone FROM workspaces WHERE id = ?`, membership.workspace_id);
-  run(db, `UPDATE sessions SET last_seen_at = ? WHERE id = ?`, nowIso(), session.id);
+  const workspace = await one<{ timezone: string }>(db, `SELECT timezone FROM workspaces WHERE id = ?`, membership.workspace_id);
+  await run(db, `UPDATE sessions SET last_seen_at = ? WHERE id = ?`, nowIso(), session.id);
   return {
     sessionId: session.id,
     userId: user.id,
@@ -138,12 +138,12 @@ export function resolveSession(db: Db, token: string): SessionUser | null {
   };
 }
 
-export function revokeSession(db: Db, sessionId: string): void {
-  run(db, `UPDATE sessions SET revoked_at = ? WHERE id = ?`, nowIso(), sessionId);
+export async function revokeSession(db: Db, sessionId: string): Promise<void> {
+  await run(db, `UPDATE sessions SET revoked_at = ? WHERE id = ?`, nowIso(), sessionId);
 }
 
-export function revokeOtherSessions(db: Db, userId: string, keepSessionId: string): number {
-  const result = run(
+export async function revokeOtherSessions(db: Db, userId: string, keepSessionId: string): Promise<number> {
+  const result = await run(
     db,
     `UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND id <> ? AND revoked_at IS NULL`,
     nowIso(), userId, keepSessionId,
@@ -151,8 +151,8 @@ export function revokeOtherSessions(db: Db, userId: string, keepSessionId: strin
   return Number(result.changes);
 }
 
-export function listSessions(db: Db, userId: string): SessionRow[] {
-  return all<SessionRow>(db, `SELECT * FROM sessions WHERE user_id = ? ORDER BY created_at DESC`, userId);
+export async function listSessions(db: Db, userId: string): Promise<SessionRow[]> {
+  return await all<SessionRow>(db, `SELECT * FROM sessions WHERE user_id = ? ORDER BY created_at DESC`, userId);
 }
 
 export interface RegisterInput {
@@ -171,15 +171,15 @@ export interface RegisterResult {
   expiresAt: string;
 }
 
-export function registerUser(db: Db, input: RegisterInput): RegisterResult {
+export async function registerUser(db: Db, input: RegisterInput): Promise<RegisterResult> {
   const email = assertEmail(input.email);
   const password = assertPassword(input.password);
   const emailNorm = normaliseEmail(email);
   const displayName = (input.displayName ?? '').trim() || email.split('@')[0]!;
   const timezone = input.timezone?.trim() || 'Asia/Jakarta';
 
-  return tx(db, () => {
-    const existing = one<{ id: string }>(db, `SELECT id FROM users WHERE email_norm = ?`, emailNorm);
+  return tx(db, async () => {
+    const existing = await one<{ id: string }>(db, `SELECT id FROM users WHERE email_norm = ?`, emailNorm);
     if (existing) {
       throw new AppError('validation_failed', 'Email ini sudah terdaftar. Masuk dengan email tersebut atau pakai email lain.', { fields: { email: 'taken' } });
     }
@@ -187,66 +187,66 @@ export function registerUser(db: Db, input: RegisterInput): RegisterResult {
     const userId = uuidv7();
     const { hash, salt } = hashPassword(password);
     const recoveryCode = randomToken(12);
-    run(
+    await run(
       db,
       `INSERT INTO users (id, email, email_norm, password_hash, password_salt, display_name, recovery_hash, status, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`,
       userId, email, emailNorm, hash, salt, displayName, sha256(recoveryCode), now, now,
     );
     const workspaceId = uuidv7();
-    run(
+    await run(
       db,
       `INSERT INTO workspaces (id, name, base_currency, timezone, owner_id, created_at, updated_at)
        VALUES (?, ?, 'IDR', ?, ?, ?, ?)`,
       workspaceId, input.workspaceName?.trim() || `Keuangan ${displayName}`, timezone, userId, now, now,
     );
-    run(
+    await run(
       db,
       `INSERT INTO memberships (id, workspace_id, user_id, role, status, created_at) VALUES (?, ?, ?, 'owner', 'active', ?)`,
       uuidv7(), workspaceId, userId, now,
     );
-    run(
+    await run(
       db,
       `INSERT INTO user_preferences (user_id, workspace_id, hide_amounts, reminders_on, theme, updated_at)
        VALUES (?, ?, 0, 1, 'system', ?)`,
       userId, workspaceId, now,
     );
-    ensureSystemAccounts(db, workspaceId);
-    const session = createSession(db, userId, null);
-    const user = one<UserRow>(db, `SELECT * FROM users WHERE id = ?`, userId)!;
+    await ensureSystemAccounts(db, workspaceId);
+    const session = await createSession(db, userId, null);
+    const user = (await one<UserRow>(db, `SELECT * FROM users WHERE id = ?`, userId))!;
     return { user, workspaceId, recoveryCode, token: session.token, expiresAt: session.expiresAt };
   });
 }
 
-export function loginUser(db: Db, input: { email: string; password: string; ip?: string | null; deviceLabel?: string | null }): { token: string; expiresAt: string; user: UserRow; workspaceId: string } {
+export async function loginUser(db: Db, input: { email: string; password: string; ip?: string | null; deviceLabel?: string | null }): Promise<{ token: string; expiresAt: string; user: UserRow; workspaceId: string }> {
   const emailNorm = normaliseEmail(input.email);
-  assertNotThrottled(db, emailNorm);
-  const user = one<UserRow>(db, `SELECT * FROM users WHERE email_norm = ?`, emailNorm);
+  await assertNotThrottled(db, emailNorm);
+  const user = await one<UserRow>(db, `SELECT * FROM users WHERE email_norm = ?`, emailNorm);
   if (!user || user.status !== 'active' || !verifyPassword(input.password, user.password_hash, user.password_salt)) {
-    recordAttempt(db, emailNorm, input.ip ?? null, false);
+    await recordAttempt(db, emailNorm, input.ip ?? null, false);
     throw new AppError('unauthorized', 'Email atau kata sandi belum cocok. Periksa lalu coba lagi.');
   }
-  recordAttempt(db, emailNorm, input.ip ?? null, true);
-  const membership = one<{ workspace_id: string }>(
+  await recordAttempt(db, emailNorm, input.ip ?? null, true);
+  const membership = await one<{ workspace_id: string }>(
     db,
     `SELECT workspace_id FROM memberships WHERE user_id = ? AND status = 'active' ORDER BY created_at LIMIT 1`,
     user.id,
   );
   if (!membership) throw new AppError('forbidden', 'Akun ini belum memiliki ruang keuangan.');
-  const session = createSession(db, user.id, input.deviceLabel ?? null);
+  const session = await createSession(db, user.id, input.deviceLabel ?? null);
   return { token: session.token, expiresAt: session.expiresAt, user, workspaceId: membership.workspace_id };
 }
 
-export function recoverAccess(db: Db, input: { email: string; recoveryCode: string; newPassword: string }): { token: string; expiresAt: string } {
+export async function recoverAccess(db: Db, input: { email: string; recoveryCode: string; newPassword: string }): Promise<{ token: string; expiresAt: string }> {
   const emailNorm = normaliseEmail(input.email);
-  const user = one<UserRow>(db, `SELECT * FROM users WHERE email_norm = ?`, emailNorm);
+  const user = await one<UserRow>(db, `SELECT * FROM users WHERE email_norm = ?`, emailNorm);
   if (!user || !user.recovery_hash || user.recovery_hash !== sha256(input.recoveryCode.trim())) {
     throw new AppError('unauthorized', 'Email atau kode pemulihan tidak cocok. Periksa kode dari saat pendaftaran.');
   }
   const password = assertPassword(input.newPassword);
   const { hash, salt } = hashPassword(password);
-  run(db, `UPDATE users SET password_hash = ?, password_salt = ?, updated_at = ? WHERE id = ?`, hash, salt, nowIso(), user.id);
-  run(db, `UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL`, nowIso(), user.id);
-  const session = createSession(db, user.id, 'pemulihan');
+  await run(db, `UPDATE users SET password_hash = ?, password_salt = ?, updated_at = ? WHERE id = ?`, hash, salt, nowIso(), user.id);
+  await run(db, `UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL`, nowIso(), user.id);
+  const session = await createSession(db, user.id, 'pemulihan');
   return { token: session.token, expiresAt: session.expiresAt };
 }

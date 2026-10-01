@@ -22,10 +22,10 @@ export interface InsertTransactionInput {
   meta?: Record<string, unknown> | null;
 }
 
-export function insertTransaction(db: Db, input: InsertTransactionInput): string {
+export async function insertTransaction(db: Db, input: InsertTransactionInput): Promise<string> {
   const id = uuidv7();
   const now = nowIso();
-  run(
+  await run(
     db,
     `INSERT INTO transactions (id, workspace_id, type, status, amount_minor, currency, effective_date, note, source,
                                idempotency_key, version, created_by, created_at, updated_at,

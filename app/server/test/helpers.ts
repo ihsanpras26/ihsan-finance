@@ -1,4 +1,11 @@
-// test/helpers.ts: test harness: in-memory database, one workspace, system accounts.
+// test/helpers.ts: test harness: one file-backed database per call, one workspace, system accounts.
+// Databases are real files (not :memory:): libSQL hands every pooled connection its own private
+// in-memory database, while the production target behaves like a file. They live in the OS temp
+// directory and are not deleted, because the native driver only releases the handle when its
+// finaliser runs (see db-port.test.ts).
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { openDatabase, migrate, run, type Db } from '../src/db/index.ts';
 import { uuidv7, nowIso } from '../src/core/ids.ts';
 import { ensureSystemAccounts } from '../src/domain/ledger.ts';
@@ -11,9 +18,13 @@ export interface TestCtx {
   timezone: string;
 }
 
-export function makeDb(): Db {
-  const db = openDatabase(':memory:');
-  migrate(db);
+const dir = mkdtempSync(join(tmpdir(), 'ihsan-test-'));
+let counter = 0;
+
+export async function makeDb(): Promise<Db> {
+  counter += 1;
+  const db = await openDatabase(join(dir, `t${counter}.db`));
+  await migrate(db);
   return db;
 }
 
@@ -27,36 +38,36 @@ export function ctxOf(workspace: TestCtx) {
   };
 }
 
-export function makeWorkspace(db: Db, opts: { email?: string; timezone?: string; name?: string } = {}): TestCtx {
+export async function makeWorkspace(db: Db, opts: { email?: string; timezone?: string; name?: string } = {}): Promise<TestCtx> {
   const now = nowIso();
   const userId = uuidv7();
   const workspaceId = uuidv7();
   const email = opts.email ?? `uji${userId.slice(0, 8)}@contoh.id`;
   const { hash, salt } = hashPassword('rahasia-uji-123');
-  run(
+  await run(
     db,
     `INSERT INTO users (id, email, email_norm, password_hash, password_salt, display_name, status, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)`,
     userId, email, email.toLowerCase(), hash, salt, 'Pengguna Uji', now, now,
   );
   const timezone = opts.timezone ?? 'Asia/Jakarta';
-  run(
+  await run(
     db,
     `INSERT INTO workspaces (id, name, base_currency, timezone, owner_id, created_at, updated_at)
      VALUES (?, ?, 'IDR', ?, ?, ?, ?)`,
     workspaceId, opts.name ?? 'Ruang Uji', timezone, userId, now, now,
   );
-  run(
+  await run(
     db,
     `INSERT INTO memberships (id, workspace_id, user_id, role, status, created_at) VALUES (?, ?, ?, 'owner', 'active', ?)`,
     uuidv7(), workspaceId, userId, now,
   );
-  run(
+  await run(
     db,
     `INSERT INTO user_preferences (user_id, workspace_id, hide_amounts, reminders_on, theme, updated_at)
      VALUES (?, ?, 0, 1, 'system', ?)`,
     userId, workspaceId, now,
   );
-  ensureSystemAccounts(db, workspaceId);
+  await ensureSystemAccounts(db, workspaceId);
   return { db, userId, workspaceId, timezone };
 }

@@ -1,6 +1,19 @@
 // scripts/smoke.mjs: one process boots the API, walks the real HTTP surface, and reports PASS/FAIL.
 // This is the automated half of the R-35 click-through: every route the UI calls is exercised here.
+import { rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+
+// The native driver releases the file handle slightly after close(); on Windows the removal can
+// still hit EPERM. Best effort: the temporary directory reclaims whatever is left.
+function cleanup(path) {
+  try {
+    rmSync(path, { force: true, maxRetries: 5, retryDelay: 100 });
+  } catch {
+    console.log(`Catatan: ${path} belum bisa dihapus`);
+  }
+}
 
 const PORT = Number(process.env.SMOKE_PORT ?? 8791);
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -44,14 +57,15 @@ function money(value) {
 async function main() {
   const { openDatabase, migrate } = await import('../server/src/db/index.ts');
   const { buildServer } = await import('../server/src/http/server.ts');
-  const { config } = await import('../server/src/config.ts');
 
-  const db = openDatabase(':memory:');
-  migrate(db);
+  // A real file, not :memory: — libSQL gives every pooled connection its own in-memory database.
+  const dbPath = join(tmpdir(), `ihsan-smoke-${process.pid}.db`);
+  const db = await openDatabase(dbPath);
+  await migrate(db);
   const app = await buildServer({ db });
   await app.listen({ port: PORT, host: '127.0.0.1' });
   console.log(`Server uji berjalan di ${BASE}`);
-  console.log(`Basis data: ${config.dbPath} (aplikasi) · memori (uji ini)`);
+  console.log(`Basis data: ${dbPath} (uji ini)`);
   console.log('');
 
   try {
@@ -298,7 +312,10 @@ async function main() {
     record('dampak pembatalan dapat dipratinjau', impact.status === 200 && typeof impact.json?.data?.summary === 'string');
   } finally {
     await app.close();
-    db.close();
+    await db.close();
+    cleanup(dbPath);
+    cleanup(`${dbPath}-wal`);
+    cleanup(`${dbPath}-shm`);
   }
 
   const failed = results.filter((entry) => !entry.ok);

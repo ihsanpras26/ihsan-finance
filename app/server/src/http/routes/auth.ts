@@ -25,8 +25,8 @@ function clearCookieHeader(): string {
 }
 
 /** FR01: registration is closed once the owner account exists, unless the env reopens it. */
-function userCount(db: Db): number {
-  return scalar(db, `SELECT COUNT(*) FROM users`);
+async function userCount(db: Db): Promise<number> {
+  return await scalar(db, `SELECT COUNT(*) FROM users`);
 }
 
 function clientIp(request: { ip?: string; headers: Record<string, unknown> }): string | null {
@@ -38,8 +38,8 @@ function deviceLabel(request: { headers: Record<string, unknown> }): string {
   return agent || 'Perangkat tanpa nama';
 }
 
-function sessionPayload(db: Db, userId: string, workspaceId: string, email: string, displayName: string, role: string) {
-  const workspace = getWorkspace(db, workspaceId);
+async function sessionPayload(db: Db, userId: string, workspaceId: string, email: string, displayName: string, role: string) {
+  const workspace = await getWorkspace(db, workspaceId);
   return serializeSessionUser({
     userId,
     email,
@@ -55,22 +55,22 @@ export async function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps):
   const { db } = deps;
 
   app.post('/auth/register', async (request, reply) => {
-    if (!config.allowRegistration && userCount(db) > 0) {
+    if (!config.allowRegistration && (await userCount(db)) > 0) {
       throw new AppError('forbidden', 'Pendaftaran akun baru ditutup di server ini. Minta pemilik ruang menambahkan Anda.');
     }
     const body = (request.body ?? {}) as Record<string, unknown>;
-    const result = registerUser(db, {
+    const result = await registerUser(db, {
       email: String(body.email ?? ''),
       password: String(body.password ?? ''),
       displayName: String(body.displayName ?? ''),
       timezone: typeof body.timezone === 'string' ? body.timezone : undefined,
       workspaceName: typeof body.workspaceName === 'string' ? body.workspaceName : undefined,
     });
-    seedDefaultCategories(contextFor(db, { userId: result.user.id, workspaceId: result.workspaceId, timezone: 'Asia/Jakarta' }));
+    await seedDefaultCategories(contextFor(db, { userId: result.user.id, workspaceId: result.workspaceId, timezone: 'Asia/Jakarta' }));
     reply.header('Set-Cookie', cookieHeader(result.token, config.sessionDays * 86_400));
     return {
       data: {
-        user: sessionPayload(db, result.user.id, result.workspaceId, result.user.email, result.user.display_name, 'owner'),
+        user: await sessionPayload(db, result.user.id, result.workspaceId, result.user.email, result.user.display_name, 'owner'),
         recoveryCode: result.recoveryCode,
       },
     };
@@ -78,7 +78,7 @@ export async function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps):
 
   app.post('/auth/login', async (request, reply) => {
     const body = (request.body ?? {}) as Record<string, unknown>;
-    const result = loginUser(db, {
+    const result = await loginUser(db, {
       email: String(body.email ?? ''),
       password: String(body.password ?? ''),
       ip: clientIp(request as never),
@@ -87,7 +87,7 @@ export async function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps):
     reply.header('Set-Cookie', cookieHeader(result.token, config.sessionDays * 86_400));
     return {
       data: {
-        user: sessionPayload(db, result.user.id, result.workspaceId, result.user.email, result.user.display_name, 'owner'),
+        user: await sessionPayload(db, result.user.id, result.workspaceId, result.user.email, result.user.display_name, 'owner'),
       },
     };
   });
@@ -95,8 +95,8 @@ export async function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps):
   app.post('/auth/logout', async (request, reply) => {
     const { token } = sessionTokenOf(request);
     if (token) {
-      const session = resolveSession(db, token);
-      if (session) revokeSession(db, session.sessionId);
+      const session = await resolveSession(db, token);
+      if (session) await revokeSession(db, session.sessionId);
     }
     reply.header('Set-Cookie', clearCookieHeader());
     return { data: { ok: true } };
@@ -104,17 +104,17 @@ export async function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps):
 
   app.post('/auth/recover', async (request, reply) => {
     const body = (request.body ?? {}) as Record<string, unknown>;
-    const result = recoverAccess(db, {
+    const result = await recoverAccess(db, {
       email: String(body.email ?? ''),
       recoveryCode: String(body.recoveryCode ?? ''),
       newPassword: String(body.newPassword ?? ''),
     });
     reply.header('Set-Cookie', cookieHeader(result.token, config.sessionDays * 86_400));
-    const session = resolveSession(db, result.token);
+    const session = await resolveSession(db, result.token);
     if (!session) throw new AppError('internal', 'Sesi pemulihan gagal dibuat.');
     return {
       data: {
-        user: sessionPayload(db, session.userId, session.workspaceId, session.email, session.displayName, session.role),
+        user: await sessionPayload(db, session.userId, session.workspaceId, session.email, session.displayName, session.role),
       },
     };
   });
@@ -123,13 +123,13 @@ export async function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps):
     const session = request.session;
     if (!session) throw new AppError('unauthorized', 'Sesi tidak ditemukan. Masuk dulu untuk melanjutkan.');
     return {
-      data: sessionPayload(db, session.userId, session.workspaceId, session.email, session.displayName, session.role),
+      data: await sessionPayload(db, session.userId, session.workspaceId, session.email, session.displayName, session.role),
     };
   });
 
   app.get('/auth/sessions', async (request) => {
     const session = request.session!;
-    const rows = listSessions(db, session.userId);
+    const rows = await listSessions(db, session.userId);
     return {
       data: rows
         .filter((row) => !row.revoked_at && row.expires_at > new Date().toISOString())
@@ -145,14 +145,14 @@ export async function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps):
 
   app.post('/auth/sessions/revoke-others', async (request) => {
     const session = request.session!;
-    const revoked = revokeOtherSessions(db, session.userId, session.sessionId);
+    const revoked = await revokeOtherSessions(db, session.userId, session.sessionId);
     return { data: { revoked } };
   });
 
   // Convenience for the profile screen: workspace + preferences in one call.
   app.get('/workspace', async (request) => {
     const session = request.session!;
-    return { data: serializeWorkspace(getWorkspace(db, session.workspaceId)) };
+    return { data: serializeWorkspace(await getWorkspace(db, session.workspaceId)) };
   });
 
   app.patch('/workspace', async (request) => {
@@ -161,7 +161,7 @@ export async function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps):
     const { updateWorkspace } = await import('../../domain/workspaces.ts');
     return {
       data: serializeWorkspace(
-        updateWorkspace(db, session.workspaceId, session.userId, {
+        await updateWorkspace(db, session.workspaceId, session.userId, {
           name: typeof body.name === 'string' ? body.name : undefined,
           timezone: typeof body.timezone === 'string' ? body.timezone : undefined,
         }),
@@ -171,7 +171,7 @@ export async function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps):
 
   app.get('/preferences', async (request) => {
     const session = request.session!;
-    return { data: serializePreferences(getPreferences(db, session.userId)) };
+    return { data: serializePreferences(await getPreferences(db, session.userId)) };
   });
 
   app.patch('/preferences', async (request) => {
@@ -180,7 +180,7 @@ export async function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps):
     const { updatePreferences } = await import('../../domain/workspaces.ts');
     return {
       data: serializePreferences(
-        updatePreferences(db, session.userId, {
+        await updatePreferences(db, session.userId, {
           hideAmounts: typeof body.hideAmounts === 'boolean' ? body.hideAmounts : undefined,
           remindersOn: typeof body.remindersOn === 'boolean' ? body.remindersOn : undefined,
           theme: typeof body.theme === 'string' ? (body.theme as 'system' | 'light' | 'dark') : undefined,

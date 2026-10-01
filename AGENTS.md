@@ -37,7 +37,8 @@ dalam repositori ini; satu lokasi saja supaya isinya tidak ada dua kali.
 
 ## Stack
 
-- Node 24 (TypeScript langsung, tanpa build step server) + `node:sqlite` (DatabaseSync).
+- Node 24 (TypeScript langsung, tanpa build step server) + libSQL (`@libsql/client`): berkas
+  lokal atau Turso, lihat `docs/DECISIONS.md` D-21. `node:sqlite` hanya dipakai `app/scripts/backup.mjs`.
 - API: Fastify 5 + Zod. Web: React 19 + Vite 7 + Tailwind v4. PWA (manifest + service worker).
 - Tes: `node:test` (server, tanpa jaringan). Verifikasi: `pnpm verify` di `app/`.
 

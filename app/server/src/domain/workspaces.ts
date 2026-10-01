@@ -31,8 +31,8 @@ export function contextFor(db: Db, session: { userId: string; workspaceId: strin
   return { db, workspaceId: session.workspaceId, userId: session.userId, timezone: session.timezone };
 }
 
-export function getWorkspace(db: Db, workspaceId: string): WorkspaceRow {
-  const row = one<WorkspaceRow>(db, `SELECT * FROM workspaces WHERE id = ?`, workspaceId);
+export async function getWorkspace(db: Db, workspaceId: string): Promise<WorkspaceRow> {
+  const row = await one<WorkspaceRow>(db, `SELECT * FROM workspaces WHERE id = ?`, workspaceId);
   if (!row) throw new AppError('not_found', 'Ruang keuangan tidak ditemukan.');
   return row;
 }
@@ -56,31 +56,31 @@ export function listTimezones(): string[] {
   return KNOWN_TIMEZONES;
 }
 
-export function updateWorkspace(db: Db, workspaceId: string, actorUserId: string | null, input: { name?: string; timezone?: string }): WorkspaceRow {
-  return tx(db, () => {
-    const row = getWorkspace(db, workspaceId);
+export async function updateWorkspace(db: Db, workspaceId: string, actorUserId: string | null, input: { name?: string; timezone?: string }): Promise<WorkspaceRow> {
+  return await tx(db, async () => {
+    const row = await getWorkspace(db, workspaceId);
     const name = input.name === undefined ? row.name : String(input.name).trim();
     if (!name) throw new AppError('validation_failed', 'Nama ruang keuangan wajib diisi.', { fields: { name: 'required' } });
     if (name.length > 80) throw new AppError('validation_failed', 'Nama ruang keuangan maksimal 80 karakter.', { fields: { name: 'too_long' } });
     const timezone = input.timezone === undefined ? row.timezone : assertTimezone(input.timezone);
-    run(db, `UPDATE workspaces SET name = ?, timezone = ?, updated_at = ? WHERE id = ?`, name, timezone, nowIso(), workspaceId);
-    recordAudit(db, { workspaceId, actorUserId, action: 'update', entityType: 'workspace', entityId: workspaceId, before: { name: row.name, timezone: row.timezone }, after: { name, timezone } });
-    return getWorkspace(db, workspaceId);
+    await run(db, `UPDATE workspaces SET name = ?, timezone = ?, updated_at = ? WHERE id = ?`, name, timezone, nowIso(), workspaceId);
+    await recordAudit(db, { workspaceId, actorUserId, action: 'update', entityType: 'workspace', entityId: workspaceId, before: { name: row.name, timezone: row.timezone }, after: { name, timezone } });
+    return await getWorkspace(db, workspaceId);
   });
 }
 
-export function getPreferences(db: Db, userId: string): PreferencesRow {
-  const row = one<PreferencesRow>(db, `SELECT * FROM user_preferences WHERE user_id = ?`, userId);
+export async function getPreferences(db: Db, userId: string): Promise<PreferencesRow> {
+  const row = await one<PreferencesRow>(db, `SELECT * FROM user_preferences WHERE user_id = ?`, userId);
   if (row) return row;
   throw new AppError('not_found', 'Preferensi pengguna belum dibuat.');
 }
 
-export function updatePreferences(db: Db, userId: string, input: Partial<{
+export async function updatePreferences(db: Db, userId: string, input: Partial<{
   hideAmounts: boolean; remindersOn: boolean; theme: 'system' | 'light' | 'dark';
   defaultWalletId: string | null; lastWalletId: string | null; lastCategoryId: string | null;
-}>): PreferencesRow {
-  return tx(db, () => {
-    const row = getPreferences(db, userId);
+}>): Promise<PreferencesRow> {
+  return await tx(db, async () => {
+    const row = await getPreferences(db, userId);
     const hide = input.hideAmounts === undefined ? row.hide_amounts : input.hideAmounts ? 1 : 0;
     const reminders = input.remindersOn === undefined ? row.reminders_on : input.remindersOn ? 1 : 0;
     let theme = input.theme === undefined ? row.theme : String(input.theme);
@@ -93,30 +93,30 @@ export function updatePreferences(db: Db, userId: string, input: Partial<{
 
     for (const [walletId, field] of [[defaultWallet, 'defaultWalletId'], [lastWallet, 'lastWalletId']] as const) {
       if (walletId) {
-        const exists = one<{ id: string }>(db, `SELECT id FROM wallets WHERE workspace_id = ? AND id = ?`, row.workspace_id, walletId);
+        const exists = await one<{ id: string }>(db, `SELECT id FROM wallets WHERE workspace_id = ? AND id = ?`, row.workspace_id, walletId);
         if (!exists) throw new AppError('validation_failed', 'Dompet yang dipilih tidak ada di ruang keuangan ini.', { fields: { [field]: 'unknown' } });
       }
     }
     if (lastCategory) {
-      const exists = one<{ id: string }>(db, `SELECT id FROM categories WHERE workspace_id = ? AND id = ?`, row.workspace_id, lastCategory);
+      const exists = await one<{ id: string }>(db, `SELECT id FROM categories WHERE workspace_id = ? AND id = ?`, row.workspace_id, lastCategory);
       if (!exists) throw new AppError('validation_failed', 'Kategori yang dipilih tidak ada di ruang keuangan ini.', { fields: { lastCategoryId: 'unknown' } });
     }
 
-    run(
+    await run(
       db,
       `UPDATE user_preferences SET hide_amounts = ?, reminders_on = ?, theme = ?, default_wallet_id = ?, last_wallet_id = ?, last_category_id = ?, updated_at = ?
        WHERE user_id = ?`,
       hide, reminders, theme, defaultWallet, lastWallet, lastCategory, nowIso(), userId,
     );
-    return getPreferences(db, userId);
+    return await getPreferences(db, userId);
   });
 }
 
 /** Onboarding completion: a workspace counts as ready once it has at least one wallet. */
-export function onboardingState(db: Db, workspaceId: string): { hasWallet: boolean; hasTransaction: boolean; hasCategory: boolean } {
-  const wallets = one<{ n: number }>(db, `SELECT COUNT(*) AS n FROM wallets WHERE workspace_id = ?`, workspaceId);
-  const categories = one<{ n: number }>(db, `SELECT COUNT(*) AS n FROM categories WHERE workspace_id = ?`, workspaceId);
-  const transactions = one<{ n: number }>(db, `SELECT COUNT(*) AS n FROM transactions WHERE workspace_id = ? AND status IN ('posted','reversed')`, workspaceId);
+export async function onboardingState(db: Db, workspaceId: string): Promise<{ hasWallet: boolean; hasTransaction: boolean; hasCategory: boolean }> {
+  const wallets = await one<{ n: number }>(db, `SELECT COUNT(*) AS n FROM wallets WHERE workspace_id = ?`, workspaceId);
+  const categories = await one<{ n: number }>(db, `SELECT COUNT(*) AS n FROM categories WHERE workspace_id = ?`, workspaceId);
+  const transactions = await one<{ n: number }>(db, `SELECT COUNT(*) AS n FROM transactions WHERE workspace_id = ? AND status IN ('posted','reversed')`, workspaceId);
   return {
     hasWallet: (wallets?.n ?? 0) > 0,
     hasCategory: (categories?.n ?? 0) > 0,

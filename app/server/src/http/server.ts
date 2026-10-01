@@ -12,6 +12,7 @@ import { registerCoreRoutes } from './routes/core.ts';
 import { registerTransactionRoutes } from './routes/transactions.ts';
 import { registerReportRoutes } from './routes/reports.ts';
 import { registerPlanningRoutes } from './routes/planning.ts';
+import { registerInternalRoutes } from './routes/internal.ts';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -112,12 +113,14 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
     if (!request.url.startsWith('/api/')) return;
     const { token, fromCookie } = sessionTokenOf(request);
     if (token) {
-      const session = resolveSession(deps.db, token);
+      const session = await resolveSession(deps.db, token);
       if (session) request.session = session;
     }
     if (MUTATING.has(request.method) && fromCookie && request.session && !sameOrigin(request)) {
       throw new AppError('forbidden', 'Permintaan ini datang dari situs lain dan ditolak.');
     }
+    // The scheduler entry point authenticates with its own token, not a user session.
+    if (request.url.startsWith('/api/v1/internal/')) return;
     if (request.url.startsWith('/api/v1/auth/') || request.url.startsWith('/api/v1/health')) return;
     if (!request.session) {
       throw new AppError('unauthorized', 'Sesi tidak ditemukan. Masuk dulu untuk melanjutkan.');
@@ -159,6 +162,7 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
     await registerTransactionRoutes(instance, api);
     await registerReportRoutes(instance, api);
     await registerPlanningRoutes(instance, api); // dipasang setelah modul perencanaan tersedia
+    await registerInternalRoutes(instance, api);
   }, { prefix: '/api/v1' });
 
   // ── built PWA (same origin, no separate host needed) ──────────────────────
@@ -200,9 +204,9 @@ async function serveStatic(request: FastifyRequest, reply: FastifyReply) {
   }
 }
 
-export function workspaceNameOf(db: Db, workspaceId: string): string {
+export async function workspaceNameOf(db: Db, workspaceId: string): Promise<string> {
   try {
-    return getWorkspace(db, workspaceId).name;
+    return (await getWorkspace(db, workspaceId)).name;
   } catch {
     return 'Ruang keuangan';
   }

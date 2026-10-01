@@ -25,7 +25,7 @@ export async function registerCoreRoutes(app: FastifyInstance, deps: RouteDeps):
     const session = request.session!;
     const query = request.query as Record<string, string | undefined>;
     const ctx = contextFor(db, session);
-    const rows = listWallets(ctx, { includeArchived: query.includeArchived === 'true', asOf: query.asOf });
+    const rows = await listWallets(ctx, { includeArchived: query.includeArchived === 'true', asOf: query.asOf });
     return { data: rows.map(serializeWallet) };
   });
 
@@ -33,7 +33,7 @@ export async function registerCoreRoutes(app: FastifyInstance, deps: RouteDeps):
     const session = request.session!;
     const body = (request.body ?? {}) as Record<string, unknown>;
     const ctx = contextFor(db, session);
-    const wallet = createWallet(ctx, {
+    const wallet = await createWallet(ctx, {
       name: String(body.name ?? ''),
       type: String(body.type ?? 'cash'),
       openingBalance: body.openingBalance,
@@ -46,14 +46,14 @@ export async function registerCoreRoutes(app: FastifyInstance, deps: RouteDeps):
   app.get('/wallets/:id', async (request) => {
     const session = request.session!;
     const { id } = request.params as { id: string };
-    return { data: serializeWallet(getWallet(contextFor(db, session), id)) };
+    return { data: serializeWallet(await getWallet(contextFor(db, session), id)) };
   });
 
   app.get('/wallets/:id/balance', async (request) => {
     const session = request.session!;
     const { id } = request.params as { id: string };
     const query = request.query as { asOf?: string };
-    const wallet = getWallet(contextFor(db, session), id);
+    const wallet = await getWallet(contextFor(db, session), id);
     return {
       data: {
         walletId: wallet.id,
@@ -68,7 +68,7 @@ export async function registerCoreRoutes(app: FastifyInstance, deps: RouteDeps):
     const session = request.session!;
     const { id } = request.params as { id: string };
     const body = (request.body ?? {}) as Record<string, unknown>;
-    const wallet = updateWallet(contextFor(db, session), id, {
+    const wallet = await updateWallet(contextFor(db, session), id, {
       name: typeof body.name === 'string' ? body.name : undefined,
       type: typeof body.type === 'string' ? body.type : undefined,
       note: body.note === undefined ? undefined : (body.note === null ? null : String(body.note)),
@@ -80,19 +80,19 @@ export async function registerCoreRoutes(app: FastifyInstance, deps: RouteDeps):
   app.post('/wallets/:id/archive', async (request) => {
     const session = request.session!;
     const { id } = request.params as { id: string };
-    return { data: serializeWallet(archiveWallet(contextFor(db, session), id)) };
+    return { data: serializeWallet(await archiveWallet(contextFor(db, session), id)) };
   });
 
   app.post('/wallets/:id/unarchive', async (request) => {
     const session = request.session!;
     const { id } = request.params as { id: string };
-    return { data: serializeWallet(unarchiveWallet(contextFor(db, session), id)) };
+    return { data: serializeWallet(await unarchiveWallet(contextFor(db, session), id)) };
   });
 
   app.delete('/wallets/:id', async (request) => {
     const session = request.session!;
     const { id } = request.params as { id: string };
-    deleteWallet(contextFor(db, session), id);
+    await deleteWallet(contextFor(db, session), id);
     return { data: { ok: true } };
   });
 
@@ -100,7 +100,7 @@ export async function registerCoreRoutes(app: FastifyInstance, deps: RouteDeps):
     const session = request.session!;
     const { id } = request.params as { id: string };
     const body = (request.body ?? {}) as Record<string, unknown>;
-    const result = reconcileWallet(contextFor(db, session), id, {
+    const result = await reconcileWallet(contextFor(db, session), id, {
       actualBalance: body.actualBalance,
       reason: String(body.reason ?? ''),
       effectiveDate: typeof body.effectiveDate === 'string' ? body.effectiveDate : undefined,
@@ -119,14 +119,14 @@ export async function registerCoreRoutes(app: FastifyInstance, deps: RouteDeps):
     const session = request.session!;
     const query = request.query as Record<string, string | undefined>;
     const kind = query.kind === 'income' || query.kind === 'expense' ? query.kind : undefined;
-    const rows = listCategories(contextFor(db, session), { kind, includeArchived: query.includeArchived === 'true' });
+    const rows = await listCategories(contextFor(db, session), { kind, includeArchived: query.includeArchived === 'true' });
     return { data: rows.map(serializeCategory) };
   });
 
   app.post('/categories', async (request) => {
     const session = request.session!;
     const body = (request.body ?? {}) as Record<string, unknown>;
-    const category = createCategory(contextFor(db, session), {
+    const category = await createCategory(contextFor(db, session), {
       name: String(body.name ?? ''),
       kind: String(body.kind ?? 'expense') as 'income' | 'expense',
     });
@@ -137,7 +137,7 @@ export async function registerCoreRoutes(app: FastifyInstance, deps: RouteDeps):
     const session = request.session!;
     const { id } = request.params as { id: string };
     const body = (request.body ?? {}) as Record<string, unknown>;
-    const category = updateCategory(contextFor(db, session), id, {
+    const category = await updateCategory(contextFor(db, session), id, {
       name: typeof body.name === 'string' ? body.name : undefined,
       expectedVersion: typeof body.expectedVersion === 'number' ? body.expectedVersion : undefined,
     });
@@ -147,25 +147,25 @@ export async function registerCoreRoutes(app: FastifyInstance, deps: RouteDeps):
   app.post('/categories/:id/archive', async (request) => {
     const session = request.session!;
     const { id } = request.params as { id: string };
-    return { data: serializeCategory(archiveCategory(contextFor(db, session), id)) };
+    return { data: serializeCategory(await archiveCategory(contextFor(db, session), id)) };
   });
 
   app.post('/categories/:id/unarchive', async (request) => {
     const session = request.session!;
     const { id } = request.params as { id: string };
-    return { data: serializeCategory(unarchiveCategory(contextFor(db, session), id)) };
+    return { data: serializeCategory(await unarchiveCategory(contextFor(db, session), id)) };
   });
 
   app.get('/onboarding', async (request) => {
     const session = request.session!;
     const { onboardingState } = await import('../../domain/workspaces.ts');
-    return { data: onboardingState(db, session.workspaceId) };
+    return { data: await onboardingState(db, session.workspaceId) };
   });
 
   app.post('/onboarding/seed-categories', async (request) => {
     const session = request.session!;
     const { seedDefaultCategories } = await import('../../domain/categories.ts');
-    const created = seedDefaultCategories(contextFor(db, session));
+    const created = await seedDefaultCategories(contextFor(db, session));
     return { data: created.map(serializeCategory) };
   });
 

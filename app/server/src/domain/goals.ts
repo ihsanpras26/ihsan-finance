@@ -138,11 +138,11 @@ function assertEffectiveDate(value: unknown, tz: string, field = 'effectiveDate'
   return value;
 }
 
-function assertWallet(db: Db, workspaceId: string, walletId: unknown, field = 'walletId'): { id: string; name: string; accountId: string } {
+async function assertWallet(db: Db, workspaceId: string, walletId: unknown, field = 'walletId'): Promise<{ id: string; name: string; accountId: string }> {
   if (typeof walletId !== 'string' || !walletId) {
     throw new AppError('validation_failed', 'Dompet wajib dipilih.', { fields: { [field]: 'required' } });
   }
-  const row = one<{ id: string; name: string; ledger_account_id: string; archived_at: string | null }>(
+  const row = await one<{ id: string; name: string; ledger_account_id: string; archived_at: string | null }>(
     db, `SELECT id, name, ledger_account_id, archived_at FROM wallets WHERE workspace_id = ? AND id = ?`, workspaceId, walletId,
   );
   if (!row) throw new AppError('not_found', 'Dompet tidak ditemukan di ruang keuangan ini.');
@@ -150,8 +150,8 @@ function assertWallet(db: Db, workspaceId: string, walletId: unknown, field = 'w
   return { id: row.id, name: row.name, accountId: row.ledger_account_id };
 }
 
-function getGoalRow(db: Db, workspaceId: string, id: string): GoalRow {
-  const row = one<GoalRow>(db, `SELECT * FROM goals WHERE workspace_id = ? AND id = ?`, workspaceId, id);
+async function getGoalRow(db: Db, workspaceId: string, id: string): Promise<GoalRow> {
+  const row = await one<GoalRow>(db, `SELECT * FROM goals WHERE workspace_id = ? AND id = ?`, workspaceId, id);
   if (!row) throw new AppError('not_found', 'Tujuan tidak ditemukan di ruang keuangan ini.');
   return row;
 }
@@ -165,8 +165,8 @@ interface WalletAllocation {
 }
 
 /** Alokasi aktif per (goal, dompet): baris yang sudah di-reversed_by tidak dihitung. */
-function activeAllocations(db: Db, workspaceId: string): WalletAllocation[] {
-  const rows = all<{ goal_id: string; wallet_id: string; net: number }>(
+async function activeAllocations(db: Db, workspaceId: string): Promise<WalletAllocation[]> {
+  const rows = await all<{ goal_id: string; wallet_id: string; net: number }>(
     db,
     `SELECT goal_id, wallet_id,
             SUM(CASE WHEN direction = 'allocate' THEN amount_minor ELSE -amount_minor END) AS net
@@ -175,13 +175,17 @@ function activeAllocations(db: Db, workspaceId: string): WalletAllocation[] {
      GROUP BY goal_id, wallet_id`,
     workspaceId,
   );
-  return rows.map((row) => ({ goalId: row.goal_id, walletId: row.wallet_id, net: Number(row.net ?? 0) }));
+  const allocations: WalletAllocation[] = [];
+  for (const row of rows) {
+    allocations.push({ goalId: row.goal_id, walletId: row.wallet_id, net: Number(row.net ?? 0) });
+  }
+  return allocations;
 }
 
-function walletLookup(db: Db, workspaceId: string, walletIds: readonly string[]): Map<string, { name: string; accountId: string }> {
+async function walletLookup(db: Db, workspaceId: string, walletIds: readonly string[]): Promise<Map<string, { name: string; accountId: string }>> {
   const map = new Map<string, { name: string; accountId: string }>();
   for (const walletId of new Set(walletIds)) {
-    const row = one<{ name: string; ledger_account_id: string }>(
+    const row = await one<{ name: string; ledger_account_id: string }>(
       db, `SELECT name, ledger_account_id FROM wallets WHERE workspace_id = ? AND id = ?`, workspaceId, walletId,
     );
     if (row) map.set(walletId, { name: row.name, accountId: row.ledger_account_id });
@@ -195,30 +199,31 @@ function monthDiff(from: string, to: string): number {
   return (ty * 12 + (tm - 1)) - (fy * 12 + (fm - 1));
 }
 
-function buildGoalView(
+async function buildGoalView(
   db: Db,
   workspaceId: string,
   row: GoalRow,
   today: string,
   allocations: readonly WalletAllocation[],
   wallets: Map<string, { name: string; accountId: string }>,
-): GoalView {
+): Promise<GoalView> {
   const mine = allocations.filter((entry) => entry.goalId === row.id);
   const allocated = mine.reduce((sum, entry) => addSafe(sum, entry.net), 0);
 
-  const funding: GoalFunding[] = mine.map((entry) => {
+  const funding: GoalFunding[] = [];
+  for (const entry of mine) {
     const wallet = wallets.get(entry.walletId);
-    const balance = wallet ? accountBalance(db, workspaceId, wallet.accountId) : 0;
+    const balance = wallet ? await accountBalance(db, workspaceId, wallet.accountId) : 0;
     const usable = balance > 0 ? balance : 0;
     const shortfall = entry.net > usable ? entry.net - usable : 0;
-    return {
+    funding.push({
       walletId: entry.walletId,
       walletName: wallet?.name ?? 'Dompet tidak dikenal',
       allocated: entry.net,
       walletBalance: balance,
       shortfall,
-    };
-  });
+    });
+  }
   const fundingShortfall = funding.reduce((sum, entry) => addSafe(sum, entry.shortfall), 0);
 
   const shortfall = row.target_minor - allocated > 0 ? row.target_minor - allocated : 0;
@@ -244,7 +249,7 @@ function buildGoalView(
 
 // ── FR13: tujuan keuangan ───────────────────────────────────────────────────
 
-export function listGoals(ctx: TxContext, options: { includeArchived?: boolean; status?: GoalStatus } = {}): GoalView[] {
+export async function listGoals(ctx: TxContext, options: { includeArchived?: boolean; status?: GoalStatus } = {}): Promise<GoalView[]> {
   const { db, workspaceId } = ctx;
   const where = ['workspace_id = ?'];
   const params: unknown[] = [workspaceId];
@@ -254,25 +259,29 @@ export function listGoals(ctx: TxContext, options: { includeArchived?: boolean; 
   } else if (!options.includeArchived) {
     where.push(`status <> 'archived'`);
   }
-  const rows = all<GoalRow>(db, `SELECT * FROM goals WHERE ${where.join(' AND ')} ORDER BY priority, created_at`, ...params);
-  const allocations = activeAllocations(db, workspaceId);
-  const wallets = walletLookup(db, workspaceId, allocations.map((entry) => entry.walletId));
+  const rows = await all<GoalRow>(db, `SELECT * FROM goals WHERE ${where.join(' AND ')} ORDER BY priority, created_at`, ...params);
+  const allocations = await activeAllocations(db, workspaceId);
+  const wallets = await walletLookup(db, workspaceId, allocations.map((entry) => entry.walletId));
   const today = localDateInTz(ctx.timezone);
-  return rows.map((row) => buildGoalView(db, workspaceId, row, today, allocations, wallets));
+  const views: GoalView[] = [];
+  for (const row of rows) {
+    views.push(await buildGoalView(db, workspaceId, row, today, allocations, wallets));
+  }
+  return views;
 }
 
-export function getGoal(ctx: TxContext, id: string): GoalDetail {
+export async function getGoal(ctx: TxContext, id: string): Promise<GoalDetail> {
   const { db, workspaceId } = ctx;
-  const row = getGoalRow(db, workspaceId, id);
-  const allocations = activeAllocations(db, workspaceId);
-  const wallets = walletLookup(db, workspaceId, allocations.map((entry) => entry.walletId));
+  const row = await getGoalRow(db, workspaceId, id);
+  const allocations = await activeAllocations(db, workspaceId);
+  const wallets = await walletLookup(db, workspaceId, allocations.map((entry) => entry.walletId));
   const today = localDateInTz(ctx.timezone);
-  const view = buildGoalView(db, workspaceId, row, today, allocations, wallets);
-  const history = all<GoalAllocationRow>(
+  const view = await buildGoalView(db, workspaceId, row, today, allocations, wallets);
+  const history = (await all<GoalAllocationRow>(
     db,
     `SELECT * FROM goal_allocations WHERE workspace_id = ? AND goal_id = ? ORDER BY effective_date DESC, created_at DESC`,
     workspaceId, id,
-  ).map((entry) => ({ ...entry, walletName: wallets.get(entry.wallet_id)?.name ?? 'Dompet tidak dikenal' }));
+  )).map((entry) => ({ ...entry, walletName: wallets.get(entry.wallet_id)?.name ?? 'Dompet tidak dikenal' }));
   return { ...view, allocations: history };
 }
 
@@ -284,7 +293,7 @@ export interface CreateGoalInput {
   note?: string | null;
 }
 
-export function createGoal(ctx: TxContext, input: CreateGoalInput, idempotencyKey?: string | null): GoalView {
+export async function createGoal(ctx: TxContext, input: CreateGoalInput, idempotencyKey?: string | null): Promise<GoalView> {
   const { db, workspaceId } = ctx;
   const name = assertName(input.name);
   const target = assertTarget(input.target);
@@ -292,20 +301,20 @@ export function createGoal(ctx: TxContext, input: CreateGoalInput, idempotencyKe
   const priority = assertPriority(input.priority);
   const note = assertNote(input.note);
 
-  const outcome = withIdempotency(
+  const outcome = await withIdempotency(
     db,
     { workspaceId, userId: ctx.userId, key: idempotencyKey, payload: { name, target, targetDate, priority, note } },
-    () => tx(db, () => {
+    () => tx(db, async () => {
       const id = uuidv7();
       const now = nowIso();
-      run(
+      await run(
         db,
         `INSERT INTO goals (id, workspace_id, name, target_minor, target_date, priority, status, note, version, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, 'active', ?, 1, ?, ?)`,
         id, workspaceId, name, target, targetDate, priority, note, now, now,
       );
-      recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'create', entityType: 'goal', entityId: id, after: { name, target, targetDate, priority } });
-      return getGoal(ctx, id);
+      await recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'create', entityType: 'goal', entityId: id, after: { name, target, targetDate, priority } });
+      return await getGoal(ctx, id);
     }),
   );
   return outcome.value;
@@ -321,10 +330,10 @@ export interface UpdateGoalInput {
   expectedVersion?: number;
 }
 
-export function updateGoal(ctx: TxContext, id: string, input: UpdateGoalInput): GoalView {
+export async function updateGoal(ctx: TxContext, id: string, input: UpdateGoalInput): Promise<GoalView> {
   const { db, workspaceId } = ctx;
-  return tx(db, () => {
-    const row = getGoalRow(db, workspaceId, id);
+  return tx(db, async () => {
+    const row = await getGoalRow(db, workspaceId, id);
     if (input.expectedVersion !== undefined && input.expectedVersion !== row.version) {
       throw new AppError('version_conflict', 'Tujuan ini sudah berubah di perangkat lain. Muat ulang lalu ulangi perubahan.', { details: { serverVersion: row.version } });
     }
@@ -336,24 +345,24 @@ export function updateGoal(ctx: TxContext, id: string, input: UpdateGoalInput): 
     const status = input.status === undefined ? row.status : assertStatus(input.status);
 
     if (status === 'archived' && row.status !== 'archived') {
-      const active = activeAllocations(db, workspaceId).filter((entry) => entry.goalId === id && entry.net > 0);
+      const active = (await activeAllocations(db, workspaceId)).filter((entry) => entry.goalId === id && entry.net > 0);
       if (active.length > 0) {
         throw new AppError('validation_failed', 'Tujuan ini masih memiliki alokasi dana. Lepaskan atau pindahkan alokasinya dulu sebelum diarsipkan.', { fields: { status: 'has_allocation' } });
       }
     }
 
-    run(
+    await run(
       db,
       `UPDATE goals SET name = ?, target_minor = ?, target_date = ?, priority = ?, note = ?, status = ?, version = version + 1, updated_at = ?
        WHERE workspace_id = ? AND id = ?`,
       name, target, targetDate, priority, note, status, nowIso(), workspaceId, id,
     );
-    recordAudit(db, {
+    await recordAudit(db, {
       workspaceId, actorUserId: ctx.userId, action: 'update', entityType: 'goal', entityId: id,
       before: { name: row.name, target: row.target_minor, targetDate: row.target_date, priority: row.priority, status: row.status },
       after: { name, target, targetDate, priority, status },
     });
-    return getGoal(ctx, id);
+    return await getGoal(ctx, id);
   });
 }
 
@@ -366,10 +375,10 @@ interface AllocationAvailability {
   existingForGoal: number;
 }
 
-function availabilityFor(db: Db, workspaceId: string, goalId: string, wallet: { id: string; name: string; accountId: string }): AllocationAvailability {
-  const rows = activeAllocations(db, workspaceId).filter((entry) => entry.walletId === wallet.id);
+async function availabilityFor(db: Db, workspaceId: string, goalId: string, wallet: { id: string; name: string; accountId: string }): Promise<AllocationAvailability> {
+  const rows = (await activeAllocations(db, workspaceId)).filter((entry) => entry.walletId === wallet.id);
   const allocatedTotal = rows.reduce((sum, entry) => addSafe(sum, entry.net), 0);
-  const balance = accountBalance(db, workspaceId, wallet.accountId);
+  const balance = await accountBalance(db, workspaceId, wallet.accountId);
   return {
     allocatedTotal,
     usable: balance > 0 ? balance : 0,
@@ -398,36 +407,36 @@ export interface AllocateGoalResult {
  * Total alokasi aktif per dompet tidak boleh melebihi saldo positif dompet, sehingga dana yang
  * sama tidak dapat dipakai dua tujuan sekaligus. Tidak ada jurnal yang dibuat di sini.
  */
-export function allocateGoal(ctx: TxContext, id: string, input: AllocateGoalInput, idempotencyKey?: string | null): AllocateGoalResult {
+export async function allocateGoal(ctx: TxContext, id: string, input: AllocateGoalInput, idempotencyKey?: string | null): Promise<AllocateGoalResult> {
   const { db, workspaceId } = ctx;
   const amount = parseAmount(input.amount, { field: 'amount' });
   const effectiveDate = assertEffectiveDate(input.effectiveDate, ctx.timezone);
   const note = assertNote(input.note);
   const moveMoney = input.moveMoney === true;
-  const target = moveMoney ? assertWallet(db, workspaceId, input.toWalletId, 'toWalletId') : assertWallet(db, workspaceId, input.walletId);
-  const source = moveMoney ? assertWallet(db, workspaceId, input.walletId, 'walletId') : null;
+  const target = moveMoney ? await assertWallet(db, workspaceId, input.toWalletId, 'toWalletId') : await assertWallet(db, workspaceId, input.walletId);
+  const source = moveMoney ? await assertWallet(db, workspaceId, input.walletId, 'walletId') : null;
 
-  const outcome = withIdempotency(
+  const outcome = await withIdempotency(
     db,
     { workspaceId, userId: ctx.userId, key: idempotencyKey, payload: { id, amount, effectiveDate, note, moveMoney, walletId: source?.id ?? target.id, toWalletId: moveMoney ? target.id : null } },
-    () => tx(db, () => {
-      getGoalRow(db, workspaceId, id);
+    () => tx(db, async () => {
+      await getGoalRow(db, workspaceId, id);
       let transferId: string | null = null;
       if (moveMoney && source) {
         if (source.id === target.id) {
           throw new AppError('validation_failed', 'Dompet asal dan dompet tujuan harus berbeda.', { fields: { toWalletId: 'same_wallet' } });
         }
-        transferId = createTransaction(ctx, {
+        transferId = (await createTransaction(ctx, {
           type: 'transfer',
           amount,
           walletId: source.id,
           toWalletId: target.id,
           effectiveDate,
           note: note ?? 'Pindahkan dana ke dompet tujuan',
-        }, null).id;
+        }, null)).id;
       }
 
-      const availability = availabilityFor(db, workspaceId, id, target);
+      const availability = await availabilityFor(db, workspaceId, id, target);
       if (addSafe(availability.allocatedTotal, amount) > availability.usable) {
         const free = availability.usable - availability.allocatedTotal;
         throw new AppError(
@@ -439,18 +448,18 @@ export function allocateGoal(ctx: TxContext, id: string, input: AllocateGoalInpu
 
       const allocationId = uuidv7();
       const now = nowIso();
-      run(
+      await run(
         db,
         `INSERT INTO goal_allocations (id, workspace_id, goal_id, wallet_id, direction, amount_minor, effective_date, note, linked_tx_id, reversed_by, created_at)
          VALUES (?, ?, ?, ?, 'allocate', ?, ?, ?, ?, NULL, ?)`,
         allocationId, workspaceId, id, target.id, amount, effectiveDate, note, transferId, now,
       );
-      recordAudit(db, {
+      await recordAudit(db, {
         workspaceId, actorUserId: ctx.userId, action: 'allocate', entityType: 'goal', entityId: id,
         after: { allocationId, walletId: target.id, amount, effectiveDate, transferId },
       });
 
-      const goal = getGoal(ctx, id);
+      const goal = await getGoal(ctx, id);
       const allocation = goal.allocations.find((entry) => entry.id === allocationId);
       if (!allocation) throw new AppError('internal', 'Alokasi tersimpan tetapi tidak dapat dibaca kembali.');
       return { goal, allocation, transferId };
@@ -467,19 +476,19 @@ export interface ReleaseGoalInput {
 }
 
 /** Pelepasan hanya melepaskan dana yang ditandai; ia tidak menciptakan pendapatan (FR14). */
-export function releaseGoal(ctx: TxContext, id: string, input: ReleaseGoalInput, idempotencyKey?: string | null): AllocateGoalResult {
+export async function releaseGoal(ctx: TxContext, id: string, input: ReleaseGoalInput, idempotencyKey?: string | null): Promise<AllocateGoalResult> {
   const { db, workspaceId } = ctx;
   const amount = parseAmount(input.amount, { field: 'amount' });
   const effectiveDate = assertEffectiveDate(input.effectiveDate, ctx.timezone);
   const note = assertNote(input.note);
-  const wallet = assertWallet(db, workspaceId, input.walletId);
+  const wallet = await assertWallet(db, workspaceId, input.walletId);
 
-  const outcome = withIdempotency(
+  const outcome = await withIdempotency(
     db,
     { workspaceId, userId: ctx.userId, key: idempotencyKey, payload: { id, amount, effectiveDate, note, walletId: wallet.id } },
-    () => tx(db, () => {
-      getGoalRow(db, workspaceId, id);
-      const availability = availabilityFor(db, workspaceId, id, wallet);
+    () => tx(db, async () => {
+      await getGoalRow(db, workspaceId, id);
+      const availability = await availabilityFor(db, workspaceId, id, wallet);
       if (amount > availability.existingForGoal) {
         throw new AppError(
           'allocation_exceeds',
@@ -488,17 +497,17 @@ export function releaseGoal(ctx: TxContext, id: string, input: ReleaseGoalInput,
         );
       }
       const allocationId = uuidv7();
-      run(
+      await run(
         db,
         `INSERT INTO goal_allocations (id, workspace_id, goal_id, wallet_id, direction, amount_minor, effective_date, note, linked_tx_id, reversed_by, created_at)
          VALUES (?, ?, ?, ?, 'release', ?, ?, ?, NULL, NULL, ?)`,
         allocationId, workspaceId, id, wallet.id, amount, effectiveDate, note, nowIso(),
       );
-      recordAudit(db, {
+      await recordAudit(db, {
         workspaceId, actorUserId: ctx.userId, action: 'release', entityType: 'goal', entityId: id,
         after: { allocationId, walletId: wallet.id, amount, effectiveDate },
       });
-      const goal = getGoal(ctx, id);
+      const goal = await getGoal(ctx, id);
       const allocation = goal.allocations.find((entry) => entry.id === allocationId);
       if (!allocation) throw new AppError('internal', 'Pelepasan alokasi tersimpan tetapi tidak dapat dibaca kembali.');
       return { goal, allocation, transferId: null };
@@ -524,16 +533,16 @@ export interface SpendFromGoalResult {
  * Belanja dari dana tujuan: uang benar-benar keluar dari dompet dan menjadi konsumsi nyata,
  * lalu alokasi dikurangi sebesar nilai belanja (FR14, AT06).
  */
-export function spendFromGoal(ctx: TxContext, id: string, input: SpendFromGoalInput, idempotencyKey?: string | null): SpendFromGoalResult {
+export async function spendFromGoal(ctx: TxContext, id: string, input: SpendFromGoalInput, idempotencyKey?: string | null): Promise<SpendFromGoalResult> {
   const { db, workspaceId } = ctx;
   const amount = parseAmount(input.amount, { field: 'amount' });
   const effectiveDate = assertEffectiveDate(input.effectiveDate, ctx.timezone);
   const note = assertNote(input.note);
-  const wallet = assertWallet(db, workspaceId, input.walletId);
+  const wallet = await assertWallet(db, workspaceId, input.walletId);
   if (typeof input.categoryId !== 'string' || !input.categoryId) {
     throw new AppError('validation_failed', 'Kategori pengeluaran wajib dipilih.', { fields: { categoryId: 'required' } });
   }
-  const category = one<{ id: string; name: string; kind: string; archived_at: string | null }>(
+  const category = await one<{ id: string; name: string; kind: string; archived_at: string | null }>(
     db, `SELECT id, name, kind, archived_at FROM categories WHERE workspace_id = ? AND id = ?`, workspaceId, input.categoryId,
   );
   if (!category) throw new AppError('not_found', 'Kategori tidak ditemukan di ruang keuangan ini.');
@@ -542,12 +551,12 @@ export function spendFromGoal(ctx: TxContext, id: string, input: SpendFromGoalIn
     throw new AppError('validation_failed', 'Pilih kategori pengeluaran, bukan kategori pendapatan.', { fields: { categoryId: 'wrong_kind' } });
   }
 
-  const outcome = withIdempotency(
+  const outcome = await withIdempotency(
     db,
     { workspaceId, userId: ctx.userId, key: idempotencyKey, payload: { id, amount, effectiveDate, note, walletId: wallet.id, categoryId: category.id } },
-    () => tx(db, () => {
-      getGoalRow(db, workspaceId, id);
-      const availability = availabilityFor(db, workspaceId, id, wallet);
+    () => tx(db, async () => {
+      await getGoalRow(db, workspaceId, id);
+      const availability = await availabilityFor(db, workspaceId, id, wallet);
       if (amount > availability.existingForGoal) {
         throw new AppError(
           'allocation_exceeds',
@@ -555,31 +564,31 @@ export function spendFromGoal(ctx: TxContext, id: string, input: SpendFromGoalIn
           { details: { allocatedForGoal: availability.existingForGoal, requested: amount } },
         );
       }
-      const txId = insertTransaction(db, {
+      const txId = await insertTransaction(db, {
         workspaceId, type: 'goal_spend', status: 'posted', amount, effectiveDate,
         note: note ?? `Belanja dari dana tujuan (${category.name})`,
         source: 'manual', userId: ctx.userId, idempotencyKey: null,
         meta: { goalId: id, walletId: wallet.id, categoryId: category.id },
       });
-      postJournal(db, {
+      await postJournal(db, {
         workspaceId, transactionId: txId,
         lines: buildGoalSpend({
-          walletAccountId: walletAccountId(db, workspaceId, wallet.id),
-          categoryAccountId: categoryAccountId(db, workspaceId, category.id),
+          walletAccountId: await walletAccountId(db, workspaceId, wallet.id),
+          categoryAccountId: await categoryAccountId(db, workspaceId, category.id),
           amount,
         }),
       });
-      run(
+      await run(
         db,
         `INSERT INTO goal_allocations (id, workspace_id, goal_id, wallet_id, direction, amount_minor, effective_date, note, linked_tx_id, reversed_by, created_at)
          VALUES (?, ?, ?, ?, 'release', ?, ?, ?, ?, NULL, ?)`,
         uuidv7(), workspaceId, id, wallet.id, amount, effectiveDate, `Belanja dari dana tujuan (${category.name})`, txId, nowIso(),
       );
-      recordAudit(db, {
+      await recordAudit(db, {
         workspaceId, actorUserId: ctx.userId, action: 'spend_from_goal', entityType: 'goal', entityId: id,
         after: { transactionId: txId, walletId: wallet.id, categoryId: category.id, amount },
       });
-      return { goal: getGoal(ctx, id), transactionId: txId };
+      return { goal: await getGoal(ctx, id), transactionId: txId };
     }),
   );
   return outcome.value;
@@ -593,7 +602,7 @@ export interface ArchiveGoalInput {
 }
 
 /** Arsip dengan alokasi tersisa harus menawarkan pemindahan atau pelepasan alokasi dulu (§07). */
-export function archiveGoal(ctx: TxContext, id: string, input: ArchiveGoalInput, idempotencyKey?: string | null): GoalView {
+export async function archiveGoal(ctx: TxContext, id: string, input: ArchiveGoalInput, idempotencyKey?: string | null): Promise<GoalView> {
   const { db, workspaceId } = ctx;
   const resolution = input.resolution;
   if (resolution !== 'release' && resolution !== 'keep') {
@@ -601,12 +610,12 @@ export function archiveGoal(ctx: TxContext, id: string, input: ArchiveGoalInput,
   }
   const reason = assertNote(input.reason);
 
-  const outcome = withIdempotency(
+  const outcome = await withIdempotency(
     db,
     { workspaceId, userId: ctx.userId, key: idempotencyKey, payload: { id, resolution, reason } },
-    () => tx(db, () => {
-      const row = getGoalRow(db, workspaceId, id);
-      const active = activeAllocations(db, workspaceId).filter((entry) => entry.goalId === id && entry.net > 0);
+    () => tx(db, async () => {
+      const row = await getGoalRow(db, workspaceId, id);
+      const active = (await activeAllocations(db, workspaceId)).filter((entry) => entry.goalId === id && entry.net > 0);
       if (active.length > 0 && resolution !== 'release') {
         throw new AppError(
           'validation_failed',
@@ -616,7 +625,7 @@ export function archiveGoal(ctx: TxContext, id: string, input: ArchiveGoalInput,
       }
       if (resolution === 'release') {
         for (const entry of active) {
-          run(
+          await run(
             db,
             `INSERT INTO goal_allocations (id, workspace_id, goal_id, wallet_id, direction, amount_minor, effective_date, note, linked_tx_id, reversed_by, created_at)
              VALUES (?, ?, ?, ?, 'release', ?, ?, ?, NULL, NULL, ?)`,
@@ -625,12 +634,12 @@ export function archiveGoal(ctx: TxContext, id: string, input: ArchiveGoalInput,
           );
         }
       }
-      run(db, `UPDATE goals SET status = 'archived', version = version + 1, updated_at = ? WHERE workspace_id = ? AND id = ?`, nowIso(), workspaceId, id);
-      recordAudit(db, {
+      await run(db, `UPDATE goals SET status = 'archived', version = version + 1, updated_at = ? WHERE workspace_id = ? AND id = ?`, nowIso(), workspaceId, id);
+      await recordAudit(db, {
         workspaceId, actorUserId: ctx.userId, action: 'archive', entityType: 'goal', entityId: id,
         before: { status: row.status }, after: { status: 'archived', resolution, released: resolution === 'release' ? active.length : 0, reason },
       });
-      return getGoal(ctx, id);
+      return await getGoal(ctx, id);
     }),
   );
   return outcome.value;

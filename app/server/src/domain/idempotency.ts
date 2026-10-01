@@ -16,16 +16,16 @@ interface RecordRow {
  * Wrap a mutation. The caller must pass the raw request body so the payload hash is stable.
  * Returns the stored response on a repeat with an identical payload.
  */
-export function withIdempotency<T>(db: Db, input: { workspaceId: string; userId?: string | null; key: string | null | undefined; payload: unknown }, run_: () => T): { value: T; replayed: boolean } {
+export async function withIdempotency<T>(db: Db, input: { workspaceId: string; userId?: string | null; key: string | null | undefined; payload: unknown }, run_: () => Promise<T>): Promise<{ value: T; replayed: boolean }> {
   const key = (input.key ?? '').trim();
   if (!key) {
-    return { value: run_(), replayed: false };
+    return { value: await run_(), replayed: false };
   }
   if (key.length > 200) {
     throw new AppError('validation_failed', 'Kunci idempotensi terlalu panjang (maksimal 200 karakter).');
   }
   const hash = payloadHash(input.payload);
-  const existing = one<RecordRow>(db, `SELECT * FROM idempotency_records WHERE workspace_id = ? AND key = ?`, input.workspaceId, key);
+  const existing = await one<RecordRow>(db, `SELECT * FROM idempotency_records WHERE workspace_id = ? AND key = ?`, input.workspaceId, key);
 
   if (existing) {
     if (existing.payload_hash !== hash) {
@@ -37,7 +37,7 @@ export function withIdempotency<T>(db: Db, input: { workspaceId: string; userId?
     throw new AppError('idempotency_conflict', 'Permintaan dengan kunci ini sedang diproses atau gagal sebelumnya. Coba lagi dengan kunci baru.');
   }
 
-  run(
+  await run(
     db,
     `INSERT INTO idempotency_records (workspace_id, key, user_id, payload_hash, status, created_at)
      VALUES (?, ?, ?, ?, 'in_progress', ?)`,
@@ -46,14 +46,14 @@ export function withIdempotency<T>(db: Db, input: { workspaceId: string; userId?
 
   let value: T;
   try {
-    value = run_();
+    value = await run_();
   } catch (error) {
-    run(db, `DELETE FROM idempotency_records WHERE workspace_id = ? AND key = ?`, input.workspaceId, key);
+    await run(db, `DELETE FROM idempotency_records WHERE workspace_id = ? AND key = ?`, input.workspaceId, key);
     throw error;
   }
 
   const entityId = extractEntityId(value);
-  run(
+  await run(
     db,
     `UPDATE idempotency_records SET status = 'succeeded', entity_id = ?, response_json = ? WHERE workspace_id = ? AND key = ?`,
     entityId, JSON.stringify(value ?? null), input.workspaceId, key,
@@ -71,8 +71,8 @@ function extractEntityId(value: unknown): string | null {
   return null;
 }
 
-export function cleanupIdempotency(db: Db, olderThanDays = 90): number {
+export async function cleanupIdempotency(db: Db, olderThanDays = 90): Promise<number> {
   const cutoff = new Date(Date.now() - olderThanDays * 86_400_000).toISOString();
-  const result = run(db, `DELETE FROM idempotency_records WHERE created_at < ?`, cutoff);
+  const result = await run(db, `DELETE FROM idempotency_records WHERE created_at < ?`, cutoff);
   return Number(result.changes);
 }

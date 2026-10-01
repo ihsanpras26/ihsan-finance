@@ -13,6 +13,8 @@ ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
 # Machines with ~8 GB need a capped old-space heap or Node aborts with "Zone Allocation failed"
-# (recorded in docs/STATUS.md). An explicit NODE_OPTIONS from the caller always wins.
+# (recorded in docs/STATUS.md). 1536 MB passes the whole gate (104 server + 5 web tests + vite
+# build) in about 65 s; 2560 MB aborts in the web typecheck once free memory drops under ~1.5 GB.
+# An explicit NODE_OPTIONS from the caller always wins.
 echo "[pre-commit] pnpm --dir app verify"
-NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=2560}" pnpm --dir app verify
+NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1536}" pnpm --dir app verify

@@ -140,10 +140,20 @@ catatan idempotensi, pekerjaan data.
 | Cadangan + pemulihan + retensi | `scripts/backup.mjs` | Selesai · teruji pada basis data yang sedang dipakai |
 | Wadah | `Dockerfile`, `.dockerignore`, `compose.yaml` | Selesai · **belum dibangun** (Docker tidak ada di mesin ini) |
 | VPS tanpa wadah | `deploy/systemd/ihsan.service`, `ihsan-backup.service`, `ihsan-backup.timer` | Selesai · dicoba di server pertama |
-| Runbook | `docs/DEPLOY.md` | Selesai |
+| Runbook | `docs/DEPLOY.md` | Selesai (dua bentuk penyalaan: satu proses, serverless) |
 
-Belum tertutup: pilihan penyedia + domain + kredensial (menunggu pemilik), salinan cadangan luar
-mesin, alarm di luar proses, uji restore terjadwal tiga bulanan, dan pipeline.
+### Lapisan data libSQL dan penyalaan serverless (D-21)
+
+| Bagian | Berkas | Keadaan |
+|---|---|---|
+| Port basis data (berkas atau Turso) | `server/src/db/index.ts` | Selesai · teruji: pemilihan klien, transaksi bersarang, isolasi konteks async, uang tetap `INTEGER` |
+| Fungsi Vercel pembungkus Fastify | `app/api/index.ts`, `app/vercel.json` | Selesai · dijalankan lewat soket HTTP nyata (health, register, dompet, fallback SPA) |
+| Titik penjadwal ber-token | `server/src/http/routes/internal.ts` | Selesai · teruji: tanpa token 404/403, bertoken menjalankan penjadwal |
+| Dump lintas mode + unggah S3/R2/B2 | `server/src/tools/offsite.ts`, `core/s3.ts`, `core/sigv4.ts` | Selesai · SigV4 cocok vektor resmi AWS; unggahan ke ember sungguhan **belum dicoba** (ember belum ada) |
+| Perintah cadangan offsite | `app/package.json` (`offsite`, `offsite:dump`) | Selesai · dump 24 tabel/193 baris/408 KB dengan pemeriksaan jurnal; sumber Turso atau berkas lokal, hasilnya di `<IHSAN_DATA_DIR>/offsite` |
+
+Belum tertutup: pilihan penyedia + domain + kredensial (menunggu pemilik), koneksi Turso sungguhan,
+ember cadangan, alarm di luar proses, uji restore terjadwal tiga bulanan, dan pipeline.
 
 ---
 
@@ -154,7 +164,7 @@ Perintah dan hasil nyata, bukan klaim:
 | Perintah | Hasil |
 |---|---|
 | `tsc --noEmit` server dan web | EXIT=0 keduanya |
-| Tes server (`node --test`, satu concurrency) | **83/83 lulus** |
+| Tes server (`node --test`, satu concurrency) | **106/106 lulus** (termasuk `db-port` 9/9, `offsite` 11/11, `internal-tick` 3/3) |
 | Tes web (`node --test`) | **5/5 lulus** |
 | `vite build` | EXIT=0; `index-HPQJsJuM.js` 465.002 B (gzip 136.330 B), `index-Db3C64u0.css` 36.773 B (gzip 8.041 B) |
 | `pnpm smoke` | **50 lulus, 0 gagal** |
@@ -171,12 +181,18 @@ Perintah dan hasil nyata, bukan klaim:
 | Tes penyalaan produksi (`deploy.test.ts`, `deploy-local.test.ts`) | **5/5**: cookie `Secure` + HSTS saat `APP_ORIGIN` https, keduanya mati saat http, pendaftaran akun kedua dijawab 403 `forbidden`, titik kesehatan bebas sesi |
 | Skrip cadangan (`scripts/backup.mjs`, server sedang menulis) | snapshot 408 KB: integritas ok, 0 pelanggaran relasi, jurnal seimbang; retensi memangkas yang tertua; berkas rusak/hilang keluar 1; `--restore` menghasilkan 17 transaksi, 3 dompet, selisih jurnal **0** |
 | Smoke produksi satu proses (`NODE_ENV=production`, `APP_ORIGIN` https) | `/api/v1/health` 200 + HSTS, `/` 200 (982 B index), `/transaksi` 200 lewat fallback SPA, aset `immutable`, login demo 200 dengan cookie `Secure`, API tanpa sesi 401 |
+| Adapter serverless (`app/api/index.ts`, soket HTTP nyata) | `/api/v1/health` 200; tick tanpa token 403, bertoken 200 `{"today":"2026-10-01",…}`; register 200 + cookie `ifsess`; `GET /api/v1/wallets` 200; fallback SPA 200 |
+| Klien remote dipilih untuk URL `libsql://` | `db.remote === true` dan kueri gagal di lapisan transpor (`tidak-ada.turso.invalid`), bukan galat modul/binding (`db-port.test.ts`) |
+| Dump offsite dari basis data berkas (`pnpm offsite:dump`, mode A) | PASS — `sumber: …\app\data\ihsan.db`, 24 tabel, 193 baris, 408 KB, jurnal seimbang, `integrity_check` ok, segel `sha256`; berkas masuk `data/offsite/` dan snapshot `data/backups/` tidak tersentuh |
+| SigV4 terhadap vektor resmi AWS | 2/2 (`get-vanilla` `5fa00fa3…`, `get-vanilla-query-order-key-case` `b97d918c…`) |
+| Gerbang penuh (`NODE_OPTIONS=--max-old-space-size=1536 pnpm --dir app verify`) | EXIT=0 dalam ±66 detik: tsc server+web, 106 tes server, 5 tes web, `vite build` |
 
 Catatan lingkungan: mesin pengembangan ini 8 GB dengan memori bebas ~1 GB saat gerbang berjalan,
-jadi `.githooks/pre-commit` memasang `NODE_OPTIONS=--max-old-space-size=2560` sendiri bila
-pemanggil belum menyetelnya. Tanpa batas itu Node abort dengan "Zone Allocation failed" dan keluar
-134. Perintah yang terbukti: hook keluar 0, `tsc --noEmit` (server dan web) EXIT=0, tes server
-**83/83**, tes web **5/5**, `vite build` EXIT=0.
+jadi `.githooks/pre-commit` memasang `NODE_OPTIONS=--max-old-space-size=1536` sendiri bila pemanggil
+belum menyetelnya. Tanpa batas heap Node abort dengan `Zone Allocation failed` dan keluar 134;
+batas 2560 MB justru lebih sering abort pada mesin ini, karena yang habis adalah memori sistem,
+bukan ruang lama V8. Perintah yang terbukti: hook keluar 0, `tsc --noEmit` (server dan web) EXIT=0,
+tes server **106/106**, tes web **5/5**, `vite build` EXIT=0.
 
 Cakupan skenario penerimaan yang diuji otomatis, memakai penomoran PRD §15:
 

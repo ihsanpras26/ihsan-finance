@@ -42,7 +42,7 @@ async function withClient(app: FastifyInstance, cookie: string): Promise<Client>
 }
 
 test('alur utama: daftar, dompet, transaksi, laporan', async () => {
-  const app = await buildServer({ db: makeDb() });
+  const app = await buildServer({ db: await makeDb() });
   try {
     const { cookie, body } = await register(app, 'pemilik@contoh.id', 'Pemilik');
     const user = body.user as { workspaceId: string; displayName: string; workspaceName: string };
@@ -116,7 +116,7 @@ test('alur utama: daftar, dompet, transaksi, laporan', async () => {
 });
 
 test('AT13 data ruang lain tidak dapat dibaca lewat endpoint langsung', async () => {
-  const app = await buildServer({ db: makeDb() });
+  const app = await buildServer({ db: await makeDb() });
   try {
     const first = await register(app, 'a@contoh.id', 'A');
     const second = await register(app, 'b@contoh.id', 'B');
@@ -161,7 +161,7 @@ async function firstCategories(app: FastifyInstance, cookie: string): Promise<st
 }
 
 test('permintaan tanpa sesi ditolak dan tidak membocorkan data', async () => {
-  const app = await buildServer({ db: makeDb() });
+  const app = await buildServer({ db: await makeDb() });
   try {
     const response = await app.inject({ method: 'GET', url: '/api/v1/transactions' });
     assert.equal(response.statusCode, 401);
@@ -177,7 +177,7 @@ test('permintaan tanpa sesi ditolak dan tidak membocorkan data', async () => {
 });
 
 test('validasi nominal dan kepemilikan dompet ditegakkan di server', async () => {
-  const app = await buildServer({ db: makeDb() });
+  const app = await buildServer({ db: await makeDb() });
   try {
     const first = await register(app, 'c@contoh.id', 'C');
     const client = await withClient(app, first.cookie);
@@ -219,7 +219,7 @@ test('validasi nominal dan kepemilikan dompet ditegakkan di server', async () =>
 });
 
 test('ekspor CSV menetralkan formula berbahaya dan memuat kolom wajib', async () => {
-  const app = await buildServer({ db: makeDb() });
+  const app = await buildServer({ db: await makeDb() });
   try {
     const first = await register(app, 'd@contoh.id', 'D');
     const client = await withClient(app, first.cookie);

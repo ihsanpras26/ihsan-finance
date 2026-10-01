@@ -24,7 +24,7 @@ function sanitise(value: unknown): string | null {
   return json.length > 8000 ? `${json.slice(0, 8000)}…` : json;
 }
 
-export function recordAudit(db: Db, input: {
+export async function recordAudit(db: Db, input: {
   workspaceId: string;
   actorUserId?: string | null;
   action: string;
@@ -32,8 +32,8 @@ export function recordAudit(db: Db, input: {
   entityId: string;
   before?: unknown;
   after?: unknown;
-}): void {
-  run(
+}): Promise<void> {
+  await run(
     db,
     `INSERT INTO audit_logs (id, workspace_id, actor_user_id, action, entity_type, entity_id, before_json, after_json, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -42,7 +42,7 @@ export function recordAudit(db: Db, input: {
   );
 }
 
-export function listAudit(db: Db, workspaceId: string, entityType?: string, entityId?: string, limit = 100): AuditEntry[] {
+export async function listAudit(db: Db, workspaceId: string, entityType?: string, entityId?: string, limit = 100): Promise<AuditEntry[]> {
   if (entityType && entityId) {
     return all<AuditEntry>(
       db,

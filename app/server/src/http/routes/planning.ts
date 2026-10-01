@@ -6,6 +6,7 @@ import type { Db } from '../../db/index.ts';
 import { contextFor } from '../../domain/workspaces.ts';
 import {
   cancelDebtPayment, createDebt, getDebt, listDebts, recordDebtPayment, updateDebt, upcomingDebts, writeOffDebt,
+  type DebtView,
 } from '../../domain/debts.ts';
 import {
   allocateGoal, archiveGoal, createGoal, getGoal, listGoals, releaseGoal, spendFromGoal, updateGoal,
@@ -38,10 +39,10 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
   const { db } = deps;
 
   /** A single transaction DTO, used when a planning action produces one. */
-  function transactionDto(workspaceId: string, transactionId: string) {
-    const row = getTransactionRow(db, workspaceId, transactionId);
-    const legs = walletLegsFor(db, workspaceId, [transactionId]).get(transactionId) ?? [];
-    const category = categoryLegsFor(db, workspaceId, [transactionId]).get(transactionId) ?? null;
+  async function transactionDto(workspaceId: string, transactionId: string) {
+    const row = await getTransactionRow(db, workspaceId, transactionId);
+    const legs = (await walletLegsFor(db, workspaceId, [transactionId])).get(transactionId) ?? [];
+    const category = (await categoryLegsFor(db, workspaceId, [transactionId])).get(transactionId) ?? null;
     return serializeTransaction(row, { wallets: legs, category });
   }
 
@@ -52,7 +53,7 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
     const query = request.query as { days?: string };
     const days = query.days ? Number.parseInt(query.days, 10) : 7;
     return {
-      data: upcomingDebts(ctx, Number.isFinite(days) && days > 0 && days <= 90 ? days : 7).map((debt) => ({
+      data: (await upcomingDebts(ctx, Number.isFinite(days) && days > 0 && days <= 90 ? days : 7)).map((debt) => ({
         id: debt.id,
         counterpartyName: debt.counterpartyName ?? 'Tanpa nama',
         direction: debt.direction,
@@ -68,11 +69,11 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
     const ctx = contextFor(db, session);
     const query = request.query as Record<string, string | undefined>;
     return {
-      data: listDebts(ctx, {
+      data: (await listDebts(ctx, {
         direction: query.direction === 'payable' || query.direction === 'receivable' ? query.direction : undefined,
         status: query.status as never,
         includeArchived: query.includeArchived === 'true',
-      }).map(serializeDebt),
+      })).map(serializeDebt),
     };
   });
 
@@ -82,7 +83,7 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
     const body = (request.body ?? {}) as Record<string, unknown>;
     return {
       data: serializeDebt(
-        createDebt(ctx, {
+        await createDebt(ctx, {
           direction: String(body.direction ?? ''),
           counterpartyName: String(body.counterpartyName ?? ''),
           principal: body.principal,
@@ -99,7 +100,7 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
   app.get('/debts/:id', async (request) => {
     const session = request.session!;
     const { id } = request.params as { id: string };
-    const debt = getDebt(contextFor(db, session), id);
+    const debt = await getDebt(contextFor(db, session), id);
     return {
       data: {
         ...serializeDebt(debt),
@@ -114,7 +115,7 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
     const body = (request.body ?? {}) as Record<string, unknown>;
     return {
       data: serializeDebt(
-        updateDebt(contextFor(db, session), id, {
+        await updateDebt(contextFor(db, session), id, {
           counterpartyName: optString(body.counterpartyName),
           dueDate: body.dueDate === undefined ? undefined : (body.dueDate === null ? null : String(body.dueDate)),
           note: body.note === undefined ? undefined : (body.note === null ? null : String(body.note)),
@@ -130,7 +131,7 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
     const ctx = contextFor(db, session);
     const { id } = request.params as { id: string };
     const body = (request.body ?? {}) as Record<string, unknown>;
-    const result = recordDebtPayment(ctx, id, {
+    const result = await recordDebtPayment(ctx, id, {
       principal: body.principal,
       interest: body.interest,
       fee: body.fee,
@@ -142,7 +143,7 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
       data: {
         debt: serializeDebt(result.debt),
         payment: serializeDebtPayment(result.payment),
-        transaction: transactionDto(ctx.workspaceId, result.payment.transaction_id),
+        transaction: await transactionDto(ctx.workspaceId, result.payment.transaction_id),
       },
     };
   });
@@ -152,7 +153,7 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
     const ctx = contextFor(db, session);
     const { id, paymentId } = request.params as { id: string; paymentId: string };
     const body = (request.body ?? {}) as Record<string, unknown>;
-    const debt = cancelDebtPayment(ctx, id, paymentId, {
+    const debt = await cancelDebtPayment(ctx, id, paymentId, {
       reason: body.reason === undefined || body.reason === null ? undefined : String(body.reason),
     }, idempotencyKey(request as never));
     return { data: serializeDebt(debt) };
@@ -165,7 +166,7 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
     const body = (request.body ?? {}) as Record<string, unknown>;
     return {
       data: serializeDebt(
-        writeOffDebt(ctx, id, {
+        await writeOffDebt(ctx, id, {
           reason: String(body.reason ?? ''),
           effectiveDate: optString(body.effectiveDate),
         }, idempotencyKey(request as never)),
@@ -178,10 +179,10 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
     const session = request.session!;
     const query = request.query as Record<string, string | undefined>;
     return {
-      data: listGoals(contextFor(db, session), {
+      data: (await listGoals(contextFor(db, session), {
         includeArchived: query.includeArchived === 'true',
         status: query.status as never,
-      }).map(serializeGoal),
+      })).map(serializeGoal),
     };
   });
 
@@ -191,7 +192,7 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
     const body = (request.body ?? {}) as Record<string, unknown>;
     return {
       data: serializeGoal(
-        createGoal(ctx, {
+        await createGoal(ctx, {
           name: String(body.name ?? ''),
           target: body.target,
           targetDate: body.targetDate === undefined ? undefined : (body.targetDate === null ? null : String(body.targetDate)),
@@ -205,7 +206,7 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
   app.get('/goals/:id', async (request) => {
     const session = request.session!;
     const { id } = request.params as { id: string };
-    const goal = getGoal(contextFor(db, session), id);
+    const goal = await getGoal(contextFor(db, session), id);
     return {
       data: {
         ...serializeGoal(goal),
@@ -220,7 +221,7 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
     const body = (request.body ?? {}) as Record<string, unknown>;
     return {
       data: serializeGoal(
-        updateGoal(contextFor(db, session), id, {
+        await updateGoal(contextFor(db, session), id, {
           name: optString(body.name),
           target: body.target,
           targetDate: body.targetDate === undefined ? undefined : (body.targetDate === null ? null : String(body.targetDate)),
@@ -240,7 +241,7 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
     const body = (request.body ?? {}) as Record<string, unknown>;
     const key = idempotencyKey(request as never);
     if (body.direction === 'release') {
-      const result = releaseGoal(ctx, id, {
+      const result = await releaseGoal(ctx, id, {
         walletId: String(body.walletId ?? ''),
         amount: body.amount,
         effectiveDate: optString(body.effectiveDate),
@@ -254,7 +255,7 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
         },
       };
     }
-    const result = allocateGoal(ctx, id, {
+    const result = await allocateGoal(ctx, id, {
       walletId: String(body.walletId ?? ''),
       amount: body.amount,
       effectiveDate: optString(body.effectiveDate),
@@ -276,7 +277,7 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
     const ctx = contextFor(db, session);
     const { id } = request.params as { id: string };
     const body = (request.body ?? {}) as Record<string, unknown>;
-    const result = spendFromGoal(ctx, id, {
+    const result = await spendFromGoal(ctx, id, {
       walletId: String(body.walletId ?? ''),
       categoryId: String(body.categoryId ?? ''),
       amount: body.amount,
@@ -286,7 +287,7 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
     return {
       data: {
         goal: serializeGoal(result.goal),
-        transaction: transactionDto(ctx.workspaceId, result.transactionId),
+        transaction: await transactionDto(ctx.workspaceId, result.transactionId),
       },
     };
   });
@@ -298,7 +299,7 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
     const body = (request.body ?? {}) as Record<string, unknown>;
     return {
       data: serializeGoal(
-        archiveGoal(ctx, id, {
+        await archiveGoal(ctx, id, {
           resolution: body.resolution === 'keep' ? 'keep' : 'release',
           reason: body.reason === undefined || body.reason === null ? null : String(body.reason),
         }, idempotencyKey(request as never)),
@@ -310,13 +311,13 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
   app.get('/budgets', async (request) => {
     const session = request.session!;
     const query = request.query as Record<string, string | undefined>;
-    return { data: listBudgets(contextFor(db, session), { period: optString(query.period) }).map(serializeBudget) };
+    return { data: (await listBudgets(contextFor(db, session), { period: optString(query.period) })).map(serializeBudget) };
   });
 
   app.get('/budgets/:id', async (request) => {
     const session = request.session!;
     const { id } = request.params as { id: string };
-    return { data: serializeBudget(getBudget(contextFor(db, session), id)) };
+    return { data: serializeBudget(await getBudget(contextFor(db, session), id)) };
   });
 
   app.post('/budgets', async (request) => {
@@ -325,7 +326,7 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
     const body = (request.body ?? {}) as Record<string, unknown>;
     return {
       data: serializeBudget(
-        createBudget(ctx, {
+        await createBudget(ctx, {
           categoryId: String(body.categoryId ?? ''),
           period: String(body.period ?? ''),
           limit: body.limit,
@@ -340,7 +341,7 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
     const body = (request.body ?? {}) as Record<string, unknown>;
     return {
       data: serializeBudget(
-        updateBudget(contextFor(db, session), id, {
+        await updateBudget(contextFor(db, session), id, {
           limit: body.limit,
           expectedVersion: typeof body.expectedVersion === 'number' ? body.expectedVersion : undefined,
         }),
@@ -352,17 +353,17 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
   app.get('/recurring', async (request) => {
     const session = request.session!;
     const query = request.query as Record<string, string | undefined>;
-    return { data: listRules(contextFor(db, session), { status: query.status as never }).map(serializeRule) };
+    return { data: (await listRules(contextFor(db, session), { status: query.status as never })).map(serializeRule) };
   });
 
   app.get('/recurring/occurrences', async (request) => {
     const session = request.session!;
     const query = request.query as Record<string, string | undefined>;
     return {
-      data: listOccurrences(contextFor(db, session), {
+      data: (await listOccurrences(contextFor(db, session), {
         status: query.status as never,
         ruleId: optString(query.ruleId),
-      }).map(serializeOccurrence),
+      })).map(serializeOccurrence),
     };
   });
 
@@ -370,7 +371,7 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
     const session = request.session!;
     const ctx = contextFor(db, session);
     const body = (request.body ?? {}) as Record<string, unknown>;
-    const rule = createRule(ctx, {
+    const rule = await createRule(ctx, {
       type: String(body.type ?? ''),
       frequency: String(body.frequency ?? ''),
       label: optString(body.label),
@@ -385,14 +386,14 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
       anchorDay: typeof body.anchorDay === 'number' ? body.anchorDay : undefined,
     }, idempotencyKey(request as never));
     // Materialise due occurrences now, so a new rule shows its first item without waiting for the tick.
-    ensureOccurrences(ctx);
-    return { data: serializeRule(getRule(ctx, rule.id)) };
+    await ensureOccurrences(ctx);
+    return { data: serializeRule(await getRule(ctx, rule.id)) };
   });
 
   app.get('/recurring/:id', async (request) => {
     const session = request.session!;
     const { id } = request.params as { id: string };
-    return { data: serializeRule(getRule(contextFor(db, session), id)) };
+    return { data: serializeRule(await getRule(contextFor(db, session), id)) };
   });
 
   app.patch('/recurring/:id', async (request) => {
@@ -400,7 +401,7 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
     const { id } = request.params as { id: string };
     const body = (request.body ?? {}) as Record<string, unknown>;
     const ctx = contextFor(db, session);
-    updateRule(ctx, id, {
+    await updateRule(ctx, id, {
       label: optString(body.label),
       amount: body.amount,
       walletId: optString(body.walletId),
@@ -413,15 +414,15 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
       endOn: body.endOn === undefined ? undefined : (body.endOn === null ? null : String(body.endOn)),
       expectedVersion: typeof body.expectedVersion === 'number' ? body.expectedVersion : undefined,
     });
-    ensureOccurrences(ctx);
-    return { data: serializeRule(getRule(ctx, id)) };
+    await ensureOccurrences(ctx);
+      return { data: serializeRule(await getRule(ctx, id)) };
   });
 
   for (const action of ['pause', 'resume', 'stop'] as const) {
     app.post(`/recurring/:id/${action}`, async (request) => {
       const session = request.session!;
       const { id } = request.params as { id: string };
-      return { data: serializeRule(setRuleStatus(contextFor(db, session), id, action)) };
+      return { data: serializeRule(await setRuleStatus(contextFor(db, session), id, action)) };
     });
   }
 
@@ -430,7 +431,7 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
     const ctx = contextFor(db, session);
     const { id } = request.params as { id: string };
     const body = (request.body ?? {}) as Record<string, unknown>;
-    const result = confirmOccurrence(ctx, id, {
+    const result = await confirmOccurrence(ctx, id, {
       amount: body.amount,
       walletId: optString(body.walletId),
       categoryId: optString(body.categoryId),
@@ -442,7 +443,7 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
     return {
       data: {
         occurrence: serializeOccurrence(result.occurrence),
-        transaction: transactionDto(ctx.workspaceId, result.transaction.id),
+        transaction: await transactionDto(ctx.workspaceId, result.transaction.id),
       },
     };
   });
@@ -450,7 +451,7 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
   app.post('/recurring/occurrences/:id/skip', async (request) => {
     const session = request.session!;
     const { id } = request.params as { id: string };
-    return { data: serializeOccurrence(skipOccurrence(contextFor(db, session), id)) };
+    return { data: serializeOccurrence(await skipOccurrence(contextFor(db, session), id)) };
   });
 
   // ── notifications (FR11, FR13, FR16) ──────────────────────────────────────
@@ -458,31 +459,31 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
     const session = request.session!;
     const query = request.query as Record<string, string | undefined>;
     const status = query.status === 'unread' || query.status === 'read' ? query.status : undefined;
-    return { data: listNotifications(contextFor(db, session), { status }).map(serializeNotification) };
+    return { data: (await listNotifications(contextFor(db, session), { status })).map(serializeNotification) };
   });
 
   app.get('/notifications/:id', async (request) => {
     const session = request.session!;
     const { id } = request.params as { id: string };
-    return { data: serializeNotification(getNotification(contextFor(db, session), id)) };
+    return { data: serializeNotification(await getNotification(contextFor(db, session), id)) };
   });
 
   app.post('/notifications/read-all', async (request) => {
     const session = request.session!;
-    return { data: markAllRead(contextFor(db, session)) };
+    return { data: await markAllRead(contextFor(db, session)) };
   });
 
   app.post('/notifications/:id/read', async (request) => {
     const session = request.session!;
     const { id } = request.params as { id: string };
-    return { data: serializeNotification(markRead(contextFor(db, session), id)) };
+    return { data: serializeNotification(await markRead(contextFor(db, session), id)) };
   });
 
   // ── dashboard (FR08) ──────────────────────────────────────────────────────
   app.get('/dashboard', async (request) => {
     const session = request.session!;
     const query = request.query as { asOf?: string };
-    const view = dashboardReport(contextFor(db, session), optString(query.asOf));
+    const view = await dashboardReport(contextFor(db, session), optString(query.asOf));
     return {
       data: {
         ...view,
@@ -515,9 +516,9 @@ export async function registerPlanningRoutes(app: FastifyInstance, deps: RouteDe
     const ctx = contextFor(db, session);
     const query = request.query as Record<string, string | undefined>;
     const includeArchived = query.includeArchived === 'true';
-    const payable = listDebts(ctx, { direction: 'payable', includeArchived });
-    const receivable = listDebts(ctx, { direction: 'receivable', includeArchived });
-    const sum = (rows: typeof payable) => rows.reduce((total, row) => total + row.remaining, 0);
+    const payable = await listDebts(ctx, { direction: 'payable', includeArchived });
+    const receivable = await listDebts(ctx, { direction: 'receivable', includeArchived });
+    const sum = (rows: DebtView[]) => rows.reduce((total, row) => total + row.remaining, 0);
     return {
       data: {
         payable: payable.map(serializeDebt),

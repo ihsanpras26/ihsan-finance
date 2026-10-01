@@ -53,17 +53,21 @@ function assertName(value: unknown): string {
   return name;
 }
 
-export function listWallets(ctx: TxContext, options: { includeArchived?: boolean; asOf?: string } = {}): WalletView[] {
+export async function listWallets(ctx: TxContext, options: { includeArchived?: boolean; asOf?: string } = {}): Promise<WalletView[]> {
   const rows = options.includeArchived
-    ? all<WalletRow>(ctx.db, `SELECT * FROM wallets WHERE workspace_id = ? ORDER BY archived_at IS NOT NULL, created_at`, ctx.workspaceId)
-    : all<WalletRow>(ctx.db, `SELECT * FROM wallets WHERE workspace_id = ? AND archived_at IS NULL ORDER BY created_at`, ctx.workspaceId);
-  return rows.map((row) => ({ ...row, balance: accountBalance(ctx.db, ctx.workspaceId, row.ledger_account_id, options.asOf) }));
+    ? await all<WalletRow>(ctx.db, `SELECT * FROM wallets WHERE workspace_id = ? ORDER BY archived_at IS NOT NULL, created_at`, ctx.workspaceId)
+    : await all<WalletRow>(ctx.db, `SELECT * FROM wallets WHERE workspace_id = ? AND archived_at IS NULL ORDER BY created_at`, ctx.workspaceId);
+  const views: WalletView[] = [];
+  for (const row of rows) {
+    views.push({ ...row, balance: await accountBalance(ctx.db, ctx.workspaceId, row.ledger_account_id, options.asOf) });
+  }
+  return views;
 }
 
-export function getWallet(ctx: TxContext, id: string): WalletView {
-  const row = one<WalletRow>(ctx.db, `SELECT * FROM wallets WHERE workspace_id = ? AND id = ?`, ctx.workspaceId, id);
+export async function getWallet(ctx: TxContext, id: string): Promise<WalletView> {
+  const row = await one<WalletRow>(ctx.db, `SELECT * FROM wallets WHERE workspace_id = ? AND id = ?`, ctx.workspaceId, id);
   if (!row) throw new AppError('not_found', 'Dompet tidak ditemukan di ruang keuangan ini.');
-  return { ...row, balance: accountBalance(ctx.db, ctx.workspaceId, row.ledger_account_id) };
+  return { ...row, balance: await accountBalance(ctx.db, ctx.workspaceId, row.ledger_account_id) };
 }
 
 export interface CreateWalletInput {
@@ -74,7 +78,7 @@ export interface CreateWalletInput {
   note?: string | null;
 }
 
-export function createWallet(ctx: TxContext, input: CreateWalletInput, idempotencyKey?: string | null): WalletView {
+export async function createWallet(ctx: TxContext, input: CreateWalletInput, idempotencyKey?: string | null): Promise<WalletView> {
   const { db, workspaceId } = ctx;
   const name = assertName(input.name);
   const type = assertType(input.type);
@@ -83,43 +87,43 @@ export function createWallet(ctx: TxContext, input: CreateWalletInput, idempoten
     ? 0
     : parseAmount(input.openingBalance, { allowZero: true, field: 'openingBalance' });
 
-  const outcome = withIdempotency(db, { workspaceId, userId: ctx.userId, key: idempotencyKey, payload: { ...input, name, type, openedOn, opening } }, () =>
-    tx(db, () => {
-      const duplicate = one<{ id: string }>(db, `SELECT id FROM wallets WHERE workspace_id = ? AND name = ? AND archived_at IS NULL`, workspaceId, name);
+  const outcome = await withIdempotency(db, { workspaceId, userId: ctx.userId, key: idempotencyKey, payload: { ...input, name, type, openedOn, opening } }, async () =>
+    tx(db, async () => {
+      const duplicate = await one<{ id: string }>(db, `SELECT id FROM wallets WHERE workspace_id = ? AND name = ? AND archived_at IS NULL`, workspaceId, name);
       if (duplicate) {
         throw new AppError('validation_failed', 'Sudah ada dompet aktif dengan nama ini. Pakai nama lain.', { fields: { name: 'taken' } });
       }
       const id = uuidv7();
-      const accountId = createWalletAccount(db, workspaceId, id, `${name} (${WALLET_LABEL[type]})`);
+      const accountId = await createWalletAccount(db, workspaceId, id, `${name} (${WALLET_LABEL[type]})`);
       const now = nowIso();
-      run(
+      await run(
         db,
         `INSERT INTO wallets (id, workspace_id, ledger_account_id, name, type, opened_on, note, version, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
         id, workspaceId, accountId, name, type, openedOn, input.note?.toString().trim() || null, now, now,
       );
       if (opening > 0) {
-        const txId = insertTransaction(db, {
+        const txId = await insertTransaction(db, {
           workspaceId, type: 'opening', status: 'posted', amount: opening, effectiveDate: openedOn,
           note: `Saldo awal ${name}`, source: 'system', userId: ctx.userId, idempotencyKey: null,
           meta: { walletId: id },
         });
-        postJournal(db, {
+        await postJournal(db, {
           workspaceId, transactionId: txId,
-          lines: buildOpening({ walletAccountId: accountId, openingEquityAccountId: systemAccountId(db, workspaceId, 'EQ-OPENING'), amount: opening }),
+          lines: buildOpening({ walletAccountId: accountId, openingEquityAccountId: await systemAccountId(db, workspaceId, 'EQ-OPENING'), amount: opening }),
         });
       }
-      recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'create', entityType: 'wallet', entityId: id, after: { name, type, opening } });
+      await recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'create', entityType: 'wallet', entityId: id, after: { name, type, opening } });
       return getWallet(ctx, id);
     }),
   );
   return outcome.value;
 }
 
-export function updateWallet(ctx: TxContext, id: string, input: { name?: string; type?: string; note?: string | null; expectedVersion?: number }): WalletView {
+export async function updateWallet(ctx: TxContext, id: string, input: { name?: string; type?: string; note?: string | null; expectedVersion?: number }): Promise<WalletView> {
   const { db, workspaceId } = ctx;
-  return tx(db, () => {
-    const row = one<WalletRow>(db, `SELECT * FROM wallets WHERE workspace_id = ? AND id = ?`, workspaceId, id);
+  return tx(db, async () => {
+    const row = await one<WalletRow>(db, `SELECT * FROM wallets WHERE workspace_id = ? AND id = ?`, workspaceId, id);
     if (!row) throw new AppError('not_found', 'Dompet tidak ditemukan di ruang keuangan ini.');
     if (input.expectedVersion !== undefined && input.expectedVersion !== row.version) {
       throw new AppError('version_conflict', 'Dompet ini sudah berubah di perangkat lain. Muat ulang lalu ulangi perubahan.', { details: { serverVersion: row.version } });
@@ -127,53 +131,53 @@ export function updateWallet(ctx: TxContext, id: string, input: { name?: string;
     const name = input.name === undefined ? row.name : assertName(input.name);
     const type = input.type === undefined ? row.type : assertType(input.type);
     const note = input.note === undefined ? row.note : (input.note?.toString().trim() || null);
-    run(
+    await run(
       db,
       `UPDATE wallets SET name = ?, type = ?, note = ?, version = version + 1, updated_at = ? WHERE id = ?`,
       name, type, note, nowIso(), id,
     );
-    if (name !== row.name) renameAccount(db, row.ledger_account_id, `${name} (${WALLET_LABEL[type]})`);
-    recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'update', entityType: 'wallet', entityId: id, before: { name: row.name, type: row.type }, after: { name, type } });
+    if (name !== row.name) await renameAccount(db, row.ledger_account_id, `${name} (${WALLET_LABEL[type]})`);
+    await recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'update', entityType: 'wallet', entityId: id, before: { name: row.name, type: row.type }, after: { name, type } });
     return getWallet(ctx, id);
   });
 }
 
-export function archiveWallet(ctx: TxContext, id: string): WalletView {
+export async function archiveWallet(ctx: TxContext, id: string): Promise<WalletView> {
   const { db, workspaceId } = ctx;
-  return tx(db, () => {
-    const row = one<WalletRow>(db, `SELECT * FROM wallets WHERE workspace_id = ? AND id = ?`, workspaceId, id);
+  return tx(db, async () => {
+    const row = await one<WalletRow>(db, `SELECT * FROM wallets WHERE workspace_id = ? AND id = ?`, workspaceId, id);
     if (!row) throw new AppError('not_found', 'Dompet tidak ditemukan di ruang keuangan ini.');
-    run(db, `UPDATE wallets SET archived_at = ?, version = version + 1, updated_at = ? WHERE id = ?`, nowIso(), nowIso(), id);
-    recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'archive', entityType: 'wallet', entityId: id });
+    await run(db, `UPDATE wallets SET archived_at = ?, version = version + 1, updated_at = ? WHERE id = ?`, nowIso(), nowIso(), id);
+    await recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'archive', entityType: 'wallet', entityId: id });
     return getWallet(ctx, id);
   });
 }
 
-export function unarchiveWallet(ctx: TxContext, id: string): WalletView {
+export async function unarchiveWallet(ctx: TxContext, id: string): Promise<WalletView> {
   const { db, workspaceId } = ctx;
-  return tx(db, () => {
-    run(db, `UPDATE wallets SET archived_at = NULL, version = version + 1, updated_at = ? WHERE workspace_id = ? AND id = ?`, nowIso(), workspaceId, id);
+  return tx(db, async () => {
+    await run(db, `UPDATE wallets SET archived_at = NULL, version = version + 1, updated_at = ? WHERE workspace_id = ? AND id = ?`, nowIso(), workspaceId, id);
     return getWallet(ctx, id);
   });
 }
 
 /** Permanent deletion is only allowed when the wallet has no ledger history at all (PRD FR02). */
-export function deleteWallet(ctx: TxContext, id: string): void {
+export async function deleteWallet(ctx: TxContext, id: string): Promise<void> {
   const { db, workspaceId } = ctx;
-  tx(db, () => {
-    const row = one<WalletRow>(db, `SELECT * FROM wallets WHERE workspace_id = ? AND id = ?`, workspaceId, id);
+  await tx(db, async () => {
+    const row = await one<WalletRow>(db, `SELECT * FROM wallets WHERE workspace_id = ? AND id = ?`, workspaceId, id);
     if (!row) throw new AppError('not_found', 'Dompet tidak ditemukan di ruang keuangan ini.');
-    const lines = scalar(db, `SELECT COUNT(*) FROM journal_lines WHERE workspace_id = ? AND ledger_account_id = ?`, workspaceId, row.ledger_account_id);
+    const lines = await scalar(db, `SELECT COUNT(*) FROM journal_lines WHERE workspace_id = ? AND ledger_account_id = ?`, workspaceId, row.ledger_account_id);
     if (lines > 0) {
       throw new AppError('wallet_has_history', 'Dompet ini sudah memiliki histori transaksi, jadi tidak dapat dihapus permanen. Arsipkan saja.');
     }
-    const linked = scalar(db, `SELECT COUNT(*) FROM goal_allocations WHERE workspace_id = ? AND wallet_id = ?`, workspaceId, id);
+    const linked = await scalar(db, `SELECT COUNT(*) FROM goal_allocations WHERE workspace_id = ? AND wallet_id = ?`, workspaceId, id);
     if (linked > 0) {
       throw new AppError('wallet_has_history', 'Dompet ini masih dipakai alokasi dana tujuan. Lepaskan alokasinya dulu.');
     }
-    run(db, `DELETE FROM wallets WHERE id = ?`, id);
-    run(db, `DELETE FROM ledger_accounts WHERE id = ?`, row.ledger_account_id);
-    recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'delete', entityType: 'wallet', entityId: id, before: { name: row.name } });
+    await run(db, `DELETE FROM wallets WHERE id = ?`, id);
+    await run(db, `DELETE FROM ledger_accounts WHERE id = ?`, row.ledger_account_id);
+    await recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'delete', entityType: 'wallet', entityId: id, before: { name: row.name } });
   });
 }
 
@@ -184,7 +188,7 @@ export interface ReconcileInput {
 }
 
 /** Reconciliation stores only the reviewed difference, with a reason and an adjustment journal (PRD FR03). */
-export function reconcileWallet(ctx: TxContext, id: string, input: ReconcileInput, idempotencyKey?: string | null): { walletId: string; difference: number; transactionId: string | null } {
+export async function reconcileWallet(ctx: TxContext, id: string, input: ReconcileInput, idempotencyKey?: string | null): Promise<{ walletId: string; difference: number; transactionId: string | null }> {
   const { db, workspaceId } = ctx;
   const actual = parseAmount(input.actualBalance, { allowZero: true, allowNegative: true, field: 'actualBalance' });
   const reason = String(input.reason ?? '').trim();
@@ -193,27 +197,27 @@ export function reconcileWallet(ctx: TxContext, id: string, input: ReconcileInpu
   }
   const effectiveDate = input.effectiveDate && isValidIsoDate(input.effectiveDate) ? input.effectiveDate : localDateInTz(ctx.timezone);
 
-  const outcome = withIdempotency(db, { workspaceId, userId: ctx.userId, key: idempotencyKey, payload: { id, actual, reason, effectiveDate } }, () =>
-    tx(db, () => {
-      const wallet = getWallet(ctx, id);
+  const outcome = await withIdempotency(db, { workspaceId, userId: ctx.userId, key: idempotencyKey, payload: { id, actual, reason, effectiveDate } }, async () =>
+    tx(db, async () => {
+      const wallet = await getWallet(ctx, id);
       const difference = actual - wallet.balance;
       if (difference === 0) {
         return { walletId: id, difference: 0, transactionId: null };
       }
-      const txId = insertTransaction(db, {
+      const txId = await insertTransaction(db, {
         workspaceId, type: 'adjustment', status: 'posted', amount: Math.abs(difference), effectiveDate,
         note: `Penyesuaian saldo: ${reason}`, source: 'system', userId: ctx.userId, idempotencyKey: null,
         meta: { walletId: id, difference, reason },
       });
-      postJournal(db, {
+      await postJournal(db, {
         workspaceId, transactionId: txId,
         lines: buildAdjustment({
           walletAccountId: wallet.ledger_account_id,
-          adjustmentEquityAccountId: systemAccountId(db, workspaceId, 'EQ-ADJUST'),
+          adjustmentEquityAccountId: await systemAccountId(db, workspaceId, 'EQ-ADJUST'),
           difference,
         }),
       });
-      recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'reconcile', entityType: 'wallet', entityId: id, before: { balance: wallet.balance }, after: { actual, difference, reason } });
+      await recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'reconcile', entityType: 'wallet', entityId: id, before: { balance: wallet.balance }, after: { actual, difference, reason } });
       return { walletId: id, difference, transactionId: txId };
     }),
   );
@@ -221,8 +225,9 @@ export function reconcileWallet(ctx: TxContext, id: string, input: ReconcileInpu
 }
 
 /** Total money across wallets, archived ones included while they still hold a balance (PRD §04). */
-export function totalCash(ctx: TxContext, asOf?: string): number {
-  return all<{ ledger_account_id: string }>(ctx.db, `SELECT ledger_account_id FROM wallets WHERE workspace_id = ?`, ctx.workspaceId)
-    .map((row) => accountBalance(ctx.db, ctx.workspaceId, row.ledger_account_id, asOf))
-    .reduce((sum, value) => sum + value, 0);
+export async function totalCash(ctx: TxContext, asOf?: string): Promise<number> {
+  const rows = await all<{ ledger_account_id: string }>(ctx.db, `SELECT ledger_account_id FROM wallets WHERE workspace_id = ?`, ctx.workspaceId);
+  let sum = 0;
+  for (const row of rows) sum += await accountBalance(ctx.db, ctx.workspaceId, row.ledger_account_id, asOf);
+  return sum;
 }

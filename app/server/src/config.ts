@@ -2,6 +2,7 @@
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = resolve(HERE, '../..');
@@ -19,7 +20,13 @@ function envFlag(name: string, fallback: boolean): boolean {
   return !['0', 'false', 'no', 'off'].includes(raw.trim().toLowerCase());
 }
 
-const dataDir = process.env.IHSAN_DATA_DIR ? resolve(process.env.IHSAN_DATA_DIR) : join(APP_ROOT, 'data');
+const dbUrl = process.env.IHSAN_DB_URL?.trim() ?? '';
+// Serverless platforms have a read-only bundle directory; only the temp directory is writable.
+const dataDir = process.env.IHSAN_DATA_DIR
+  ? resolve(process.env.IHSAN_DATA_DIR)
+  : dbUrl
+    ? join(tmpdir(), 'ihsan')
+    : join(APP_ROOT, 'data');
 mkdirSync(dataDir, { recursive: true });
 
 const appOrigin = process.env.APP_ORIGIN ?? '';
@@ -28,6 +35,9 @@ export const config = {
   port: envInt('PORT', 8787),
   host: process.env.HOST ?? '127.0.0.1',
   dbPath: process.env.IHSAN_DB_PATH ?? join(dataDir, 'ihsan.db'),
+  /** Remote libSQL/Turso target when set; `dbPath` is used for a local file otherwise. */
+  dbUrl: dbUrl === '' ? null : dbUrl,
+  dbToken: process.env.IHSAN_DB_TOKEN?.trim() ?? '',
   dataDir,
   exportDir: join(dataDir, 'exports'),
   isTest: process.env.NODE_ENV === 'test',

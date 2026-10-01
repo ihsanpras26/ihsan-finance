@@ -28,7 +28,7 @@ function setCookieOf(response: { headers: Record<string, unknown> }): string {
 }
 
 test('pendaftaran tertutup setelah akun pertama lahir', async () => {
-  const app = await buildServer({ db: makeDb() });
+  const app = await buildServer({ db: await makeDb() });
   try {
     const first = await register(app, 'pemilik@contoh.id');
     assert.equal(first.statusCode, 200, first.body);
@@ -51,7 +51,7 @@ test('pendaftaran tertutup setelah akun pertama lahir', async () => {
 });
 
 test('cookie sesi memakai Secure dan balasan membawa HSTS saat origin https', async () => {
-  const app = await buildServer({ db: makeDb() });
+  const app = await buildServer({ db: await makeDb() });
   try {
     const response = await register(app, 'pemilik@contoh.id');
     assert.equal(response.statusCode, 200, response.body);
@@ -66,7 +66,7 @@ test('cookie sesi memakai Secure dan balasan membawa HSTS saat origin https', as
 });
 
 test('titik kesehatan publik tetap terjangkau tanpa sesi dan membawa HSTS', async () => {
-  const app = await buildServer({ db: makeDb() });
+  const app = await buildServer({ db: await makeDb() });
   try {
     const response = await app.inject({ method: 'GET', url: '/api/v1/health' });
     assert.equal(response.statusCode, 200, response.body);

@@ -53,7 +53,7 @@ function buildView(row: NotificationRow, today: string): NotificationView {
   return { ...row, daysUntil: row.due_date ? daysBetween(today, row.due_date) : null };
 }
 
-export function listNotifications(ctx: TxContext, options: { status?: NotificationStatus; kind?: NotificationKind } = {}): NotificationView[] {
+export async function listNotifications(ctx: TxContext, options: { status?: NotificationStatus; kind?: NotificationKind } = {}): Promise<NotificationView[]> {
   const where = ['workspace_id = ?'];
   const params: unknown[] = [ctx.workspaceId];
   if (options.status) {
@@ -65,48 +65,49 @@ export function listNotifications(ctx: TxContext, options: { status?: Notificati
     params.push(options.kind);
   }
   const today = localDateInTz(ctx.timezone);
-  return all<NotificationRow>(
+  const rows = await all<NotificationRow>(
     ctx.db,
     `SELECT * FROM notifications WHERE ${where.join(' AND ')}
      ORDER BY status = 'read', COALESCE(due_date, created_at), created_at DESC`,
     ...params,
-  ).map((row) => buildView(row, today));
+  );
+  return rows.map((row) => buildView(row, today));
 }
 
-export function unreadCount(ctx: TxContext): number {
-  return scalar(ctx.db, `SELECT COUNT(*) FROM notifications WHERE workspace_id = ? AND status = 'unread'`, ctx.workspaceId);
+export async function unreadCount(ctx: TxContext): Promise<number> {
+  return await scalar(ctx.db, `SELECT COUNT(*) FROM notifications WHERE workspace_id = ? AND status = 'unread'`, ctx.workspaceId);
 }
 
-export function getNotification(ctx: TxContext, id: string): NotificationView {
-  const row = one<NotificationRow>(ctx.db, `SELECT * FROM notifications WHERE workspace_id = ? AND id = ?`, ctx.workspaceId, id);
+export async function getNotification(ctx: TxContext, id: string): Promise<NotificationView> {
+  const row = await one<NotificationRow>(ctx.db, `SELECT * FROM notifications WHERE workspace_id = ? AND id = ?`, ctx.workspaceId, id);
   if (!row) throw new AppError('not_found', 'Notifikasi tidak ditemukan di ruang keuangan ini.');
   return buildView(row, localDateInTz(ctx.timezone));
 }
 
-export function markRead(ctx: TxContext, id: string): NotificationView {
+export async function markRead(ctx: TxContext, id: string): Promise<NotificationView> {
   const { db, workspaceId } = ctx;
-  return tx(db, () => {
-    const row = one<NotificationRow>(db, `SELECT * FROM notifications WHERE workspace_id = ? AND id = ?`, workspaceId, id);
+  return await tx(db, async () => {
+    const row = await one<NotificationRow>(db, `SELECT * FROM notifications WHERE workspace_id = ? AND id = ?`, workspaceId, id);
     if (!row) throw new AppError('not_found', 'Notifikasi tidak ditemukan di ruang keuangan ini.');
     if (row.status !== 'read') {
-      run(db, `UPDATE notifications SET status = 'read', read_at = ? WHERE workspace_id = ? AND id = ?`, nowIso(), workspaceId, id);
-      recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'mark_read', entityType: 'notification', entityId: id });
+      await run(db, `UPDATE notifications SET status = 'read', read_at = ? WHERE workspace_id = ? AND id = ?`, nowIso(), workspaceId, id);
+      await recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'mark_read', entityType: 'notification', entityId: id });
     }
-    return getNotification(ctx, id);
+    return await getNotification(ctx, id);
   });
 }
 
-export function markAllRead(ctx: TxContext): { updated: number } {
+export async function markAllRead(ctx: TxContext): Promise<{ updated: number }> {
   const { db, workspaceId } = ctx;
-  return tx(db, () => {
-    const result = run(
+  return await tx(db, async () => {
+    const result = await run(
       db,
       `UPDATE notifications SET status = 'read', read_at = ? WHERE workspace_id = ? AND status = 'unread'`,
       nowIso(), workspaceId,
     );
     const updated = Number(result.changes);
     if (updated > 0) {
-      recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'mark_all_read', entityType: 'notification', entityId: workspaceId, after: { updated } });
+      await recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'mark_all_read', entityType: 'notification', entityId: workspaceId, after: { updated } });
     }
     return { updated };
   });
@@ -117,11 +118,11 @@ export function markAllRead(ctx: TxContext): { updated: number } {
  * tanggal jatuh tempo, dan pengingat yang belum dimatikan yang memicu notifikasi; catatan yang
  * sudah lunas berhenti mengingatkan. `dedupe_key` unik membuat pemanggilan berulang aman.
  */
-export function ensureDueNotifications(ctx: TxContext, today?: string): { created: number; debtsChecked: number } {
+export async function ensureDueNotifications(ctx: TxContext, today?: string): Promise<{ created: number; debtsChecked: number }> {
   const { db, workspaceId } = ctx;
   const day = today ?? localDateInTz(ctx.timezone);
-  return tx(db, () => {
-    const debts = all<{ id: string; direction: string; due_date: string; principal_minor: number; ledger_account_id: string; counterparty_id: string | null }>(
+  return await tx(db, async () => {
+    const debts = await all<{ id: string; direction: string; due_date: string; principal_minor: number; ledger_account_id: string; counterparty_id: string | null }>(
       db,
       `SELECT d.id, d.direction, d.due_date, d.principal_minor, d.ledger_account_id, d.counterparty_id
        FROM debts d
@@ -132,10 +133,10 @@ export function ensureDueNotifications(ctx: TxContext, today?: string): { create
     );
     let created = 0;
     for (const debt of debts) {
-      const remaining = accountBalance(db, workspaceId, debt.ledger_account_id);
+      const remaining = await accountBalance(db, workspaceId, debt.ledger_account_id);
       if (remaining <= 0) continue;
       const party = debt.counterparty_id
-        ? one<{ name: string }>(db, `SELECT name FROM counterparties WHERE workspace_id = ? AND id = ?`, workspaceId, debt.counterparty_id)?.name ?? 'pihak lain'
+        ? (await one<{ name: string }>(db, `SELECT name FROM counterparties WHERE workspace_id = ? AND id = ?`, workspaceId, debt.counterparty_id))?.name ?? 'pihak lain'
         : 'pihak lain';
       const isPayable = debt.direction === 'payable';
       const what = isPayable ? 'Utang' : 'Piutang';
@@ -145,7 +146,7 @@ export function ensureDueNotifications(ctx: TxContext, today?: string): { create
         if (compareDate(notifyOn, day) > 0) continue;
         if (compareDate(day, debt.due_date) > 0) continue;
         const dedupeKey = `debt:${debt.id}:${reminder.key}:${debt.due_date}`;
-        const result = run(
+        const result = await run(
           db,
           `INSERT OR IGNORE INTO notifications (id, workspace_id, kind, ref_type, ref_id, title, body, due_date, status, dedupe_key, created_at, read_at)
            VALUES (?, ?, 'debt_due', 'debt', ?, ?, ?, ?, 'unread', ?, ?, NULL)`,

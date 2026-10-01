@@ -133,11 +133,11 @@ function assertReason(value: unknown): string {
   return reason;
 }
 
-function assertWallet(db: Db, workspaceId: string, walletId: unknown, field = 'walletId'): { id: string; name: string; accountId: string } {
+async function assertWallet(db: Db, workspaceId: string, walletId: unknown, field = 'walletId'): Promise<{ id: string; name: string; accountId: string }> {
   if (typeof walletId !== 'string' || !walletId) {
     throw new AppError('validation_failed', 'Dompet wajib dipilih untuk mencatat perpindahan dana.', { fields: { [field]: 'required' } });
   }
-  const row = one<{ id: string; name: string; ledger_account_id: string; archived_at: string | null }>(
+  const row = await one<{ id: string; name: string; ledger_account_id: string; archived_at: string | null }>(
     db,
     `SELECT id, name, ledger_account_id, archived_at FROM wallets WHERE workspace_id = ? AND id = ?`,
     workspaceId, walletId,
@@ -149,15 +149,15 @@ function assertWallet(db: Db, workspaceId: string, walletId: unknown, field = 'w
 
 // ── pembacaan ───────────────────────────────────────────────────────────────
 
-function getDebtRow(db: Db, workspaceId: string, id: string): DebtRow {
-  const row = one<DebtRow>(db, `SELECT * FROM debts WHERE workspace_id = ? AND id = ?`, workspaceId, id);
+async function getDebtRow(db: Db, workspaceId: string, id: string): Promise<DebtRow> {
+  const row = await one<DebtRow>(db, `SELECT * FROM debts WHERE workspace_id = ? AND id = ?`, workspaceId, id);
   if (!row) throw new AppError('not_found', 'Catatan utang atau piutang tidak ditemukan di ruang keuangan ini.');
   return row;
 }
 
 /** Bunga dan biaya yang masih tercatat: pembayaran yang sudah dibatalkan tidak dihitung. */
-function paidTotals(db: Db, workspaceId: string, debtId: string): { principal: number; interest: number; fee: number } {
-  const row = one<{ principal: number; interest: number; fee: number }>(
+async function paidTotals(db: Db, workspaceId: string, debtId: string): Promise<{ principal: number; interest: number; fee: number }> {
+  const row = await one<{ principal: number; interest: number; fee: number }>(
     db,
     `SELECT COALESCE(SUM(p.principal_minor), 0) AS principal,
             COALESCE(SUM(p.interest_minor), 0) AS interest,
@@ -173,19 +173,19 @@ function paidTotals(db: Db, workspaceId: string, debtId: string): { principal: n
   };
 }
 
-function counterpartyName(db: Db, workspaceId: string, counterpartyId: string | null): string | null {
+async function counterpartyName(db: Db, workspaceId: string, counterpartyId: string | null): Promise<string | null> {
   if (!counterpartyId) return null;
-  const row = one<{ name: string }>(db, `SELECT name FROM counterparties WHERE workspace_id = ? AND id = ?`, workspaceId, counterpartyId);
+  const row = await one<{ name: string }>(db, `SELECT name FROM counterparties WHERE workspace_id = ? AND id = ?`, workspaceId, counterpartyId);
   return row?.name ?? null;
 }
 
-function buildDebtView(db: Db, workspaceId: string, row: DebtRow, today: string): DebtView {
-  const remaining = accountBalance(db, workspaceId, row.ledger_account_id);
-  const paid = paidTotals(db, workspaceId, row.id);
+async function buildDebtView(db: Db, workspaceId: string, row: DebtRow, today: string): Promise<DebtView> {
+  const remaining = await accountBalance(db, workspaceId, row.ledger_account_id);
+  const paid = await paidTotals(db, workspaceId, row.id);
   const overdue = row.status === 'active' && remaining > 0 && row.due_date !== null && compareDate(row.due_date, today) < 0;
   return {
     ...row,
-    counterpartyName: counterpartyName(db, workspaceId, row.counterparty_id),
+    counterpartyName: await counterpartyName(db, workspaceId, row.counterparty_id),
     remaining,
     principalPaid: paid.principal,
     interestPaid: paid.interest,
@@ -196,7 +196,7 @@ function buildDebtView(db: Db, workspaceId: string, row: DebtRow, today: string)
   };
 }
 
-export function listDebts(ctx: TxContext, options: { direction?: DebtDirection; status?: DebtStatus; includeArchived?: boolean } = {}): DebtView[] {
+export async function listDebts(ctx: TxContext, options: { direction?: DebtDirection; status?: DebtStatus; includeArchived?: boolean } = {}): Promise<DebtView[]> {
   const { db, workspaceId } = ctx;
   const where = ['workspace_id = ?'];
   const params: unknown[] = [workspaceId];
@@ -209,23 +209,27 @@ export function listDebts(ctx: TxContext, options: { direction?: DebtDirection; 
     params.push(options.status);
   }
   if (!options.includeArchived) where.push(`status <> 'archived'`);
-  const rows = all<DebtRow>(db, `SELECT * FROM debts WHERE ${where.join(' AND ')} ORDER BY due_date IS NULL, due_date, created_at`, ...params);
+  const rows = await all<DebtRow>(db, `SELECT * FROM debts WHERE ${where.join(' AND ')} ORDER BY due_date IS NULL, due_date, created_at`, ...params);
   const today = localDateInTz(ctx.timezone);
-  return rows.map((row) => buildDebtView(db, workspaceId, row, today));
+  const views: DebtView[] = [];
+  for (const row of rows) {
+    views.push(await buildDebtView(db, workspaceId, row, today));
+  }
+  return views;
 }
 
-export function getDebt(ctx: TxContext, id: string): DebtDetail {
+export async function getDebt(ctx: TxContext, id: string): Promise<DebtDetail> {
   const { db, workspaceId } = ctx;
-  const row = getDebtRow(db, workspaceId, id);
+  const row = await getDebtRow(db, workspaceId, id);
   const today = localDateInTz(ctx.timezone);
-  const payments = all<DebtPaymentRow & { transaction_status: string; note: string | null }>(
+  const payments = (await all<DebtPaymentRow & { transaction_status: string; note: string | null }>(
     db,
     `SELECT p.*, t.status AS transaction_status, t.note AS note
      FROM debt_payments p JOIN transactions t ON t.id = p.transaction_id
      WHERE p.workspace_id = ? AND p.debt_id = ?
      ORDER BY p.payment_date DESC, p.created_at DESC`,
     workspaceId, id,
-  ).map((payment) => ({
+  )).map((payment) => ({
     id: payment.id,
     workspace_id: payment.workspace_id,
     debt_id: payment.debt_id,
@@ -241,7 +245,7 @@ export function getDebt(ctx: TxContext, id: string): DebtDetail {
       ? addSafe(addSafe(payment.principal_minor, payment.interest_minor), payment.fee_minor)
       : addSafe(payment.principal_minor, payment.interest_minor) - payment.fee_minor,
   }));
-  return { ...buildDebtView(db, workspaceId, row, today), payments };
+  return { ...(await buildDebtView(db, workspaceId, row, today)), payments };
 }
 
 // ── FR09: membuat utang dan piutang ─────────────────────────────────────────
@@ -262,7 +266,7 @@ export interface CreateDebtInput {
  * menentukan dampaknya (§10): utang baru menaikkan kas dan kewajiban, piutang baru menurunkan
  * kas dan menaikkan aset piutang, sedangkan "Saldo lama" tidak menciptakan arus kas baru.
  */
-export function createDebt(ctx: TxContext, input: CreateDebtInput, idempotencyKey?: string | null): DebtView {
+export async function createDebt(ctx: TxContext, input: CreateDebtInput, idempotencyKey?: string | null): Promise<DebtView> {
   const { db, workspaceId } = ctx;
   const direction = assertDirection(input.direction);
   const counterpartyNameInput = assertCounterpartyName(input.counterpartyName);
@@ -277,20 +281,20 @@ export function createDebt(ctx: TxContext, input: CreateDebtInput, idempotencyKe
     throw new AppError('validation_failed', 'Tanggal jatuh tempo tidak boleh sebelum tanggal mulai.', { fields: { dueDate: 'before_start' } });
   }
   const note = assertNote(input.note);
-  const wallet = openingMode === 'cash' ? assertWallet(db, workspaceId, input.walletId) : null;
+  const wallet = openingMode === 'cash' ? await assertWallet(db, workspaceId, input.walletId) : null;
 
-  const outcome = withIdempotency(
+  const outcome = await withIdempotency(
     db,
     { workspaceId, userId: ctx.userId, key: idempotencyKey, payload: { ...input, direction, counterpartyName: counterpartyNameInput, principal, openingMode, startDate, dueDate } },
-    () => tx(db, () => {
-      const existingParty = one<{ id: string }>(
+    () => tx(db, async () => {
+      const existingParty = await one<{ id: string }>(
         db,
         `SELECT id FROM counterparties WHERE workspace_id = ? AND name = ? AND archived_at IS NULL`,
         workspaceId, counterpartyNameInput,
       );
       const counterpartyId = existingParty?.id ?? uuidv7();
       if (!existingParty) {
-        run(
+        await run(
           db,
           `INSERT INTO counterparties (id, workspace_id, name, contact, archived_at, created_at) VALUES (?, ?, ?, NULL, NULL, ?)`,
           counterpartyId, workspaceId, counterpartyNameInput, nowIso(),
@@ -299,9 +303,9 @@ export function createDebt(ctx: TxContext, input: CreateDebtInput, idempotencyKe
 
       const debtId = uuidv7();
       const accountName = `${DIRECTION_LABEL[direction]}: ${counterpartyNameInput}`;
-      const accountId = createDebtAccount(db, workspaceId, debtId, direction, accountName);
+      const accountId = await createDebtAccount(db, workspaceId, debtId, direction, accountName);
       const now = nowIso();
-      run(
+      await run(
         db,
         `INSERT INTO debts (id, workspace_id, counterparty_id, ledger_account_id, direction, opening_mode,
                             principal_minor, start_date, due_date, note, reminder_off, status, version, created_at, updated_at)
@@ -313,50 +317,50 @@ export function createDebt(ctx: TxContext, input: CreateDebtInput, idempotencyKe
       // Catatan awal selalu dibukukan pada tanggal mulai: ini peristiwa yang sudah terjadi,
       // bukan rencana pengeluaran yang menunggu konfirmasi.
       if (openingMode === 'legacy') {
-        const txId = insertTransaction(db, {
+        const txId = await insertTransaction(db, {
           workspaceId, type: 'opening', status: 'posted', amount: principal, effectiveDate: startDate,
           note: `Saldo lama ${DIRECTION_LABEL[direction].toLowerCase()} kepada ${counterpartyNameInput}`,
           source: 'manual', userId: ctx.userId, idempotencyKey: null, counterpartyId,
           meta: { debtId, direction, openingMode },
         });
-        postJournal(db, {
+        await postJournal(db, {
           workspaceId, transactionId: txId,
           lines: buildLegacyOpening({
             debtAccountId: accountId,
-            openingEquityAccountId: systemAccountId(db, workspaceId, 'EQ-OPENING'),
+            openingEquityAccountId: await systemAccountId(db, workspaceId, 'EQ-OPENING'),
             amount: principal,
             direction,
           }),
         });
       } else if (direction === 'payable') {
-        const txId = insertTransaction(db, {
+        const txId = await insertTransaction(db, {
           workspaceId, type: 'debt_received', status: 'posted', amount: principal, effectiveDate: startDate,
           note: `Dana utang diterima dari ${counterpartyNameInput}`,
           source: 'manual', userId: ctx.userId, idempotencyKey: null, counterpartyId,
           meta: { debtId, direction, walletId: wallet?.id },
         });
-        postJournal(db, {
+        await postJournal(db, {
           workspaceId, transactionId: txId,
           lines: buildDebtCashReceived({ walletAccountId: wallet!.accountId, debtAccountId: accountId, amount: principal }),
         });
       } else {
-        const txId = insertTransaction(db, {
+        const txId = await insertTransaction(db, {
           workspaceId, type: 'receivable_given', status: 'posted', amount: principal, effectiveDate: startDate,
           note: `Piutang diberikan kepada ${counterpartyNameInput}`,
           source: 'manual', userId: ctx.userId, idempotencyKey: null, counterpartyId,
           meta: { debtId, direction, walletId: wallet?.id },
         });
-        postJournal(db, {
+        await postJournal(db, {
           workspaceId, transactionId: txId,
           lines: buildReceivableGiven({ walletAccountId: wallet!.accountId, receivableAccountId: accountId, amount: principal }),
         });
       }
 
-      recordAudit(db, {
+      await recordAudit(db, {
         workspaceId, actorUserId: ctx.userId, action: 'create', entityType: 'debt', entityId: debtId,
         after: { direction, counterpartyName: counterpartyNameInput, principal, openingMode, startDate, dueDate },
       });
-      return buildDebtView(db, workspaceId, getDebtRow(db, workspaceId, debtId), today);
+      return await buildDebtView(db, workspaceId, await getDebtRow(db, workspaceId, debtId), today);
     }),
   );
   return outcome.value;
@@ -372,10 +376,10 @@ export interface UpdateDebtInput {
   expectedVersion?: number;
 }
 
-export function updateDebt(ctx: TxContext, id: string, input: UpdateDebtInput): DebtView {
+export async function updateDebt(ctx: TxContext, id: string, input: UpdateDebtInput): Promise<DebtView> {
   const { db, workspaceId } = ctx;
-  return tx(db, () => {
-    const row = getDebtRow(db, workspaceId, id);
+  return tx(db, async () => {
+    const row = await getDebtRow(db, workspaceId, id);
     if (input.expectedVersion !== undefined && input.expectedVersion !== row.version) {
       throw new AppError('version_conflict', 'Catatan ini sudah berubah di perangkat lain. Muat ulang lalu ulangi perubahan.', { details: { serverVersion: row.version } });
     }
@@ -391,19 +395,19 @@ export function updateDebt(ctx: TxContext, id: string, input: UpdateDebtInput): 
     const reminderOff = input.reminderOff === undefined ? row.reminder_off : (input.reminderOff ? 1 : 0);
 
     if (name && row.counterparty_id) {
-      run(db, `UPDATE counterparties SET name = ? WHERE workspace_id = ? AND id = ?`, name, workspaceId, row.counterparty_id);
+      await run(db, `UPDATE counterparties SET name = ? WHERE workspace_id = ? AND id = ?`, name, workspaceId, row.counterparty_id);
     }
-    run(
+    await run(
       db,
       `UPDATE debts SET due_date = ?, note = ?, reminder_off = ?, version = version + 1, updated_at = ? WHERE workspace_id = ? AND id = ?`,
       dueDate, note, reminderOff, nowIso(), workspaceId, id,
     );
-    recordAudit(db, {
+    await recordAudit(db, {
       workspaceId, actorUserId: ctx.userId, action: 'update', entityType: 'debt', entityId: id,
-      before: { counterpartyName: counterpartyName(db, workspaceId, row.counterparty_id), dueDate: row.due_date, note: row.note, reminderOff: row.reminder_off },
-      after: { counterpartyName: name ?? counterpartyName(db, workspaceId, row.counterparty_id), dueDate, note, reminderOff },
+      before: { counterpartyName: await counterpartyName(db, workspaceId, row.counterparty_id), dueDate: row.due_date, note: row.note, reminderOff: row.reminder_off },
+      after: { counterpartyName: name ?? await counterpartyName(db, workspaceId, row.counterparty_id), dueDate, note, reminderOff },
     });
-    return buildDebtView(db, workspaceId, getDebtRow(db, workspaceId, id), localDateInTz(ctx.timezone));
+    return await buildDebtView(db, workspaceId, await getDebtRow(db, workspaceId, id), localDateInTz(ctx.timezone));
   });
 }
 
@@ -427,7 +431,7 @@ export interface RecordDebtPaymentResult {
  * Jumlah kas = pokok + bunga + biaya. Pokok mengurangi saldo kewajiban atau piutang; bunga dan
  * biaya diklasifikasikan terpisah (§10). Pembayaran yang membuat sisa pokok nol melunasi catatan.
  */
-export function recordDebtPayment(ctx: TxContext, id: string, input: RecordDebtPaymentInput, idempotencyKey?: string | null): RecordDebtPaymentResult {
+export async function recordDebtPayment(ctx: TxContext, id: string, input: RecordDebtPaymentInput, idempotencyKey?: string | null): Promise<RecordDebtPaymentResult> {
   const { db, workspaceId } = ctx;
   const principal = parseAmount(input.principal, { allowZero: true, field: 'principal' });
   const interest = input.interest === undefined || input.interest === null || input.interest === ''
@@ -444,17 +448,17 @@ export function recordDebtPayment(ctx: TxContext, id: string, input: RecordDebtP
   if (compareDate(paymentDate, today) > 0) {
     throw new AppError('validation_failed', 'Tanggal pembayaran tidak boleh di masa depan. Catat pembayaran pada tanggal dana benar-benar berpindah.', { fields: { paymentDate: 'future' } });
   }
-  const wallet = assertWallet(db, workspaceId, input.walletId);
+  const wallet = await assertWallet(db, workspaceId, input.walletId);
 
-  const outcome = withIdempotency(
+  const outcome = await withIdempotency(
     db,
     { workspaceId, userId: ctx.userId, key: idempotencyKey, payload: { id, principal, interest, fee, walletId: wallet.id, paymentDate, note } },
-    () => tx(db, () => {
-      const debt = getDebtRow(db, workspaceId, id);
+    () => tx(db, async () => {
+      const debt = await getDebtRow(db, workspaceId, id);
       if (debt.status === 'written_off' || debt.status === 'archived') {
         throw new AppError('validation_failed', 'Catatan ini sudah ditutup, jadi pembayaran baru tidak dapat dicatat. Buat catatan baru bila ada kesepakatan baru.');
       }
-      const remaining = accountBalance(db, workspaceId, debt.ledger_account_id);
+      const remaining = await accountBalance(db, workspaceId, debt.ledger_account_id);
       if (principal > remaining) {
         throw new AppError(
           'insufficient_principal',
@@ -469,7 +473,7 @@ export function recordDebtPayment(ctx: TxContext, id: string, input: RecordDebtP
       }
 
       const isPayable = debt.direction === 'payable';
-      const txId = insertTransaction(db, {
+      const txId = await insertTransaction(db, {
         workspaceId,
         type: isPayable ? 'debt_payment' : 'receivable_payment',
         status: 'posted',
@@ -482,43 +486,43 @@ export function recordDebtPayment(ctx: TxContext, id: string, input: RecordDebtP
         counterpartyId: debt.counterparty_id,
         meta: { debtId: debt.id, walletId: wallet.id, principal, interest, fee },
       });
-      postJournal(db, {
+      await postJournal(db, {
         workspaceId, transactionId: txId,
         lines: isPayable
           ? buildDebtPayment({
               walletAccountId: wallet.accountId,
               debtAccountId: debt.ledger_account_id,
               principal, interest, fee,
-              interestAccountId: systemAccountId(db, workspaceId, 'EXP-INTEREST'),
-              feeAccountId: systemAccountId(db, workspaceId, 'EXP-FEE'),
+              interestAccountId: await systemAccountId(db, workspaceId, 'EXP-INTEREST'),
+              feeAccountId: await systemAccountId(db, workspaceId, 'EXP-FEE'),
             })
           : buildReceivableCollection({
               walletAccountId: wallet.accountId,
               receivableAccountId: debt.ledger_account_id,
               principal, interest, fee,
-              interestAccountId: systemAccountId(db, workspaceId, 'INC-INTEREST'),
-              feeAccountId: systemAccountId(db, workspaceId, 'EXP-FEE'),
+              interestAccountId: await systemAccountId(db, workspaceId, 'INC-INTEREST'),
+              feeAccountId: await systemAccountId(db, workspaceId, 'EXP-FEE'),
             }),
       });
 
       const paymentId = uuidv7();
-      run(
+      await run(
         db,
         `INSERT INTO debt_payments (id, workspace_id, debt_id, transaction_id, principal_minor, interest_minor, fee_minor, payment_date, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         paymentId, workspaceId, debt.id, txId, principal, interest, fee, paymentDate, nowIso(),
       );
 
-      const after = accountBalance(db, workspaceId, debt.ledger_account_id);
+      const after = await accountBalance(db, workspaceId, debt.ledger_account_id);
       if (after === 0 && debt.status === 'active') {
-        run(db, `UPDATE debts SET status = 'paid', version = version + 1, updated_at = ? WHERE workspace_id = ? AND id = ?`, nowIso(), workspaceId, debt.id);
+        await run(db, `UPDATE debts SET status = 'paid', version = version + 1, updated_at = ? WHERE workspace_id = ? AND id = ?`, nowIso(), workspaceId, debt.id);
       }
-      recordAudit(db, {
+      await recordAudit(db, {
         workspaceId, actorUserId: ctx.userId, action: 'record_payment', entityType: 'debt', entityId: debt.id,
         before: { remaining }, after: { remaining: after, principal, interest, fee, paymentId, transactionId: txId },
       });
 
-      const detail = getDebt(ctx, debt.id);
+      const detail = await getDebt(ctx, debt.id);
       const payment = detail.payments.find((entry) => entry.id === paymentId);
       if (!payment) throw new AppError('internal', 'Pembayaran tersimpan tetapi tidak dapat dibaca kembali.');
       return { payment, debt: detail };
@@ -532,64 +536,64 @@ export function recordDebtPayment(ctx: TxContext, id: string, input: RecordDebtP
  * sehingga kas kembali dan sisa pokok naik kembali secara atomik. Pembatalan lewat layar
  * transaksi umum sengaja ditolak agar selalu melalui layar utang ini.
  */
-export function cancelDebtPayment(
+export async function cancelDebtPayment(
   ctx: TxContext,
   debtId: string,
   paymentId: string,
   input: { reason?: string } = {},
   idempotencyKey?: string | null,
-): RecordDebtPaymentResult['debt'] {
+): Promise<RecordDebtPaymentResult['debt']> {
   const { db, workspaceId } = ctx;
   const reason = input.reason === undefined ? null : assertReason(input.reason);
-  const outcome = withIdempotency(
+  const outcome = await withIdempotency(
     db,
     { workspaceId, userId: ctx.userId, key: idempotencyKey, payload: { debtId, paymentId, reason } },
-    () => tx(db, () => {
-      const debt = getDebtRow(db, workspaceId, debtId);
-      const payment = one<DebtPaymentRow>(
+    () => tx(db, async () => {
+      const debt = await getDebtRow(db, workspaceId, debtId);
+      const payment = await one<DebtPaymentRow>(
         db,
         `SELECT * FROM debt_payments WHERE workspace_id = ? AND id = ? AND debt_id = ?`,
         workspaceId, paymentId, debtId,
       );
       if (!payment) throw new AppError('not_found', 'Pembayaran ini tidak ditemukan pada catatan utang atau piutang tersebut.');
-      const txRow = one<{ id: string; status: string; version: number }>(
+      const txRow = await one<{ id: string; status: string; version: number }>(
         db, `SELECT id, status, version FROM transactions WHERE workspace_id = ? AND id = ?`, workspaceId, payment.transaction_id,
       );
       if (!txRow) throw new AppError('internal', 'Transaksi pembayaran tidak ditemukan di buku besar.');
       if (txRow.status !== 'posted') {
         throw new AppError('validation_failed', 'Pembayaran ini sudah dibatalkan sebelumnya, tidak perlu dibatalkan lagi.');
       }
-      const lines = all<{ ledger_account_id: string; debit_minor: number; credit_minor: number }>(
+      const lines = await all<{ ledger_account_id: string; debit_minor: number; credit_minor: number }>(
         db, `SELECT ledger_account_id, debit_minor, credit_minor FROM journal_lines WHERE transaction_id = ? ORDER BY id`, txRow.id,
       );
       if (lines.length === 0) throw new AppError('internal', 'Pembayaran ini tidak memiliki baris jurnal untuk dibalik.');
 
       const now = nowIso();
-      const reversalId = insertTransaction(db, {
+      const reversalId = await insertTransaction(db, {
         workspaceId, type: 'reversal', status: 'posted', amount: lines.reduce((sum, line) => addSafe(sum, line.debit_minor), 0),
         effectiveDate: payment.payment_date,
         note: reason ? `Pembatalan pembayaran: ${reason}` : 'Pembatalan pembayaran utang atau piutang',
         source: 'system', userId: ctx.userId, idempotencyKey: null, originalId: txRow.id, reversalOf: txRow.id,
       });
-      postJournal(db, {
+      await postJournal(db, {
         workspaceId, transactionId: reversalId,
         lines: mirrorLines(lines.map((line) => ({ accountId: line.ledger_account_id, debit: line.debit_minor, credit: line.credit_minor }))),
       });
-      run(db, `UPDATE transactions SET status = 'reversed', version = version + 1, updated_at = ? WHERE id = ?`, now, txRow.id);
-      run(
+      await run(db, `UPDATE transactions SET status = 'reversed', version = version + 1, updated_at = ? WHERE id = ?`, now, txRow.id);
+      await run(
         db,
         `INSERT OR IGNORE INTO transaction_links (id, workspace_id, source_tx_id, target_tx_id, relation_type, created_at)
          VALUES (?, ?, ?, ?, 'reversal_of', ?)`,
         uuidv7(), workspaceId, reversalId, txRow.id, now,
       );
       if (debt.status === 'paid') {
-        run(db, `UPDATE debts SET status = 'active', version = version + 1, updated_at = ? WHERE workspace_id = ? AND id = ?`, now, workspaceId, debtId);
+        await run(db, `UPDATE debts SET status = 'active', version = version + 1, updated_at = ? WHERE workspace_id = ? AND id = ?`, now, workspaceId, debtId);
       }
-      recordAudit(db, {
+      await recordAudit(db, {
         workspaceId, actorUserId: ctx.userId, action: 'cancel_payment', entityType: 'debt', entityId: debtId,
         after: { paymentId, reversalId, reason },
       });
-      return getDebt(ctx, debtId);
+      return await getDebt(ctx, debtId);
     }),
   );
   return outcome.value;
@@ -603,52 +607,52 @@ export interface WriteOffDebtInput {
 }
 
 /** Penghapusan saldo adalah penyesuaian non-kas dengan alasan dan audit terpisah (§06). */
-export function writeOffDebt(ctx: TxContext, id: string, input: WriteOffDebtInput, idempotencyKey?: string | null): DebtView {
+export async function writeOffDebt(ctx: TxContext, id: string, input: WriteOffDebtInput, idempotencyKey?: string | null): Promise<DebtView> {
   const { db, workspaceId } = ctx;
   const reason = assertReason(input.reason);
   const effectiveDate = input.effectiveDate === undefined || input.effectiveDate === null || input.effectiveDate === ''
     ? localDateInTz(ctx.timezone)
     : assertIsoDate(input.effectiveDate, 'effectiveDate');
 
-  const outcome = withIdempotency(
+  const outcome = await withIdempotency(
     db,
     { workspaceId, userId: ctx.userId, key: idempotencyKey, payload: { id, reason, effectiveDate } },
-    () => tx(db, () => {
-      const debt = getDebtRow(db, workspaceId, id);
+    () => tx(db, async () => {
+      const debt = await getDebtRow(db, workspaceId, id);
       if (debt.status !== 'active') {
         throw new AppError('validation_failed', 'Hanya catatan yang masih aktif yang dapat dihapus. Catatan ini sudah lunas atau sudah ditutup.');
       }
-      const remaining = accountBalance(db, workspaceId, debt.ledger_account_id);
+      const remaining = await accountBalance(db, workspaceId, debt.ledger_account_id);
       if (remaining <= 0) {
         throw new AppError('validation_failed', 'Tidak ada sisa pokok yang dapat dihapus pada catatan ini.');
       }
       const isPayable = debt.direction === 'payable';
-      const txId = insertTransaction(db, {
+      const txId = await insertTransaction(db, {
         workspaceId, type: 'adjustment', status: 'posted', amount: remaining, effectiveDate,
         note: `Penghapusan ${DIRECTION_LABEL[debt.direction].toLowerCase()}: ${reason}`,
         source: 'manual', userId: ctx.userId, idempotencyKey: null, counterpartyId: debt.counterparty_id,
         meta: { debtId: debt.id, reason },
       });
-      postJournal(db, {
+      await postJournal(db, {
         workspaceId, transactionId: txId,
         lines: isPayable
           ? buildWriteOffPayable({
               debtAccountId: debt.ledger_account_id,
-              writeOffEquityAccountId: systemAccountId(db, workspaceId, 'EQ-WRITEOFF'),
+              writeOffEquityAccountId: await systemAccountId(db, workspaceId, 'EQ-WRITEOFF'),
               amount: remaining,
             })
           : buildWriteOffReceivable({
               receivableAccountId: debt.ledger_account_id,
-              writeOffEquityAccountId: systemAccountId(db, workspaceId, 'EQ-WRITEOFF'),
+              writeOffEquityAccountId: await systemAccountId(db, workspaceId, 'EQ-WRITEOFF'),
               amount: remaining,
             }),
       });
-      run(db, `UPDATE debts SET status = 'written_off', version = version + 1, updated_at = ? WHERE workspace_id = ? AND id = ?`, nowIso(), workspaceId, id);
-      recordAudit(db, {
+      await run(db, `UPDATE debts SET status = 'written_off', version = version + 1, updated_at = ? WHERE workspace_id = ? AND id = ?`, nowIso(), workspaceId, id);
+      await recordAudit(db, {
         workspaceId, actorUserId: ctx.userId, action: 'write_off', entityType: 'debt', entityId: id,
         before: { remaining, status: debt.status }, after: { status: 'written_off', reason, transactionId: txId },
       });
-      return buildDebtView(db, workspaceId, getDebtRow(db, workspaceId, id), localDateInTz(ctx.timezone));
+      return await buildDebtView(db, workspaceId, await getDebtRow(db, workspaceId, id), localDateInTz(ctx.timezone));
     }),
   );
   return outcome.value;
@@ -656,18 +660,21 @@ export function writeOffDebt(ctx: TxContext, id: string, input: WriteOffDebtInpu
 
 // ── FR11: daftar kewajiban yang mendekati jatuh tempo ───────────────────────
 
-export function upcomingDebts(ctx: TxContext, days = 7): DebtView[] {
+export async function upcomingDebts(ctx: TxContext, days = 7): Promise<DebtView[]> {
   const { db, workspaceId } = ctx;
   const today = localDateInTz(ctx.timezone);
   const horizon = addDays(today, Math.max(0, Math.trunc(days)));
-  const rows = all<DebtRow>(
+  const rows = await all<DebtRow>(
     db,
     `SELECT * FROM debts
      WHERE workspace_id = ? AND status = 'active' AND due_date IS NOT NULL AND due_date >= ? AND due_date <= ?
      ORDER BY due_date, created_at`,
     workspaceId, today, horizon,
   );
-  return rows
-    .map((row) => buildDebtView(db, workspaceId, row, today))
-    .filter((view) => view.remaining > 0);
+  const views: DebtView[] = [];
+  for (const row of rows) {
+    const view = await buildDebtView(db, workspaceId, row, today);
+    if (view.remaining > 0) views.push(view);
+  }
+  return views;
 }

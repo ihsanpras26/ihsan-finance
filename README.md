@@ -60,21 +60,39 @@ Cara kredensial disimpan di aplikasi ini, supaya jelas apa yang harus dijaga saa
   teks biasa (`app/server/src/domain/auth.ts`).
 - Token sesi dibuat dari 32 byte acak dan yang disimpan di basis data hanya **hash SHA-256**-nya.
   Karena itu tidak ada kunci rahasia server yang perlu diatur untuk sesi.
-- Tidak ada rahasia pihak ketiga di proyek ini. Tidak ada kunci API, tidak ada token layanan, dan
-  tidak ada berkas `.env` yang diperlukan untuk menjalankan aplikasi.
-- Variabel lingkungan yang dikenali hanya menyangkut lokasi dan port, bukan rahasia:
-  `IHSAN_DATA_DIR`, `IHSAN_DB_PATH`, `HOST`, `PORT`, `APP_ORIGIN`, `LOG_LEVEL`, `SESSION_DAYS`
-  (`app/server/src/config.ts`).
+- Aplikasi ini tidak butuh rahasia apa pun untuk berjalan lokal. Kredensial hanya muncul pada
+  penyalaan produksi: `IHSAN_DB_TOKEN` (Turso), `IHSAN_S3_*` (cadangan offsite), dan
+  `CRON_SECRET` (penjadwal serverless). Semuanya opsional bagi mesin pengembangan.
+- Variabel lingkungan yang dikenali ada di `app/.env.example`; bentuknya dijaga
+  `app/server/src/config.ts` dan `app/server/test/deploy.test.ts`.
 
 ## Verifikasi
 
 ```bash
 cd app
-pnpm verify    # typecheck + 74 tes server + 6 tes antarmuka + build produksi
+pnpm verify    # typecheck + 106 tes server + 5 tes antarmuka + build produksi
 pnpm smoke     # 50 pemeriksaan HTTP nyata terhadap server yang benar-benar berjalan
 ```
 
+Di mesin 8 GB, jalankan dengan `NODE_OPTIONS=--max-old-space-size=1536 pnpm verify`; tanpa itu Node
+bisa berhenti dengan `Zone Allocation failed` saat memori bebas menipis. Hook `pre-commit` memakai
+nilai itu sebagai bawaan.
+
 Laporan gerbang anti-slop sebelum penyerahan ada di `docs/DELIVERY_GATE.md`.
+
+Menyalakan cadangan ke luar mesin (S3/R2/B2):
+
+```bash
+cd app
+pnpm offsite:dump   # hanya dump + pemeriksaan
+pnpm offsite        # dump, unggah, lalu pangkas salinan lokal
+```
+
+Dump membaca basis data Turso bila `IHSAN_DB_URL` terisi, kalau tidak berkas lokal `IHSAN_DB_PATH`.
+Berkasnya ditaruh di `<IHSAN_DATA_DIR>/offsite` (`IHSAN_OFFSITE_DIR` bila perlu tempat lain), bukan
+di direktori snapshot `backup.mjs`, supaya retensi keduanya tidak saling menghapus.
+
+Kontrak penyalaan, penjadwal, dan pemulihan ada di `docs/DEPLOY.md`.
 
 ## Susunan
 
@@ -86,13 +104,15 @@ Ihsan Finance/
   docs/                                 arsitektur, desain, keputusan, status, riset, gerbang
   skills/                               skill agen pihak ketiga berlisensi terbuka
   app/
-    server/                             Node 24 + TypeScript langsung + node:sqlite
+    server/                             Node 24 + TypeScript langsung + @libsql/client (berkas atau Turso)
       src/core/                         uang, tanggal, id, galat
       src/db/                           skema dan pembungkus transaksi
       src/domain/                       jurnal, transaksi, dompet, utang, tujuan, anggaran, laporan
       src/http/                         Fastify 5 + Zod
       src/workers/                      penjadwal kejadian berulang dan pengingat
-      test/                             74 tes, termasuk seluruh skenario penerimaan PRD
+      test/                             tes server, termasuk seluruh skenario penerimaan PRD
+    api/                                fungsi Vercel pembungkus Fastify (mode serverless, D-21)
+    vercel.json                         build, rewrite SPA, dan cron penjadwal harian
     web/                                React 19 + Vite 7 + Tailwind v4, PWA
 ```
 

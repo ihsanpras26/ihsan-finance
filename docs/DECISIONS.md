@@ -388,3 +388,60 @@ Kewajiban lingkungan yang belum tertutup tetap dicatat di `docs/STATUS.md` (bata
 `pre-commit`).
 **Status:** Kontrak dan perangkat penyalaan selesai dan terverifikasi di mesin pengembangan; deploy
 pertama menunggu kredensial, domain, dan pilihan penyedia dari pemilik.
+
+## D-21 · Lapisan data libSQL: berkas, berkas temp, atau Turso; penjadwal lewat cron
+
+**Tanggal:** 1 Oktober 2026
+**Konteks:** D-20 mengunci `node:sqlite` mode berkas dan satu proses sebagai kontrak penyalaan.
+Pemilik kemudian memilih penyedia **gratis** (Vercel/Cloudflare) dan meminta cadangan offsite
+disiapkan sekarang. Vercel memberi sistem berkas hanya-baca dan sekali pakai, jadi basis data
+berkas tidak bisa hidup di sana; Cloudflare Workers tidak bisa menjalankan Fastify tanpa menulis
+ulang seluruh lapisan HTTP. Turso (libSQL) mempertahankan dialek SQLite sehingga `schema.sql`,
+jurnal berpasangan, dan seluruh aturan P0 tetap berlaku tanpa cabang kode kedua.
+**Keputusan:**
+1. **Satu port basis data, dua target.** `app/server/src/db/index.ts` menjadi satu-satunya modul
+   yang tahu drivernya: `openDatabase(target, authToken?)` memilih `@libsql/client/web` untuk URL
+   `libsql:`/`http(s)`/`ws(s)` dan `@libsql/client` (binding native, berkas + pragma WAL) untuk
+   jalur berkas. Seluruh domain, rute, pekerja terjadwal, dan tes memanggil `query/mutate/script/
+   transaction` pada kelas `Db`, tidak pernah `prepare/get/run` milik `node:sqlite`.
+2. **Uang tetap integer.** `bind()` mengubah bilangan bulat aman menjadi `bigint` supaya nilai
+   rupiah tersimpan sebagai `INTEGER` (aturan PRD 1), dan dibuktikan
+   `typeof(amount)='integer'` di `app/server/test/db-port.test.ts`.
+3. **Transaksi mengikuti konteks async, bukan instance.** `AsyncLocalStorage` menyimpan transaksi
+   aktif, sehingga dua permintaan yang berbagi satu `Db` tidak saling melihat pekerjaan setengah
+   jalan; pemanggilan `tx()` bersarang menjadi `SAVEPOINT` (dipakai koreksi transaksi dan
+   konfirmasi rencana berulang).
+4. **Berkas tetap target pengembangan dan tes.** Tes memakai berkas sungguhan di direktori
+   sementara, bukan `:memory:`: libSQL memberi setiap koneksi dalam pool basis data in-memory
+   sendiri, sehingga `:memory:` tidak mencerminkan produksi.
+5. **Turso opsional, bukan wajib.** `IHSAN_DB_URL` + `IHSAN_DB_TOKEN` mengalihkan mode; bila
+   kosong, `IHSAN_DB_PATH`/`IHSAN_DATA_DIR` dipakai seperti D-20. Di mode serverless, direktori
+   data bawaan pindah ke direktori sementara karena paket fungsi hanya-baca.
+6. **Penjadwal dipisah dari proses.** Mode satu proses tetap memakai timer 15 menit di `main.ts`;
+   mode serverless memakai `GET|POST /api/v1/internal/tick` ber-`Authorization: Bearer
+   $CRON_SECRET` (padanan `IHSAN_CRON_TOKEN`), idempoten, tanpa sesi pengguna, dan menjawab 404
+   saat token belum diatur. `app/vercel.json` memasangnya harian pukul 22:00 UTC (05:00 WIB).
+7. **Cadangan keluar mesin memakai dump logis.** `VACUUM INTO` pada Turso menulis di sisi server,
+   jadi `app/server/src/tools/offsite.ts` menyalin baris per tabel, memeriksa jumlah baris,
+   keseimbangan jurnal, `PRAGMA integrity_check`, dan `foreign_key_check`, menyegel `sha256`, lalu
+   mengunggah ke ember S3/R2/B2 dengan SigV4 buatan sendiri (tanpa SDK). Unggahan hanya dianggap
+   berhasil bila ember menjawab 2xx. Sumbernya Turso bila `IHSAN_DB_URL` diisi, kalau tidak berkas
+   lokal, dan hasilnya ditulis ke `<IHSAN_DATA_DIR>/offsite` (`IHSAN_OFFSITE_DIR`): pola nama dump
+   sama dengan snapshot `backup.mjs`, jadi direktori terpisah mencegah retensi kedua keluarga
+   berkas saling menghapus.
+**Alasan:** Aturan finansial P0 (jurnal berpasangan, isolasi ruang, idempotensi, satu transaksi
+per mutasi) tidak boleh ditawar demi penyedia hosting. libSQL menjaga seluruhnya sekaligus
+menghapus ketergantungan pada disk permanen, jadi hosting gratis menjadi mungkin tanpa menulis
+ulang domain. AsyncLocalStorage dipilih daripada menyimpan transaksi di field `Db` karena satu
+instance dibagi banyak permintaan; slot di instance akan bocor antarpengguna.
+**Konsekuensi:** Setiap pemanggil domain menjadi asinkron; ini perubahan besar pada 45 berkas dan
+diverifikasi `pnpm --dir app verify` (typecheck + 106 tes server + 5 tes antarmuka + build web).
+Mesin 8 GB tidak sanggup memberi V8 heap 2560 MB saat memori bebas menipis (`Zone Allocation
+failed`), jadi hook `pre-commit` memakai 1536 MB — angka yang lolos utuh dalam ±65 detik.
+Di Vercel Hobby penjadwal menjadi harian, bukan tiap 15 menit, sehingga pengingat
+H−7/H−1/H−0 tetap akurat harinya tetapi tidak muncul lebih rapat; pada paket berbayar frekuensi
+bisa dirapatkan tanpa perubahan kode. Koneksi Turso sungguhan belum pernah diuji karena kredensial
+belum ada (`docs/STATUS.md` mencatatnya sebagai kewajiban terbuka); yang terbukti adalah pemilihan
+klien HTTP untuk URL `libsql://` dan seluruh perilaku port pada basis data berkas.
+**Status:** Kode dan verifikasi selesai di mesin pengembangan; penyalaan mode B menunggu
+kredensial Turso/Vercel, nama domain, dan ember cadangan dari pemilik.

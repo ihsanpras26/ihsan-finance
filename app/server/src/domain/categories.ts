@@ -23,7 +23,7 @@ export interface CategoryRow {
 const DEFAULT_EXPENSE = ['Makan dan minum', 'Transportasi', 'Belanja harian', 'Tagihan', 'Kesehatan', 'Pendidikan', 'Hiburan', 'Lain-lain'];
 const DEFAULT_INCOME = ['Gaji', 'Usaha', 'Hadiah', 'Lain-lain'];
 
-export function listCategories(ctx: TxContext, options: { kind?: CategoryKind; includeArchived?: boolean } = {}): CategoryRow[] {
+export async function listCategories(ctx: TxContext, options: { kind?: CategoryKind; includeArchived?: boolean } = {}): Promise<CategoryRow[]> {
   const where = ['workspace_id = ?'];
   const params: unknown[] = [ctx.workspaceId];
   if (options.kind) {
@@ -34,8 +34,8 @@ export function listCategories(ctx: TxContext, options: { kind?: CategoryKind; i
   return all<CategoryRow>(ctx.db, `SELECT * FROM categories WHERE ${where.join(' AND ')} ORDER BY kind, name`, ...params);
 }
 
-export function getCategory(ctx: TxContext, id: string): CategoryRow {
-  const row = one<CategoryRow>(ctx.db, `SELECT * FROM categories WHERE workspace_id = ? AND id = ?`, ctx.workspaceId, id);
+export async function getCategory(ctx: TxContext, id: string): Promise<CategoryRow> {
+  const row = await one<CategoryRow>(ctx.db, `SELECT * FROM categories WHERE workspace_id = ? AND id = ?`, ctx.workspaceId, id);
   if (!row) throw new AppError('not_found', 'Kategori tidak ditemukan di ruang keuangan ini.');
   return row;
 }
@@ -55,72 +55,72 @@ function assertKind(value: unknown): CategoryKind {
   return kind;
 }
 
-export function createCategory(ctx: TxContext, input: { name: string; kind: CategoryKind | string }): CategoryRow {
+export async function createCategory(ctx: TxContext, input: { name: string; kind: CategoryKind | string }): Promise<CategoryRow> {
   const { db, workspaceId } = ctx;
   const name = assertName(input.name);
   const kind = assertKind(input.kind);
-  return tx(db, () => {
-    const duplicate = one<{ id: string }>(db, `SELECT id FROM categories WHERE workspace_id = ? AND kind = ? AND name = ?`, workspaceId, kind, name);
+  return tx(db, async () => {
+    const duplicate = await one<{ id: string }>(db, `SELECT id FROM categories WHERE workspace_id = ? AND kind = ? AND name = ?`, workspaceId, kind, name);
     if (duplicate) {
       throw new AppError('validation_failed', 'Kategori dengan nama ini sudah ada. Pakai nama lain.', { fields: { name: 'taken' } });
     }
     const id = uuidv7();
-    const accountId = createCategoryAccount(db, workspaceId, id, name, kind);
+    const accountId = await createCategoryAccount(db, workspaceId, id, name, kind);
     const now = nowIso();
-    run(
+    await run(
       db,
       `INSERT INTO categories (id, workspace_id, ledger_account_id, name, kind, version, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, 1, ?, ?)`,
       id, workspaceId, accountId, name, kind, now, now,
     );
-    recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'create', entityType: 'category', entityId: id, after: { name, kind } });
+    await recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'create', entityType: 'category', entityId: id, after: { name, kind } });
     return getCategory(ctx, id);
   });
 }
 
-export function updateCategory(ctx: TxContext, id: string, input: { name?: string; expectedVersion?: number }): CategoryRow {
+export async function updateCategory(ctx: TxContext, id: string, input: { name?: string; expectedVersion?: number }): Promise<CategoryRow> {
   const { db, workspaceId } = ctx;
-  return tx(db, () => {
-    const row = getCategory(ctx, id);
+  return tx(db, async () => {
+    const row = await getCategory(ctx, id);
     if (input.expectedVersion !== undefined && input.expectedVersion !== row.version) {
       throw new AppError('version_conflict', 'Kategori ini sudah berubah di perangkat lain. Muat ulang lalu ulangi perubahan.', { details: { serverVersion: row.version } });
     }
     const name = input.name === undefined ? row.name : assertName(input.name);
     if (name !== row.name) {
-      const duplicate = one<{ id: string }>(db, `SELECT id FROM categories WHERE workspace_id = ? AND kind = ? AND name = ? AND id <> ?`, workspaceId, row.kind, name, id);
+      const duplicate = await one<{ id: string }>(db, `SELECT id FROM categories WHERE workspace_id = ? AND kind = ? AND name = ? AND id <> ?`, workspaceId, row.kind, name, id);
       if (duplicate) throw new AppError('validation_failed', 'Kategori dengan nama ini sudah ada. Pakai nama lain.', { fields: { name: 'taken' } });
     }
-    run(db, `UPDATE categories SET name = ?, version = version + 1, updated_at = ? WHERE id = ?`, name, nowIso(), id);
-    if (name !== row.name) renameAccount(db, row.ledger_account_id, name);
-    recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'update', entityType: 'category', entityId: id, before: { name: row.name }, after: { name } });
+    await run(db, `UPDATE categories SET name = ?, version = version + 1, updated_at = ? WHERE id = ?`, name, nowIso(), id);
+    if (name !== row.name) await renameAccount(db, row.ledger_account_id, name);
+    await recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'update', entityType: 'category', entityId: id, before: { name: row.name }, after: { name } });
     return getCategory(ctx, id);
   });
 }
 
-export function archiveCategory(ctx: TxContext, id: string): CategoryRow {
+export async function archiveCategory(ctx: TxContext, id: string): Promise<CategoryRow> {
   const { db, workspaceId } = ctx;
-  return tx(db, () => {
-    getCategory(ctx, id);
-    run(db, `UPDATE categories SET archived_at = ?, version = version + 1, updated_at = ? WHERE id = ?`, nowIso(), nowIso(), id);
-    recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'archive', entityType: 'category', entityId: id });
+  return tx(db, async () => {
+    await getCategory(ctx, id);
+    await run(db, `UPDATE categories SET archived_at = ?, version = version + 1, updated_at = ? WHERE id = ?`, nowIso(), nowIso(), id);
+    await recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'archive', entityType: 'category', entityId: id });
     return getCategory(ctx, id);
   });
 }
 
-export function unarchiveCategory(ctx: TxContext, id: string): CategoryRow {
+export async function unarchiveCategory(ctx: TxContext, id: string): Promise<CategoryRow> {
   const { db, workspaceId } = ctx;
-  return tx(db, () => {
-    run(db, `UPDATE categories SET archived_at = NULL, version = version + 1, updated_at = ? WHERE workspace_id = ? AND id = ?`, nowIso(), workspaceId, id);
+  return tx(db, async () => {
+    await run(db, `UPDATE categories SET archived_at = NULL, version = version + 1, updated_at = ? WHERE workspace_id = ? AND id = ?`, nowIso(), workspaceId, id);
     return getCategory(ctx, id);
   });
 }
 
 /** Seed the starter set so a new workspace is usable in seconds (PRD §03 new-user flow). */
-export function seedDefaultCategories(ctx: TxContext): CategoryRow[] {
-  const existing = scalar(ctx.db, `SELECT COUNT(*) FROM categories WHERE workspace_id = ?`, ctx.workspaceId);
+export async function seedDefaultCategories(ctx: TxContext): Promise<CategoryRow[]> {
+  const existing = await scalar(ctx.db, `SELECT COUNT(*) FROM categories WHERE workspace_id = ?`, ctx.workspaceId);
   if (existing > 0) return listCategories(ctx);
   const created: CategoryRow[] = [];
-  for (const name of DEFAULT_EXPENSE) created.push(createCategory(ctx, { name, kind: 'expense' }));
-  for (const name of DEFAULT_INCOME) created.push(createCategory(ctx, { name, kind: 'income' }));
+  for (const name of DEFAULT_EXPENSE) created.push(await createCategory(ctx, { name, kind: 'expense' }));
+  for (const name of DEFAULT_INCOME) created.push(await createCategory(ctx, { name, kind: 'income' }));
   return created;
 }

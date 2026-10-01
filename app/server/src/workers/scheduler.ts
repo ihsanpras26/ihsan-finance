@@ -2,7 +2,7 @@
 // Idempoten, jadi aman dijalankan berulang; bisa dipanggil per ruang (ctx) atau untuk semua ruang
 // sekaligus (db) dari bootstrap main.ts.
 import { localDateInTz } from '../core/dates.ts';
-import { all, tx, type Db } from '../db/index.ts';
+import { all, tx, Db } from '../db/index.ts';
 import { ensureOccurrences } from '../domain/recurring.ts';
 import { ensureDueNotifications } from '../domain/notifications.ts';
 import type { TxContext } from '../domain/transactions.ts';
@@ -22,17 +22,17 @@ export interface SchedulerInput {
 }
 
 function isDb(value: TxContext | Db): value is Db {
-  return typeof (value as Db).prepare === 'function' && typeof (value as TxContext).db === 'undefined';
+  return value instanceof Db;
 }
 
 /**
  * Menyiapkan kejadian berulang yang tertinggal dan pengingat H−7/H−1/H−0 dalam satu transaksi.
  * Dipanggil dengan TxContext untuk satu ruang, atau dengan Db untuk menjalankan seluruh ruang.
  */
-export function runScheduler(target: TxContext | Db, input: SchedulerInput = {}): SchedulerSummary {
+export async function runScheduler(target: TxContext | Db, input: SchedulerInput = {}): Promise<SchedulerSummary> {
   if (isDb(target)) {
     const db = target;
-    const workspaces = all<{ id: string; timezone: string; owner_id: string }>(
+    const workspaces = await all<{ id: string; timezone: string; owner_id: string }>(
       db, `SELECT id, timezone, owner_id FROM workspaces ORDER BY created_at`,
     );
     const summary: SchedulerSummary = {
@@ -45,7 +45,7 @@ export function runScheduler(target: TxContext | Db, input: SchedulerInput = {})
     };
     for (const workspace of workspaces) {
       const ctx: TxContext = { db, workspaceId: workspace.id, userId: workspace.owner_id, timezone: workspace.timezone };
-      const part = runScheduler(ctx, input);
+      const part = await runScheduler(ctx, input);
       summary.occurrencesCreated += part.occurrencesCreated;
       summary.notificationsCreated += part.notificationsCreated;
       summary.rulesProcessed += part.rulesProcessed;
@@ -57,9 +57,9 @@ export function runScheduler(target: TxContext | Db, input: SchedulerInput = {})
 
   const ctx = target;
   const today = input.today ?? localDateInTz(ctx.timezone);
-  return tx(ctx.db, () => {
-    const occurrences = ensureOccurrences(ctx, today);
-    const notifications = ensureDueNotifications(ctx, today);
+  return await tx(ctx.db, async () => {
+    const occurrences = await ensureOccurrences(ctx, today);
+    const notifications = await ensureDueNotifications(ctx, today);
     return {
       today,
       occurrencesCreated: occurrences.created,

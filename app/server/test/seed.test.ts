@@ -8,24 +8,24 @@ import { bookedThisMonth, dayOfThisMonth, seedDemo } from '../src/tools/seed.ts'
 import { localDateInTz } from '../src/core/dates.ts';
 import { all, one } from '../src/db/index.ts';
 
-test('seed selesai pada tanggal berapa pun: anggaran, tujuan, utang, dan aturan ikut terisi', () => {
-  const db = makeDb();
-  const summary = seedDemo(db);
+test('seed selesai pada tanggal berapa pun: anggaran, tujuan, utang, dan aturan ikut terisi', async () => {
+  const db = await makeDb();
+  const summary = await seedDemo(db);
   const today = localDateInTz('Asia/Jakarta');
 
   assert.equal(summary.wallets, 3);
   assert.equal(summary.total, 27_090_000, 'total saldo contoh');
-  assert.equal(one<{ c: number }>(db, `SELECT count(*) c FROM budgets WHERE period_start = ?`, `${today.slice(0, 7)}-01`)!.c, 4);
-  assert.equal(one<{ c: number }>(db, `SELECT count(*) c FROM goals`)!.c, 3);
-  assert.equal(one<{ c: number }>(db, `SELECT count(*) c FROM recurring_rules`)!.c, 2);
-  assert.equal(one<{ c: number }>(db, `SELECT count(*) c FROM transactions WHERE type = 'debt_payment'`)!.c, 1);
+  assert.equal((await one<{ c: number }>(db, `SELECT count(*) c FROM budgets WHERE period_start = ?`, `${today.slice(0, 7)}-01`))!.c, 4);
+  assert.equal((await one<{ c: number }>(db, `SELECT count(*) c FROM goals`))!.c, 3);
+  assert.equal((await one<{ c: number }>(db, `SELECT count(*) c FROM recurring_rules`))!.c, 2);
+  assert.equal((await one<{ c: number }>(db, `SELECT count(*) c FROM transactions WHERE type = 'debt_payment'`))!.c, 1);
 });
 
-test('seed tidak membukukan peristiwa bertanggal masa depan', () => {
-  const db = makeDb();
-  seedDemo(db);
+test('seed tidak membukukan peristiwa bertanggal masa depan', async () => {
+  const db = await makeDb();
+  await seedDemo(db);
   const today = localDateInTz('Asia/Jakarta');
-  const future = all<{ type: string; d: string }>(db, `SELECT type, effective_date d FROM transactions WHERE effective_date > ?`, today);
+  const future = await all<{ type: string; d: string }>(db, `SELECT type, effective_date d FROM transactions WHERE effective_date > ?`, today);
   assert.deepEqual(future, [], 'semua peristiwa contoh bertanggal hari ini atau sebelumnya');
 });
 

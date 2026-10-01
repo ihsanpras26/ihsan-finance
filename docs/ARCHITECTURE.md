@@ -8,28 +8,30 @@ menjadi keputusan teknis yang mengikat. Perubahan di sini dicatat di `docs/DECIS
 | Lapisan | Pilihan | Alasan |
 |---|---|---|
 | Runtime | Node 24 (TypeScript langsung, type-stripping) | Tanpa build step server; `node:test` bawaan |
-| DB | SQLite via `node:sqlite` (`DatabaseSync`) | Transaksi atomik nyata, nol dependensi native, satu berkas |
+| DB | libSQL (`@libsql/client`): berkas lokal atau Turso | Transaksi atomik nyata, dialek SQLite tetap, satu port untuk dua tempat (D-21) |
 | API | Fastify 5 + Zod | Routing/validasi matang, `inject()` untuk tes tanpa jaringan |
 | Web | React 19 + Vite 7 + Tailwind v4 | PWA responsif, HMR cepat |
 | Grafik | SVG buatan sendiri + tabel pendamping | PRD FR18: grafik wajib punya nilai/tabel |
 | Tes | `node:test` (server) + `tsc --noEmit` + build (web) | Satu perintah: `pnpm verify` |
 
-Berkas data: `app/data/ihsan.db` (di-gitignore). Mode `WAL`, `foreign_keys=ON`.
+Berkas data pengembangan: `app/data/ihsan.db` (di-gitignore). Mode `WAL`, `foreign_keys=ON`.
+Produksi boleh memakai basis data Turso: `IHSAN_DB_URL` + `IHSAN_DB_TOKEN` mengalihkan target, dan
+penyalaan serverless memakai `app/api/index.ts` + cron `GET /api/v1/internal/tick` (D-21).
 
 ## 2. Peta modul
 
 ```
 server/src/
   main.ts            bootstrap: config → db → migrate → http → scheduler
-  config.ts          env (PORT, DB_PATH, SESSION_TTL, APP_ORIGIN)
+  config.ts          env (HOST, PORT, APP_ORIGIN, IHSAN_DB_URL/DATA_DIR, token penjadwal)
   core/              ids · money · dates · errors · validate   (tanpa dependensi domain)
-  db/                schema.sql · migrate.ts · index.ts (tx helper)
+  db/                schema.sql · index.ts (port libSQL: query/mutate/tx/migrate)
   domain/            ledger · auth · workspaces · wallets · categories · transactions
                      debts · goals · budgets · recurring · reports · export
                      notifications · audit · idempotency
   http/              server.ts · auth-plugin.ts · serialize.ts · routes/*.ts
   workers/           scheduler.ts (occurrence berulang + pengingat jatuh tempo)
-  tools/             seed.ts (data demo)
+  tools/             seed.ts (data demo) · offsite.ts (dump + unggah S3/R2)
 web/src/
   main.tsx · app.tsx · routes/* · components/* · lib/{api,format,offline,store}.ts · styles/
 ```

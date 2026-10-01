@@ -28,15 +28,15 @@ export interface DashboardView {
   unreadNotifications: number;
 }
 
-export function dashboardReport(ctx: TxContext, asOf?: string): DashboardView {
+export async function dashboardReport(ctx: TxContext, asOf?: string): Promise<DashboardView> {
   const today = asOf ?? localDateInTz(ctx.timezone);
   const period = currentPeriodOf(ctx);
-  const worth = netWorthReport(ctx, today);
-  const summary = summaryReport(ctx, { period });
-  const budgets = listBudgets(ctx, { period });
-  const goals = listGoals(ctx);
-  const upcoming = upcomingDebts(ctx, 7);
-  const pending = listOccurrences(ctx, { status: 'pending' });
+  const worth = await netWorthReport(ctx, today);
+  const summary = await summaryReport(ctx, { period });
+  const budgets = await listBudgets(ctx, { period });
+  const goals = await listGoals(ctx);
+  const upcoming = await upcomingDebts(ctx, 7);
+  const pending = await listOccurrences(ctx, { status: 'pending' });
 
   // Money still available to spend: budgets already over their limit contribute nothing.
   const budgetRemaining = budgets.reduce((total, budget) => total + Math.max(0, budget.remaining), 0);
@@ -45,7 +45,7 @@ export function dashboardReport(ctx: TxContext, asOf?: string): DashboardView {
   return {
     asOf: today,
     period: summary.period,
-    totalBalance: cashAt(ctx, today),
+    totalBalance: await cashAt(ctx, today),
     netWorth: worth.netWorth,
     netWorthParts: { cash: worth.cash, receivable: worth.receivable, payable: worth.payable },
     income: summary.income,
@@ -76,10 +76,10 @@ export function dashboardReport(ctx: TxContext, asOf?: string): DashboardView {
       progress: goal.progress,
       status: goal.status,
     })),
-    unallocated: unallocatedFunds(ctx),
+    unallocated: await unallocatedFunds(ctx),
     // Drafts live in the browser (PRD FR22); the server cannot see them.
     draftsPending: 0,
     pendingOccurrences: pending.length,
-    unreadNotifications: unreadCount(ctx),
+    unreadNotifications: await unreadCount(ctx),
   };
 }

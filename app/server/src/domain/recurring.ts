@@ -123,11 +123,11 @@ function assertNote(value: unknown): string | null {
   return note || null;
 }
 
-function assertWallet(ctx: TxContext, walletId: unknown, field: string): { id: string; name: string } {
+async function assertWallet(ctx: TxContext, walletId: unknown, field: string): Promise<{ id: string; name: string }> {
   if (typeof walletId !== 'string' || !walletId) {
     throw new AppError('validation_failed', 'Dompet wajib dipilih.', { fields: { [field]: 'required' } });
   }
-  const row = one<{ id: string; name: string; archived_at: string | null }>(
+  const row = await one<{ id: string; name: string; archived_at: string | null }>(
     ctx.db, `SELECT id, name, archived_at FROM wallets WHERE workspace_id = ? AND id = ?`, ctx.workspaceId, walletId,
   );
   if (!row) throw new AppError('not_found', 'Dompet tidak ditemukan di ruang keuangan ini.');
@@ -135,11 +135,11 @@ function assertWallet(ctx: TxContext, walletId: unknown, field: string): { id: s
   return { id: row.id, name: row.name };
 }
 
-function assertCategory(ctx: TxContext, categoryId: unknown, kind: 'income' | 'expense'): { id: string; name: string } {
+async function assertCategory(ctx: TxContext, categoryId: unknown, kind: 'income' | 'expense'): Promise<{ id: string; name: string }> {
   if (typeof categoryId !== 'string' || !categoryId) {
     throw new AppError('validation_failed', 'Kategori wajib dipilih untuk rencana pendapatan atau pengeluaran.', { fields: { categoryId: 'required' } });
   }
-  const row = one<{ id: string; name: string; kind: string; archived_at: string | null }>(
+  const row = await one<{ id: string; name: string; kind: string; archived_at: string | null }>(
     ctx.db, `SELECT id, name, kind, archived_at FROM categories WHERE workspace_id = ? AND id = ?`, ctx.workspaceId, categoryId,
   );
   if (!row) throw new AppError('not_found', 'Kategori tidak ditemukan di ruang keuangan ini.');
@@ -150,8 +150,8 @@ function assertCategory(ctx: TxContext, categoryId: unknown, kind: 'income' | 'e
   return { id: row.id, name: row.name };
 }
 
-function getRuleRow(db: TxContext['db'], workspaceId: string, id: string): RuleRow {
-  const row = one<RuleRow>(db, `SELECT * FROM recurring_rules WHERE workspace_id = ? AND id = ?`, workspaceId, id);
+async function getRuleRow(db: TxContext['db'], workspaceId: string, id: string): Promise<RuleRow> {
+  const row = await one<RuleRow>(db, `SELECT * FROM recurring_rules WHERE workspace_id = ? AND id = ?`, workspaceId, id);
   if (!row) throw new AppError('not_found', 'Rencana berulang tidak ditemukan di ruang keuangan ini.');
   return row;
 }
@@ -180,19 +180,19 @@ function buildRuleView(row: RuleRow): RuleView {
 
 // ── aturan ──────────────────────────────────────────────────────────────────
 
-export function listRules(ctx: TxContext, options: { status?: RuleStatus } = {}): RuleView[] {
+export async function listRules(ctx: TxContext, options: { status?: RuleStatus } = {}): Promise<RuleView[]> {
   const where = ['workspace_id = ?'];
   const params: unknown[] = [ctx.workspaceId];
   if (options.status) {
     where.push('status = ?');
     params.push(options.status);
   }
-  return all<RuleRow>(ctx.db, `SELECT * FROM recurring_rules WHERE ${where.join(' AND ')} ORDER BY next_on, created_at`, ...params)
-    .map(buildRuleView);
+  const rows = await all<RuleRow>(ctx.db, `SELECT * FROM recurring_rules WHERE ${where.join(' AND ')} ORDER BY next_on, created_at`, ...params);
+  return rows.map(buildRuleView);
 }
 
-export function getRule(ctx: TxContext, id: string): RuleView {
-  return buildRuleView(getRuleRow(ctx.db, ctx.workspaceId, id));
+export async function getRule(ctx: TxContext, id: string): Promise<RuleView> {
+  return buildRuleView(await getRuleRow(ctx.db, ctx.workspaceId, id));
 }
 
 export interface CreateRuleInput {
@@ -210,7 +210,7 @@ export interface CreateRuleInput {
   anchorDay?: number;
 }
 
-export function createRule(ctx: TxContext, input: CreateRuleInput, idempotencyKey?: string | null): RuleView {
+export async function createRule(ctx: TxContext, input: CreateRuleInput, idempotencyKey?: string | null): Promise<RuleView> {
   const { db, workspaceId } = ctx;
   const type = assertType(input.type);
   const frequency = assertFrequency(input.frequency);
@@ -226,7 +226,7 @@ export function createRule(ctx: TxContext, input: CreateRuleInput, idempotencyKe
   }
   const anchorDay = assertAnchorDay(input.anchorDay, startOn);
   const amount = parseAmount(input.amount, { field: 'amount' });
-  const wallet = assertWallet(ctx, input.walletId, 'walletId');
+  const wallet = await assertWallet(ctx, input.walletId, 'walletId');
   const fee = input.fee === undefined || input.fee === null || input.fee === ''
     ? 0
     : parseAmount(input.fee, { allowZero: true, field: 'fee' });
@@ -238,36 +238,36 @@ export function createRule(ctx: TxContext, input: CreateRuleInput, idempotencyKe
     if (input.toWalletId && input.toWalletId === wallet.id) {
       throw new AppError('validation_failed', 'Dompet asal dan tujuan harus berbeda.', { fields: { toWalletId: 'same_wallet' } });
     }
-    const toWallet = assertWallet(ctx, input.toWalletId, 'toWalletId');
+    const toWallet = await assertWallet(ctx, input.toWalletId, 'toWalletId');
     toWalletId = toWallet.id;
     labelFallback = `Transfer ke ${toWallet.name}`;
   } else {
-    const category = assertCategory(ctx, input.categoryId, type);
+    const category = await assertCategory(ctx, input.categoryId, type);
     categoryId = category.id;
     labelFallback = `${TYPE_LABEL[type]}: ${category.name}`;
   }
   const label = assertLabel(input.label, labelFallback);
   const note = assertNote(input.note);
 
-  const outcome = withIdempotency(
+  const outcome = await withIdempotency(
     db,
     { workspaceId, userId: ctx.userId, key: idempotencyKey, payload: { ...input, type, frequency, startOn, endOn, anchorDay, amount, walletId: wallet.id, categoryId, toWalletId, fee } },
-    () => tx(db, () => {
+    async () => await tx(db, async () => {
       const id = uuidv7();
       const template: RecurringTemplate = { label, amount, walletId: wallet.id, categoryId, toWalletId, fee, note };
       const now = nowIso();
-      run(
+      await run(
         db,
         `INSERT INTO recurring_rules (id, workspace_id, type, frequency, anchor_day, timezone, start_on, end_on, next_on, mode, status, template_json, version, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'reminder', 'active', ?, 1, ?, ?)`,
         id, workspaceId, type, frequency, anchorDay, ctx.timezone, startOn, endOn, startOn,
         JSON.stringify(template), now, now,
       );
-      recordAudit(db, {
+      await recordAudit(db, {
         workspaceId, actorUserId: ctx.userId, action: 'create', entityType: 'recurring_rule', entityId: id,
         after: { type, frequency, startOn, endOn, anchorDay, template },
       });
-      return buildRuleView(getRuleRow(db, workspaceId, id));
+      return buildRuleView(await getRuleRow(db, workspaceId, id));
     }),
   );
   return outcome.value;
@@ -291,10 +291,10 @@ export interface UpdateRuleInput {
  * Perubahan jadwal menggeser next_on ke jadwal pertama yang belum lewat, tanpa membuat kejadian
  * baru di sini; pengisian kejadian tertinggal tetap tugas scheduler.
  */
-export function updateRule(ctx: TxContext, id: string, input: UpdateRuleInput): RuleView {
+export async function updateRule(ctx: TxContext, id: string, input: UpdateRuleInput): Promise<RuleView> {
   const { db, workspaceId } = ctx;
-  return tx(db, () => {
-    const row = getRuleRow(db, workspaceId, id);
+  return await tx(db, async () => {
+    const row = await getRuleRow(db, workspaceId, id);
     if (input.expectedVersion !== undefined && input.expectedVersion !== row.version) {
       throw new AppError('version_conflict', 'Rencana ini sudah berubah di perangkat lain. Muat ulang lalu ulangi perubahan.', { details: { serverVersion: row.version } });
     }
@@ -310,17 +310,17 @@ export function updateRule(ctx: TxContext, id: string, input: UpdateRuleInput): 
     const fee = input.fee === undefined || input.fee === null || input.fee === ''
       ? template.fee
       : parseAmount(input.fee, { allowZero: true, field: 'fee' });
-    const wallet = input.walletId === undefined ? { id: template.walletId } : assertWallet(ctx, input.walletId, 'walletId');
+    const wallet = input.walletId === undefined ? { id: template.walletId } : await assertWallet(ctx, input.walletId, 'walletId');
     let categoryId = template.categoryId;
     let toWalletId = template.toWalletId;
     if (type === 'transfer') {
       if (input.toWalletId !== undefined) {
-        const toWallet = assertWallet(ctx, input.toWalletId, 'toWalletId');
+        const toWallet = await assertWallet(ctx, input.toWalletId, 'toWalletId');
         if (toWallet.id === wallet.id) throw new AppError('validation_failed', 'Dompet asal dan tujuan harus berbeda.', { fields: { toWalletId: 'same_wallet' } });
         toWalletId = toWallet.id;
       }
     } else if (input.categoryId !== undefined) {
-      categoryId = assertCategory(ctx, input.categoryId, type === 'income' ? 'income' : 'expense').id;
+      categoryId = (await assertCategory(ctx, input.categoryId, type === 'income' ? 'income' : 'expense')).id;
     }
     const label = input.label === undefined ? template.label : assertLabel(input.label, template.label);
     const note = input.note === undefined ? template.note : assertNote(input.note);
@@ -328,18 +328,18 @@ export function updateRule(ctx: TxContext, id: string, input: UpdateRuleInput): 
     const scheduleChanged = frequency !== row.frequency || anchorDay !== row.anchor_day;
     const nextOn = scheduleChanged ? firstOnOrAfter(row.start_on, frequency, anchorDay, localDateInTz(ctx.timezone)) : row.next_on;
     const nextTemplate: RecurringTemplate = { label, amount, walletId: wallet.id, categoryId, toWalletId, fee, note };
-    run(
+    await run(
       db,
       `UPDATE recurring_rules SET frequency = ?, anchor_day = ?, end_on = ?, next_on = ?, template_json = ?, version = version + 1, updated_at = ?
        WHERE workspace_id = ? AND id = ?`,
       frequency, anchorDay, endOn, nextOn, JSON.stringify(nextTemplate), nowIso(), workspaceId, id,
     );
-    recordAudit(db, {
+    await recordAudit(db, {
       workspaceId, actorUserId: ctx.userId, action: 'update', entityType: 'recurring_rule', entityId: id,
       before: { frequency: row.frequency, anchorDay: row.anchor_day, endOn: row.end_on, nextOn: row.next_on, template },
       after: { frequency, anchorDay, endOn, nextOn, template: nextTemplate },
     });
-    return buildRuleView(getRuleRow(db, workspaceId, id));
+    return buildRuleView(await getRuleRow(db, workspaceId, id));
   });
 }
 
@@ -355,13 +355,13 @@ function firstOnOrAfter(from: string, frequency: Frequency, anchorDay: number, t
 
 export type RuleAction = 'pause' | 'resume' | 'stop';
 
-export function setRuleStatus(ctx: TxContext, id: string, action: RuleAction): RuleView {
+export async function setRuleStatus(ctx: TxContext, id: string, action: RuleAction): Promise<RuleView> {
   const { db, workspaceId } = ctx;
   if (action !== 'pause' && action !== 'resume' && action !== 'stop') {
     throw new AppError('validation_failed', 'Aksi rencana harus jeda, lanjutkan, atau hentikan.', { fields: { action: 'invalid' } });
   }
-  return tx(db, () => {
-    const row = getRuleRow(db, workspaceId, id);
+  return await tx(db, async () => {
+    const row = await getRuleRow(db, workspaceId, id);
     if (action === 'pause' && row.status === 'stopped') {
       throw new AppError('rule_inactive', 'Rencana ini sudah dihentikan permanen, jadi tidak bisa dijeda. Buat rencana baru bila perlu.', { details: { status: row.status } });
     }
@@ -370,16 +370,16 @@ export function setRuleStatus(ctx: TxContext, id: string, action: RuleAction): R
     const today = localDateInTz(ctx.timezone);
     // Melanjutkan rencana tidak membanjiri pengingat lama: next_on digeser ke jadwal berikutnya.
     const nextOn = action === 'resume' ? firstOnOrAfter(row.next_on, row.frequency, row.anchor_day, today) : row.next_on;
-    run(
+    await run(
       db,
       `UPDATE recurring_rules SET status = ?, next_on = ?, version = version + 1, updated_at = ? WHERE workspace_id = ? AND id = ?`,
       status, nextOn, nowIso(), workspaceId, id,
     );
-    recordAudit(db, {
+    await recordAudit(db, {
       workspaceId, actorUserId: ctx.userId, action, entityType: 'recurring_rule', entityId: id,
       before: { status: row.status, nextOn: row.next_on }, after: { status, nextOn },
     });
-    return buildRuleView(getRuleRow(db, workspaceId, id));
+    return buildRuleView(await getRuleRow(db, workspaceId, id));
   });
 }
 
@@ -402,18 +402,18 @@ function buildOccurrenceView(row: OccurrenceRow, rule: RuleRow): OccurrenceView 
  * lalu majukan next_on. Tanggal 29–31 yang tidak ada jatuh pada hari terakhir bulan itu dan
  * tanggal acuan tidak bergeser (AT15). UNIQUE(rule_id, scheduled_date) membuatnya idempoten.
  */
-export function ensureOccurrences(ctx: TxContext, today?: string): { created: number; rulesProcessed: number } {
+export async function ensureOccurrences(ctx: TxContext, today?: string): Promise<{ created: number; rulesProcessed: number }> {
   const { db, workspaceId } = ctx;
   const day = today ?? localDateInTz(ctx.timezone);
-  return tx(db, () => {
-    const rules = all<RuleRow>(db, `SELECT * FROM recurring_rules WHERE workspace_id = ? AND status = 'active' ORDER BY next_on`, workspaceId);
+  return await tx(db, async () => {
+    const rules = await all<RuleRow>(db, `SELECT * FROM recurring_rules WHERE workspace_id = ? AND status = 'active' ORDER BY next_on`, workspaceId);
     let created = 0;
     for (const rule of rules) {
       let cursor = rule.next_on;
       let guard = 0;
       while (cursor <= day && guard < MAX_CATCHUP) {
         if (rule.end_on && cursor > rule.end_on) break;
-        const result = run(
+        const result = await run(
           db,
           `INSERT OR IGNORE INTO recurring_occurrences (id, workspace_id, rule_id, scheduled_date, status, transaction_id, created_at)
            VALUES (?, ?, ?, ?, 'pending', NULL, ?)`,
@@ -424,10 +424,10 @@ export function ensureOccurrences(ctx: TxContext, today?: string): { created: nu
         guard++;
       }
       if (cursor !== rule.next_on) {
-        run(db, `UPDATE recurring_rules SET next_on = ?, updated_at = ? WHERE workspace_id = ? AND id = ?`, cursor, nowIso(), workspaceId, rule.id);
+        await run(db, `UPDATE recurring_rules SET next_on = ?, updated_at = ? WHERE workspace_id = ? AND id = ?`, cursor, nowIso(), workspaceId, rule.id);
       }
       if (rule.end_on && cursor > rule.end_on) {
-        run(db, `UPDATE recurring_rules SET status = 'stopped', version = version + 1, updated_at = ? WHERE workspace_id = ? AND id = ?`, nowIso(), workspaceId, rule.id);
+        await run(db, `UPDATE recurring_rules SET status = 'stopped', version = version + 1, updated_at = ? WHERE workspace_id = ? AND id = ?`, nowIso(), workspaceId, rule.id);
       }
     }
     return { created, rulesProcessed: rules.length };
@@ -445,7 +445,7 @@ interface OccurrenceJoinRow extends RuleRow {
   o_created_at: string;
 }
 
-export function listOccurrences(ctx: TxContext, options: { status?: OccurrenceStatus; ruleId?: string } = {}): OccurrenceView[] {
+export async function listOccurrences(ctx: TxContext, options: { status?: OccurrenceStatus; ruleId?: string } = {}): Promise<OccurrenceView[]> {
   const { db, workspaceId } = ctx;
   const where = ['o.workspace_id = ?'];
   const params: unknown[] = [workspaceId];
@@ -457,7 +457,7 @@ export function listOccurrences(ctx: TxContext, options: { status?: OccurrenceSt
     where.push('o.rule_id = ?');
     params.push(options.ruleId);
   }
-  const rows = all<OccurrenceJoinRow>(
+  const rows = await all<OccurrenceJoinRow>(
     db,
     `SELECT o.id AS o_id, o.workspace_id AS o_workspace_id, o.rule_id AS o_rule_id, o.scheduled_date AS o_scheduled_date,
             o.status AS o_status, o.transaction_id AS o_transaction_id, o.created_at AS o_created_at,
@@ -515,23 +515,23 @@ export interface ConfirmOccurrenceResult {
 }
 
 /** Konfirmasi membuat transaksi nyata dari template + penyesuaian; sekali saja per kejadian. */
-export function confirmOccurrence(
+export async function confirmOccurrence(
   ctx: TxContext,
   id: string,
   overrides: ConfirmOccurrenceOverrides = {},
   idempotencyKey?: string | null,
-): ConfirmOccurrenceResult {
+): Promise<ConfirmOccurrenceResult> {
   const { db, workspaceId } = ctx;
-  const outcome = withIdempotency(
+  const outcome = await withIdempotency(
     db,
     { workspaceId, userId: ctx.userId, key: idempotencyKey, payload: { id, ...overrides } },
-    () => tx(db, () => {
-      const row = one<OccurrenceRow>(db, `SELECT * FROM recurring_occurrences WHERE workspace_id = ? AND id = ?`, workspaceId, id);
+    async () => await tx(db, async () => {
+      const row = await one<OccurrenceRow>(db, `SELECT * FROM recurring_occurrences WHERE workspace_id = ? AND id = ?`, workspaceId, id);
       if (!row) throw new AppError('not_found', 'Kejadian rencana tidak ditemukan di ruang keuangan ini.');
-      const rule = getRuleRow(db, workspaceId, row.rule_id);
+      const rule = await getRuleRow(db, workspaceId, row.rule_id);
 
       if (row.status === 'confirmed' && row.transaction_id) {
-        const existing = one<TxRow>(db, `SELECT * FROM transactions WHERE workspace_id = ? AND id = ?`, workspaceId, row.transaction_id);
+        const existing = await one<TxRow>(db, `SELECT * FROM transactions WHERE workspace_id = ? AND id = ?`, workspaceId, row.transaction_id);
         if (existing) return { occurrence: buildOccurrenceView(row, rule), transaction: existing, replayed: true };
       }
       if (rule.status === 'stopped') {
@@ -551,19 +551,19 @@ export function confirmOccurrence(
       const note = overrides.note === undefined ? (template.note ?? template.label) : overrides.note;
 
       if (rule.type === 'transfer') {
-        const transaction = createTransaction(ctx, {
+        const transaction = await createTransaction(ctx, {
           type: 'transfer', amount, walletId, toWalletId, fee: fee > 0 ? fee : undefined, effectiveDate, note, source: 'manual',
         }, null);
-        run(
+        await run(
           db,
           `UPDATE recurring_occurrences SET status = 'confirmed', transaction_id = ? WHERE workspace_id = ? AND id = ?`,
           transaction.id, workspaceId, id,
         );
-        recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'confirm_occurrence', entityType: 'recurring_occurrence', entityId: id, after: { transactionId: transaction.id } });
+        await recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'confirm_occurrence', entityType: 'recurring_occurrence', entityId: id, after: { transactionId: transaction.id } });
         return { occurrence: buildOccurrenceView({ ...row, status: 'confirmed', transaction_id: transaction.id }, rule), transaction, replayed: false };
       }
 
-      const transaction = createTransaction(ctx, {
+      const transaction = await createTransaction(ctx, {
         type: rule.type === 'income' ? 'income' : 'expense',
         amount,
         walletId,
@@ -572,12 +572,12 @@ export function confirmOccurrence(
         note,
         source: 'manual',
       }, null);
-      run(
+      await run(
         db,
         `UPDATE recurring_occurrences SET status = 'confirmed', transaction_id = ? WHERE workspace_id = ? AND id = ?`,
         transaction.id, workspaceId, id,
       );
-      recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'confirm_occurrence', entityType: 'recurring_occurrence', entityId: id, after: { transactionId: transaction.id } });
+      await recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'confirm_occurrence', entityType: 'recurring_occurrence', entityId: id, after: { transactionId: transaction.id } });
       return { occurrence: buildOccurrenceView({ ...row, status: 'confirmed', transaction_id: transaction.id }, rule), transaction, replayed: false };
     }),
   );
@@ -585,24 +585,25 @@ export function confirmOccurrence(
 }
 
 /** Melewati satu kejadian tidak menghapus aturan pengulangan (FR17). */
-export function skipOccurrence(ctx: TxContext, id: string): OccurrenceView {
+export async function skipOccurrence(ctx: TxContext, id: string): Promise<OccurrenceView> {
   const { db, workspaceId } = ctx;
-  return tx(db, () => {
-    const row = one<OccurrenceRow>(db, `SELECT * FROM recurring_occurrences WHERE workspace_id = ? AND id = ?`, workspaceId, id);
+  return await tx(db, async () => {
+    const row = await one<OccurrenceRow>(db, `SELECT * FROM recurring_occurrences WHERE workspace_id = ? AND id = ?`, workspaceId, id);
     if (!row) throw new AppError('not_found', 'Kejadian rencana tidak ditemukan di ruang keuangan ini.');
-    const rule = getRuleRow(db, workspaceId, row.rule_id);
+    const rule = await getRuleRow(db, workspaceId, row.rule_id);
     if (row.status === 'confirmed') {
       throw new AppError('has_dependencies', 'Kejadian ini sudah dikonfirmasi menjadi transaksi. Batalkan transaksinya bila memang salah.');
     }
     if (row.status !== 'skipped') {
-      run(db, `UPDATE recurring_occurrences SET status = 'skipped' WHERE workspace_id = ? AND id = ?`, workspaceId, id);
-      recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'skip_occurrence', entityType: 'recurring_occurrence', entityId: id, before: { status: row.status }, after: { status: 'skipped' } });
+      await run(db, `UPDATE recurring_occurrences SET status = 'skipped' WHERE workspace_id = ? AND id = ?`, workspaceId, id);
+      await recordAudit(db, { workspaceId, actorUserId: ctx.userId, action: 'skip_occurrence', entityType: 'recurring_occurrence', entityId: id, before: { status: row.status }, after: { status: 'skipped' } });
     }
     return buildOccurrenceView({ ...row, status: 'skipped' }, rule);
   });
 }
 
 /** Dipakai pengingat: aturan berikutnya yang belum lewat. */
-export function nextScheduledDate(ctx: TxContext, id: string): string {
-  return getRuleRow(ctx.db, ctx.workspaceId, id).next_on;
+export async function nextScheduledDate(ctx: TxContext, id: string): Promise<string> {
+  const row = await getRuleRow(ctx.db, ctx.workspaceId, id);
+  return row.next_on;
 }

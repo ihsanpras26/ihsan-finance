@@ -19,7 +19,7 @@ export async function registerReportRoutes(app: FastifyInstance, deps: RouteDeps
     const session = request.session!;
     const ctx = contextFor(db, session);
     const query = request.query as Record<string, string | undefined>;
-    const report = summaryReport(ctx, {
+    const report = await summaryReport(ctx, {
       period: query.period,
       from: query.from,
       to: query.to,
@@ -49,7 +49,7 @@ export async function registerReportRoutes(app: FastifyInstance, deps: RouteDeps
               net: toDecimalString(report.comparison.net),
             }
           : null,
-        crossCheck: toDecimalString(ledgerNetWorth(ctx)),
+        crossCheck: toDecimalString(await ledgerNetWorth(ctx)),
       },
     };
   });
@@ -63,7 +63,7 @@ export async function registerReportRoutes(app: FastifyInstance, deps: RouteDeps
     return {
       data: {
         period,
-        items: categoryBreakdown(ctx, period, kind).map((row) => ({
+        items: (await categoryBreakdown(ctx, period, kind)).map((row) => ({
           categoryId: row.categoryId,
           name: row.name,
           kind: row.kind,
@@ -78,7 +78,7 @@ export async function registerReportRoutes(app: FastifyInstance, deps: RouteDeps
     const session = request.session!;
     const ctx = contextFor(db, session);
     const query = request.query as Record<string, string | undefined>;
-    const report = cashflowReport(ctx, { period: query.period, from: query.from, to: query.to });
+    const report = await cashflowReport(ctx, { period: query.period, from: query.from, to: query.to });
     return {
       data: {
         period: report.period,
@@ -107,7 +107,7 @@ export async function registerReportRoutes(app: FastifyInstance, deps: RouteDeps
     const session = request.session!;
     const ctx = contextFor(db, session);
     const query = request.query as Record<string, string | undefined>;
-    const report = netWorthReport(ctx, query.asOf);
+    const report = await netWorthReport(ctx, query.asOf);
     return {
       data: {
         asOf: report.asOf,
@@ -122,7 +122,7 @@ export async function registerReportRoutes(app: FastifyInstance, deps: RouteDeps
           archived: row.archived,
         })),
         debts: report.debts.map((row) => ({ ...row, remaining: toDecimalString(row.remaining) })),
-        crossCheck: toDecimalString(ledgerNetWorth(ctx)),
+        crossCheck: toDecimalString(await ledgerNetWorth(ctx)),
       },
     };
   });
@@ -130,8 +130,8 @@ export async function registerReportRoutes(app: FastifyInstance, deps: RouteDeps
   app.get('/reports/networth-check', async (request) => {
     const session = request.session!;
     const ctx = contextFor(db, session);
-    const derived = netWorthOf(ctx);
-    const ledger = ledgerNetWorth(ctx);
+    const derived = await netWorthOf(ctx);
+    const ledger = await ledgerNetWorth(ctx);
     return { data: { derived, ledger, match: derived === ledger } };
   });
 
@@ -140,30 +140,30 @@ export async function registerReportRoutes(app: FastifyInstance, deps: RouteDeps
     const session = request.session!;
     const ctx = contextFor(db, session);
     const body = (request.body ?? {}) as Record<string, unknown>;
-    const result = exportCsv(ctx, {
+    const result = await exportCsv(ctx, {
       from: typeof body.from === 'string' ? body.from : undefined,
       to: typeof body.to === 'string' ? body.to : undefined,
     });
-    const stored = storeCsvJob(ctx, result);
+    const stored = await storeCsvJob(ctx, result);
     return { data: { jobId: stored.jobId, url: `/api/v1/export/jobs/${stored.jobId}`, rows: result.rows, bytes: stored.bytes, filename: result.filename } };
   });
 
   app.post('/export/full', async (request) => {
     const session = request.session!;
     const ctx = contextFor(db, session);
-    const stored = exportFull(ctx);
+    const stored = await exportFull(ctx);
     return { data: { jobId: stored.jobId, url: `/api/v1/export/jobs/${stored.jobId}`, bytes: stored.bytes } };
   });
 
   app.get('/export/jobs', async (request) => {
     const session = request.session!;
-    return { data: listJobs(contextFor(db, session)) };
+    return { data: await listJobs(contextFor(db, session)) };
   });
 
   app.get('/export/jobs/:id', async (request, reply) => {
     const session = request.session!;
     const { id } = request.params as { id: string };
-    const job = getJob(db, session.workspaceId, id);
+    const job = await getJob(db, session.workspaceId, id);
     if (!job || !job.path) throw new AppError('not_found', 'Berkas ekspor tidak ditemukan atau sudah kedaluwarsa. Buat ekspor baru.');
     const body = readFileSync(job.path);
     const filename = job.kind === 'csv_export' ? 'ihsan-transaksi.csv' : 'ihsan-cadangan.json';

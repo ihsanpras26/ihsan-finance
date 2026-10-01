@@ -28,7 +28,7 @@ function setCookieOf(response: { headers: Record<string, unknown> }): string {
 }
 
 test('tanpa APP_ORIGIN https: cookie tanpa Secure dan tanpa HSTS', async () => {
-  const app = await buildServer({ db: makeDb() });
+  const app = await buildServer({ db: await makeDb() });
   try {
     const response = await register(app, 'lokal@contoh.id');
     assert.equal(response.statusCode, 200, response.body);
@@ -40,7 +40,7 @@ test('tanpa APP_ORIGIN https: cookie tanpa Secure dan tanpa HSTS', async () => {
 });
 
 test('pendaftaran terbuka secara bawaan supaya pengembangan tidak terkunci', async () => {
-  const app = await buildServer({ db: makeDb() });
+  const app = await buildServer({ db: await makeDb() });
   try {
     const first = await register(app, 'satu@contoh.id');
     const second = await register(app, 'dua@contoh.id');

@@ -15,7 +15,9 @@
     "build": "pnpm --dir web build",
     "smoke": "node scripts/smoke.mjs",
     "start": "node server/src/main.ts",
-    "backup": "node scripts/backup.mjs"
+    "backup": "node scripts/backup.mjs",
+    "offsite": "node server/src/tools/offsite.ts",
+    "offsite:dump": "node server/src/tools/offsite.ts dump"
   },
   "engines": {
     "node": ">=24.0.0"

@@ -30,8 +30,8 @@ export interface CategoryLine {
 }
 
 /** Net movement per income/expense category in a period. Refunds land on the refund date (PRD §10). */
-export function categoryBreakdown(ctx: TxContext, period: Period, kind: 'income' | 'expense'): CategoryLine[] {
-  const rows = all<{ id: string; name: string; raw: number }>(
+export async function categoryBreakdown(ctx: TxContext, period: Period, kind: 'income' | 'expense'): Promise<CategoryLine[]> {
+  const rows = await all<{ id: string; name: string; raw: number }>(
     ctx.db,
     `SELECT c.id AS id, c.name AS name,
             COALESCE(SUM(CASE WHEN a.normal_side = 'debit' THEN l.debit_minor - l.credit_minor ELSE l.credit_minor - l.debit_minor END), 0) AS raw
@@ -57,9 +57,9 @@ export function categoryBreakdown(ctx: TxContext, period: Period, kind: 'income'
 }
 
 /** Categories that no longer exist are still shown so the period adds up. */
-export function uncategorised(ctx: TxContext, period: Period, kind: 'income' | 'expense'): number {
-  const total = classTotal(ctx.db, ctx.workspaceId, kind, period.start, period.end);
-  const named = categoryBreakdown(ctx, period, kind).reduce((sum, row) => sum + row.amount, 0);
+export async function uncategorised(ctx: TxContext, period: Period, kind: 'income' | 'expense'): Promise<number> {
+  const total = await classTotal(ctx.db, ctx.workspaceId, kind, period.start, period.end);
+  const named = (await categoryBreakdown(ctx, period, kind)).reduce((sum, row) => sum + row.amount, 0);
   return total - named;
 }
 
@@ -75,18 +75,18 @@ export interface Summary {
   comparison: { label: string; income: number; expense: number; net: number } | null;
 }
 
-export function summaryReport(ctx: TxContext, input: { period?: string; from?: string; to?: string; compare?: boolean }): Summary {
+export async function summaryReport(ctx: TxContext, input: { period?: string; from?: string; to?: string; compare?: boolean }): Promise<Summary> {
   const period = periodOf(ctx, input);
-  const income = classTotal(ctx.db, ctx.workspaceId, 'income', period.start, period.end);
-  const expense = classTotal(ctx.db, ctx.workspaceId, 'expense', period.start, period.end);
-  const openingBalance = cashAt(ctx, addDays(period.start, -1));
-  const closingBalance = cashAt(ctx, period.end);
+  const income = await classTotal(ctx.db, ctx.workspaceId, 'income', period.start, period.end);
+  const expense = await classTotal(ctx.db, ctx.workspaceId, 'expense', period.start, period.end);
+  const openingBalance = await cashAt(ctx, addDays(period.start, -1));
+  const closingBalance = await cashAt(ctx, period.end);
 
   let comparison: Summary['comparison'] = null;
   if (input.compare) {
     const prev = previousPeriod(period);
-    const prevIncome = classTotal(ctx.db, ctx.workspaceId, 'income', prev.start, prev.end);
-    const prevExpense = classTotal(ctx.db, ctx.workspaceId, 'expense', prev.start, prev.end);
+    const prevIncome = await classTotal(ctx.db, ctx.workspaceId, 'income', prev.start, prev.end);
+    const prevExpense = await classTotal(ctx.db, ctx.workspaceId, 'expense', prev.start, prev.end);
     comparison = { label: prev.label, income: prevIncome, expense: prevExpense, net: prevIncome - prevExpense };
   }
 
@@ -97,15 +97,18 @@ export function summaryReport(ctx: TxContext, input: { period?: string; from?: s
     net: income - expense,
     openingBalance,
     closingBalance,
-    netWorth: netWorthOf(ctx),
-    categoryBreakdown: [...categoryBreakdown(ctx, period, 'expense'), ...categoryBreakdown(ctx, period, 'income')],
+    netWorth: await netWorthOf(ctx),
+    categoryBreakdown: [...await categoryBreakdown(ctx, period, 'expense'), ...await categoryBreakdown(ctx, period, 'income')],
     comparison,
   };
 }
 
 /** Cash = every wallet asset account, archived wallets included while they hold value (PRD §04). */
-export function cashAt(ctx: TxContext, asOf?: string): number {
-  return walletBalances(ctx, asOf).reduce((sum, row) => sum + row.balance, 0);
+export async function cashAt(ctx: TxContext, asOf?: string): Promise<number> {
+  const rows = await walletBalances(ctx, asOf);
+  let sum = 0;
+  for (const row of rows) sum += row.balance;
+  return sum;
 }
 
 export interface WalletBalanceView {
@@ -116,24 +119,28 @@ export interface WalletBalanceView {
   balance: number;
 }
 
-export function walletBalances(ctx: TxContext, asOf?: string): WalletBalanceView[] {
-  const rows = all<{ id: string; name: string; type: string; archived_at: string | null; ledger_account_id: string }>(
+export async function walletBalances(ctx: TxContext, asOf?: string): Promise<WalletBalanceView[]> {
+  const rows = await all<{ id: string; name: string; type: string; archived_at: string | null; ledger_account_id: string }>(
     ctx.db,
     `SELECT id, name, type, archived_at, ledger_account_id FROM wallets WHERE workspace_id = ? ORDER BY archived_at IS NOT NULL, created_at`,
     ctx.workspaceId,
   );
-  return rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    type: row.type,
-    archived: row.archived_at !== null,
-    balance: accountBalance(ctx.db, ctx.workspaceId, row.ledger_account_id, asOf),
-  }));
+  const views: WalletBalanceView[] = [];
+  for (const row of rows) {
+    views.push({
+      id: row.id,
+      name: row.name,
+      type: row.type,
+      archived: row.archived_at !== null,
+      balance: await accountBalance(ctx.db, ctx.workspaceId, row.ledger_account_id, asOf),
+    });
+  }
+  return views;
 }
 
 /** Receivables and payables outstanding right now, derived from each debt's own ledger account. */
-export function debtTotals(ctx: TxContext, asOf?: string): { receivable: number; payable: number } {
-  const rows = all<{ direction: 'payable' | 'receivable'; ledger_account_id: string; status: string }>(
+export async function debtTotals(ctx: TxContext, asOf?: string): Promise<{ receivable: number; payable: number }> {
+  const rows = await all<{ direction: 'payable' | 'receivable'; ledger_account_id: string; status: string }>(
     ctx.db,
     `SELECT direction, ledger_account_id, status FROM debts WHERE workspace_id = ? AND status IN ('active','paid')`,
     ctx.workspaceId,
@@ -141,16 +148,16 @@ export function debtTotals(ctx: TxContext, asOf?: string): { receivable: number;
   let receivable = 0;
   let payable = 0;
   for (const row of rows) {
-    const balance = accountBalance(ctx.db, ctx.workspaceId, row.ledger_account_id, asOf);
+    const balance = await accountBalance(ctx.db, ctx.workspaceId, row.ledger_account_id, asOf);
     if (row.direction === 'receivable') receivable += balance;
     else payable += balance;
   }
   return { receivable, payable };
 }
 
-export function netWorthOf(ctx: TxContext, asOf?: string): number {
-  const cash = cashAt(ctx, asOf);
-  const { receivable, payable } = debtTotals(ctx, asOf);
+export async function netWorthOf(ctx: TxContext, asOf?: string): Promise<number> {
+  const cash = await cashAt(ctx, asOf);
+  const { receivable, payable } = await debtTotals(ctx, asOf);
   return cash + receivable - payable;
 }
 
@@ -167,18 +174,18 @@ export interface Cashflow {
 }
 
 /** Cash flow explains the change in wallet balances (PRD §10). Internal transfers cancel out. */
-export function cashflowReport(ctx: TxContext, input: { period?: string; from?: string; to?: string; bucket?: 'day' | 'week' | 'month' }): Cashflow {
+export async function cashflowReport(ctx: TxContext, input: { period?: string; from?: string; to?: string; bucket?: 'day' | 'week' | 'month' }): Promise<Cashflow> {
   const period = periodOf(ctx, input);
-  const opening = cashAt(ctx, addDays(period.start, -1));
-  const closing = cashAt(ctx, period.end);
+  const opening = await cashAt(ctx, addDays(period.start, -1));
+  const closing = await cashAt(ctx, period.end);
 
-  const walletIds = all<{ id: string; ledger_account_id: string; name: string }>(
+  const walletIds = await all<{ id: string; ledger_account_id: string; name: string }>(
     ctx.db,
     `SELECT id, ledger_account_id, name FROM wallets WHERE workspace_id = ?`,
     ctx.workspaceId,
   );
 
-  const activityRows = all<{ type: string; total: number }>(
+  const activityRows = await all<{ type: string; total: number }>(
     ctx.db,
     `SELECT t.type AS type, COALESCE(SUM(CASE WHEN a.normal_side = 'debit' THEN l.debit_minor - l.credit_minor ELSE l.credit_minor - l.debit_minor END), 0) AS total
      FROM journal_lines l
@@ -191,12 +198,13 @@ export function cashflowReport(ctx: TxContext, input: { period?: string; from?: 
     ctx.workspaceId, period.start, period.end,
   );
 
-  const buckets = bucketise(ctx, period);
-  const wallets = walletIds.map((wallet) => {
-    const open = accountBalance(ctx.db, ctx.workspaceId, wallet.ledger_account_id, addDays(period.start, -1));
-    const close = accountBalance(ctx.db, ctx.workspaceId, wallet.ledger_account_id, period.end);
-    return { walletId: wallet.id, name: wallet.name, opening: open, closing: close, change: close - open };
-  });
+  const buckets = await bucketise(ctx, period);
+  const wallets: Cashflow['wallets'] = [];
+  for (const wallet of walletIds) {
+    const open = await accountBalance(ctx.db, ctx.workspaceId, wallet.ledger_account_id, addDays(period.start, -1));
+    const close = await accountBalance(ctx.db, ctx.workspaceId, wallet.ledger_account_id, period.end);
+    wallets.push({ walletId: wallet.id, name: wallet.name, opening: open, closing: close, change: close - open });
+  }
 
   return {
     period,
@@ -224,8 +232,8 @@ const ACTIVITY_LABEL: Record<string, string> = {
   reversal: 'Pembalikan',
 };
 
-function bucketise(ctx: TxContext, period: Period): CashflowBucket[] {
-  const rows = all<{ d: string; inflow: number; outflow: number }>(
+async function bucketise(ctx: TxContext, period: Period): Promise<CashflowBucket[]> {
+  const rows = await all<{ d: string; inflow: number; outflow: number }>(
     ctx.db,
     `SELECT t.effective_date AS d,
             COALESCE(SUM(CASE WHEN a.normal_side = 'debit' THEN l.debit_minor - l.credit_minor ELSE 0 END), 0) AS inflow,
@@ -277,44 +285,53 @@ export interface NetWorthView {
   debts: { id: string; counterpartyName: string; direction: 'payable' | 'receivable'; remaining: number }[];
 }
 
-export function netWorthReport(ctx: TxContext, asOf?: string): NetWorthView {
-  const cash = cashAt(ctx, asOf);
-  const { receivable, payable } = debtTotals(ctx, asOf);
-  const debts = all<{ id: string; direction: 'payable' | 'receivable'; ledger_account_id: string; name: string | null }>(
+export async function netWorthReport(ctx: TxContext, asOf?: string): Promise<NetWorthView> {
+  const cash = await cashAt(ctx, asOf);
+  const { receivable, payable } = await debtTotals(ctx, asOf);
+  const debts = await all<{ id: string; direction: 'payable' | 'receivable'; ledger_account_id: string; name: string | null }>(
     ctx.db,
     `SELECT d.id, d.direction, d.ledger_account_id, cp.name AS name
      FROM debts d LEFT JOIN counterparties cp ON cp.id = d.counterparty_id
      WHERE d.workspace_id = ? AND d.status IN ('active','paid')`,
     ctx.workspaceId,
   );
+  const wallets = await walletBalances(ctx, asOf);
+  const debtViews: NetWorthView['debts'] = [];
+  for (const row of debts) {
+    const remaining = await accountBalance(ctx.db, ctx.workspaceId, row.ledger_account_id, asOf);
+    if (remaining === 0) continue;
+    debtViews.push({
+      id: row.id,
+      counterpartyName: row.name ?? 'Tanpa nama',
+      direction: row.direction,
+      remaining,
+    });
+  }
   return {
     asOf: asOf ?? localDateInTz(ctx.timezone),
     cash,
     receivable,
     payable,
     netWorth: cash + receivable - payable,
-    wallets: walletBalances(ctx, asOf),
-    debts: debts
-      .map((row) => ({
-        id: row.id,
-        counterpartyName: row.name ?? 'Tanpa nama',
-        direction: row.direction,
-        remaining: accountBalance(ctx.db, ctx.workspaceId, row.ledger_account_id, asOf),
-      }))
-      .filter((row) => row.remaining !== 0),
+    wallets,
+    debts: debtViews,
   };
 }
 
 /** Assets minus liabilities straight from the ledger, used as a cross-check. */
-export function ledgerNetWorth(ctx: TxContext, asOf?: string): number {
-  const assets = balancesByClass(ctx.db, ctx.workspaceId, 'asset', asOf).reduce((sum, row) => sum + row.balance, 0);
-  const liabilities = balancesByClass(ctx.db, ctx.workspaceId, 'liability', asOf).reduce((sum, row) => sum + row.balance, 0);
+export async function ledgerNetWorth(ctx: TxContext, asOf?: string): Promise<number> {
+  const assetRows = await balancesByClass(ctx.db, ctx.workspaceId, 'asset', asOf);
+  const liabilityRows = await balancesByClass(ctx.db, ctx.workspaceId, 'liability', asOf);
+  let assets = 0;
+  for (const row of assetRows) assets += row.balance;
+  let liabilities = 0;
+  for (const row of liabilityRows) liabilities += row.balance;
   return assets - liabilities;
 }
 
-export function unallocatedFunds(ctx: TxContext): number {
-  const totalCash = cashAt(ctx);
-  const allocated = scalar(
+export async function unallocatedFunds(ctx: TxContext): Promise<number> {
+  const totalCash = await cashAt(ctx);
+  const allocated = await scalar(
     ctx.db,
     `SELECT COALESCE(SUM(CASE WHEN direction = 'allocate' THEN amount_minor ELSE -amount_minor END), 0)
      FROM goal_allocations WHERE workspace_id = ? AND reversed_by IS NULL`,
@@ -332,22 +349,22 @@ export function yearPeriod(year: number): Period {
   return { ...bounds, label: String(year) };
 }
 
-export function walletMovement(ctx: TxContext, walletId: string, period: Period): number {
-  const row = one<{ ledger_account_id: string }>(ctx.db, `SELECT ledger_account_id FROM wallets WHERE workspace_id = ? AND id = ?`, ctx.workspaceId, walletId);
+export async function walletMovement(ctx: TxContext, walletId: string, period: Period): Promise<number> {
+  const row = await one<{ ledger_account_id: string }>(ctx.db, `SELECT ledger_account_id FROM wallets WHERE workspace_id = ? AND id = ?`, ctx.workspaceId, walletId);
   if (!row) return 0;
-  return accountDelta(ctx.db, ctx.workspaceId, row.ledger_account_id, period.start, period.end);
+  return await accountDelta(ctx.db, ctx.workspaceId, row.ledger_account_id, period.start, period.end);
 }
 
-export function accountMovement(ctx: TxContext, account: AccountBalanceRow, period: Period): number {
-  return accountDelta(ctx.db, ctx.workspaceId, account.account_id, period.start, period.end);
+export async function accountMovement(ctx: TxContext, account: AccountBalanceRow, period: Period): Promise<number> {
+  return await accountDelta(ctx.db, ctx.workspaceId, account.account_id, period.start, period.end);
 }
 
 export function negated(value: number): number {
   return negate(value);
 }
 
-export function countTransactions(ctx: TxContext, from: string, to: string): number {
-  return scalar(ctx.db, `SELECT COUNT(*) FROM transactions WHERE workspace_id = ? AND effective_date BETWEEN ? AND ? AND status IN ('posted','reversed')`, ctx.workspaceId, from, to);
+export async function countTransactions(ctx: TxContext, from: string, to: string): Promise<number> {
+  return await scalar(ctx.db, `SELECT COUNT(*) FROM transactions WHERE workspace_id = ? AND effective_date BETWEEN ? AND ? AND status IN ('posted','reversed')`, ctx.workspaceId, from, to);
 }
 
 export function dbOf(ctx: TxContext): Db {

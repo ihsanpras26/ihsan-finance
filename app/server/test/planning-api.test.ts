@@ -12,7 +12,7 @@ import type { Db } from '../src/db/index.ts';
 const WS_TIMEZONE = 'Asia/Jakarta';
 
 async function boot(): Promise<{ app: FastifyInstance; db: Db; cookie: string; walletId: string; categoryId: string; incomeCategoryId: string }> {
-  const db = makeDb();
+  const db = await makeDb();
   const app = await buildServer({ db });
   const registered = await app.inject({
     method: 'POST',
@@ -318,7 +318,7 @@ test('anggaran dan notifikasi tunggal dapat diambil, dan menolak ruang lain', as
     });
     assert.equal(dueSoon.statusCode, 200, dueSoon.body);
 
-    const sched = runScheduler(db, { today: '2026-06-10' });
+    const sched = await runScheduler(db, { today: '2026-06-10' });
     assert.ok(sched.notificationsCreated > 0, `penjadwal harus membuat pengingat, dapat ${sched.notificationsCreated}`);
 
     const notes = await app.inject({ method: 'GET', url: '/api/v1/notifications?status=all', headers: { cookie } });

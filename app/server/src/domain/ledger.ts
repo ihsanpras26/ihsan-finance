@@ -1,4 +1,5 @@
 // domain/ledger.ts: the double-entry engine. Balances are always derived, never stored.
+// Every function that touches the database is async (db port is libSQL over HTTP when remote).
 import { AppError } from '../core/errors.ts';
 import { uuidv7, nowIso } from '../core/ids.ts';
 import { addSafe, fromDbInt, negate } from '../core/money.ts';
@@ -42,9 +43,9 @@ export function normalSideOf(klass: AccountClass): NormalSide {
   return NORMAL[klass];
 }
 
-function insertAccount(db: Db, workspaceId: string, code: string, name: string, klass: AccountClass, systemKey: string | null): string {
+async function insertAccount(db: Db, workspaceId: string, code: string, name: string, klass: AccountClass, systemKey: string | null): Promise<string> {
   const id = uuidv7();
-  run(
+  await run(
     db,
     `INSERT INTO ledger_accounts (id, workspace_id, code, name, class, normal_side, currency, system_key, status, created_at)
      VALUES (?, ?, ?, ?, ?, ?, 'IDR', ?, 'active', ?)`,
@@ -53,52 +54,52 @@ function insertAccount(db: Db, workspaceId: string, code: string, name: string, 
   return id;
 }
 
-export function ensureSystemAccounts(db: Db, workspaceId: string): void {
+export async function ensureSystemAccounts(db: Db, workspaceId: string): Promise<void> {
   for (const acc of SYSTEM_ACCOUNTS) {
-    const existing = one<{ id: string }>(db, `SELECT id FROM ledger_accounts WHERE workspace_id = ? AND code = ?`, workspaceId, acc.key);
-    if (!existing) insertAccount(db, workspaceId, acc.key, acc.name, acc.klass, acc.key);
+    const existing = await one<{ id: string }>(db, `SELECT id FROM ledger_accounts WHERE workspace_id = ? AND code = ?`, workspaceId, acc.key);
+    if (!existing) await insertAccount(db, workspaceId, acc.key, acc.name, acc.klass, acc.key);
   }
 }
 
-export function systemAccountId(db: Db, workspaceId: string, key: string): string {
-  const row = one<{ id: string }>(db, `SELECT id FROM ledger_accounts WHERE workspace_id = ? AND code = ?`, workspaceId, key);
+export async function systemAccountId(db: Db, workspaceId: string, key: string): Promise<string> {
+  const row = await one<{ id: string }>(db, `SELECT id FROM ledger_accounts WHERE workspace_id = ? AND code = ?`, workspaceId, key);
   if (!row) throw new AppError('internal', `Akun sistem ${key} belum dibuat untuk ruang ini.`);
   return row.id;
 }
 
-export function createWalletAccount(db: Db, workspaceId: string, walletId: string, name: string): string {
+export function createWalletAccount(db: Db, workspaceId: string, walletId: string, name: string): Promise<string> {
   return insertAccount(db, workspaceId, `A-WALLET:${walletId}`, name, 'asset', null);
 }
 
-export function createCategoryAccount(db: Db, workspaceId: string, categoryId: string, name: string, kind: 'income' | 'expense'): string {
+export async function createCategoryAccount(db: Db, workspaceId: string, categoryId: string, name: string, kind: 'income' | 'expense'): Promise<string> {
   const prefix = kind === 'income' ? 'INC' : 'EXP';
   return insertAccount(db, workspaceId, `${prefix}:${categoryId}`, name, kind, null);
 }
 
-export function createDebtAccount(db: Db, workspaceId: string, debtId: string, direction: 'payable' | 'receivable', name: string): string {
+export async function createDebtAccount(db: Db, workspaceId: string, debtId: string, direction: 'payable' | 'receivable', name: string): Promise<string> {
   return direction === 'payable'
     ? insertAccount(db, workspaceId, `L-PAYABLE:${debtId}`, name, 'liability', null)
     : insertAccount(db, workspaceId, `A-RECEIVABLE:${debtId}`, name, 'asset', null);
 }
 
-export function renameAccount(db: Db, accountId: string, name: string): void {
-  run(db, `UPDATE ledger_accounts SET name = ? WHERE id = ?`, name, accountId);
+export async function renameAccount(db: Db, accountId: string, name: string): Promise<void> {
+  await run(db, `UPDATE ledger_accounts SET name = ? WHERE id = ?`, name, accountId);
 }
 
-export function accountById(db: Db, workspaceId: string, accountId: string): AccountRow {
-  const row = one<AccountRow>(db, `SELECT * FROM ledger_accounts WHERE workspace_id = ? AND id = ?`, workspaceId, accountId);
+export async function accountById(db: Db, workspaceId: string, accountId: string): Promise<AccountRow> {
+  const row = await one<AccountRow>(db, `SELECT * FROM ledger_accounts WHERE workspace_id = ? AND id = ?`, workspaceId, accountId);
   if (!row) throw new AppError('not_found', 'Akun buku besar tidak ditemukan di ruang keuangan ini.');
   return row;
 }
 
-export function walletAccountId(db: Db, workspaceId: string, walletId: string): string {
-  const row = one<{ ledger_account_id: string }>(db, `SELECT ledger_account_id FROM wallets WHERE workspace_id = ? AND id = ?`, workspaceId, walletId);
+export async function walletAccountId(db: Db, workspaceId: string, walletId: string): Promise<string> {
+  const row = await one<{ ledger_account_id: string }>(db, `SELECT ledger_account_id FROM wallets WHERE workspace_id = ? AND id = ?`, workspaceId, walletId);
   if (!row) throw new AppError('not_found', 'Dompet tidak ditemukan di ruang keuangan ini.');
   return row.ledger_account_id;
 }
 
-export function categoryAccountId(db: Db, workspaceId: string, categoryId: string): string {
-  const row = one<{ ledger_account_id: string }>(db, `SELECT ledger_account_id FROM categories WHERE workspace_id = ? AND id = ?`, workspaceId, categoryId);
+export async function categoryAccountId(db: Db, workspaceId: string, categoryId: string): Promise<string> {
+  const row = await one<{ ledger_account_id: string }>(db, `SELECT ledger_account_id FROM categories WHERE workspace_id = ? AND id = ?`, workspaceId, categoryId);
   if (!row) throw new AppError('not_found', 'Kategori tidak ditemukan di ruang keuangan ini.');
   return row.ledger_account_id;
 }
@@ -111,6 +112,7 @@ export interface JournalLineInput {
   credit?: number;
 }
 
+/** Pure arithmetic check; stays synchronous (no database access). */
 export function assertBalanced(lines: readonly JournalLineInput[]): void {
   if (lines.length < 2) {
     throw new AppError('internal', 'Transaksi harus memiliki sedikitnya dua baris jurnal.');
@@ -136,15 +138,15 @@ export function assertBalanced(lines: readonly JournalLineInput[]): void {
 }
 
 /** Write journal lines for a posted transaction. Caller must already be inside tx(). */
-export function postJournal(db: Db, input: { workspaceId: string; transactionId: string; lines: readonly JournalLineInput[]; createdAt?: string }): void {
+export async function postJournal(db: Db, input: { workspaceId: string; transactionId: string; lines: readonly JournalLineInput[]; createdAt?: string }): Promise<void> {
   assertBalanced(input.lines);
   const createdAt = input.createdAt ?? nowIso();
   for (const line of input.lines) {
-    const account = accountById(db, input.workspaceId, line.accountId);
+    const account = await accountById(db, input.workspaceId, line.accountId);
     if (account.status !== 'active') {
       throw new AppError('validation_failed', `Akun ${account.name} sudah diarsipkan dan tidak dapat dipakai.`);
     }
-    run(
+    await run(
       db,
       `INSERT INTO journal_lines (id, workspace_id, transaction_id, ledger_account_id, debit_minor, credit_minor, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -158,20 +160,20 @@ export function postJournal(db: Db, input: { workspaceId: string; transactionId:
 /** Statuses that count towards balances: original postings and their reversals (they cancel). */
 const LIVE = `t.status IN ('posted','reversed')`;
 
-export function accountBalance(db: Db, workspaceId: string, accountId: string, asOf?: string): number {
+export async function accountBalance(db: Db, workspaceId: string, accountId: string, asOf?: string): Promise<number> {
   const sql = `SELECT COALESCE(SUM(l.debit_minor - l.credit_minor), 0) AS bal
                FROM journal_lines l JOIN transactions t ON t.id = l.transaction_id
                WHERE l.workspace_id = ? AND l.ledger_account_id = ? AND ${LIVE}
                ${asOf ? 'AND t.effective_date <= ?' : ''}`;
   const raw = asOf
-    ? scalar(db, sql, workspaceId, accountId, asOf)
-    : scalar(db, sql, workspaceId, accountId);
-  const account = accountById(db, workspaceId, accountId);
+    ? await scalar(db, sql, workspaceId, accountId, asOf)
+    : await scalar(db, sql, workspaceId, accountId);
+  const account = await accountById(db, workspaceId, accountId);
   return account.normal_side === 'debit' ? raw : negate(raw);
 }
 
-export function walletBalance(db: Db, workspaceId: string, walletId: string, asOf?: string): number {
-  return accountBalance(db, workspaceId, walletAccountId(db, workspaceId, walletId), asOf);
+export async function walletBalance(db: Db, workspaceId: string, walletId: string, asOf?: string): Promise<number> {
+  return accountBalance(db, workspaceId, await walletAccountId(db, workspaceId, walletId), asOf);
 }
 
 export interface AccountBalanceRow {
@@ -183,7 +185,7 @@ export interface AccountBalanceRow {
   balance: number;
 }
 
-export function balancesByClass(db: Db, workspaceId: string, klass: AccountClass, asOf?: string): AccountBalanceRow[] {
+export async function balancesByClass(db: Db, workspaceId: string, klass: AccountClass, asOf?: string): Promise<AccountBalanceRow[]> {
   const sql = `SELECT a.id AS account_id, a.code, a.name, a.class, a.normal_side,
                       COALESCE(SUM(l.debit_minor - l.credit_minor), 0) AS raw
                FROM ledger_accounts a
@@ -193,8 +195,8 @@ export function balancesByClass(db: Db, workspaceId: string, klass: AccountClass
                GROUP BY a.id
                ORDER BY a.code`;
   const rows = asOf
-    ? all<Record<string, unknown>>(db, sql, workspaceId, klass, asOf)
-    : all<Record<string, unknown>>(db, sql, workspaceId, klass);
+    ? await all<Record<string, unknown>>(db, sql, workspaceId, klass, asOf)
+    : await all<Record<string, unknown>>(db, sql, workspaceId, klass);
   return rows.map((r) => {
     const raw = fromDbInt(r.raw ?? 0);
     const normal = r.normal_side as NormalSide;
@@ -210,8 +212,8 @@ export function balancesByClass(db: Db, workspaceId: string, klass: AccountClass
 }
 
 /** Totals per class for a period, expressed on the account's normal side. */
-export function classTotal(db: Db, workspaceId: string, klass: AccountClass, from: string, to: string): number {
-  const raw = scalar(
+export async function classTotal(db: Db, workspaceId: string, klass: AccountClass, from: string, to: string): Promise<number> {
+  const raw = await scalar(
     db,
     `SELECT COALESCE(SUM(l.debit_minor - l.credit_minor), 0)
      FROM journal_lines l JOIN transactions t ON t.id = l.transaction_id
@@ -223,9 +225,9 @@ export function classTotal(db: Db, workspaceId: string, klass: AccountClass, fro
 }
 
 /** Cash movement for one account inside a period (signed: positive increases the account). */
-export function accountDelta(db: Db, workspaceId: string, accountId: string, from: string, to: string): number {
-  const account = accountById(db, workspaceId, accountId);
-  const raw = scalar(
+export async function accountDelta(db: Db, workspaceId: string, accountId: string, from: string, to: string): Promise<number> {
+  const account = await accountById(db, workspaceId, accountId);
+  const raw = await scalar(
     db,
     `SELECT COALESCE(SUM(l.debit_minor - l.credit_minor), 0)
      FROM journal_lines l JOIN transactions t ON t.id = l.transaction_id
@@ -243,9 +245,9 @@ export interface IntegrityReport {
 }
 
 /** Rebuild-check used by tests and by the observability alarm (PRD NFR08). */
-export function verifyIntegrity(db: Db, workspaceId: string): IntegrityReport {
+export async function verifyIntegrity(db: Db, workspaceId: string): Promise<IntegrityReport> {
   const problems: string[] = [];
-  const unbalanced = all<{ id: string; debit: number; credit: number }>(
+  const unbalanced = await all<{ id: string; debit: number; credit: number }>(
     db,
     `SELECT t.id AS id, SUM(l.debit_minor) AS debit, SUM(l.credit_minor) AS credit
      FROM transactions t JOIN journal_lines l ON l.transaction_id = t.id
@@ -255,7 +257,7 @@ export function verifyIntegrity(db: Db, workspaceId: string): IntegrityReport {
   for (const row of unbalanced) {
     problems.push(`Transaksi ${row.id} tidak seimbang (debit ${row.debit} vs kredit ${row.credit}).`);
   }
-  const postedWithoutLines = all<{ id: string }>(
+  const postedWithoutLines = await all<{ id: string }>(
     db,
     `SELECT t.id FROM transactions t
      WHERE t.workspace_id = ? AND t.status IN ('posted','reversed')
@@ -264,7 +266,7 @@ export function verifyIntegrity(db: Db, workspaceId: string): IntegrityReport {
   );
   for (const row of postedWithoutLines) problems.push(`Transaksi ${row.id} berstatus posted tanpa baris jurnal.`);
 
-  const plannedWithLines = all<{ id: string }>(
+  const plannedWithLines = await all<{ id: string }>(
     db,
     `SELECT t.id FROM transactions t
      WHERE t.workspace_id = ? AND t.status = 'planned'
@@ -273,7 +275,7 @@ export function verifyIntegrity(db: Db, workspaceId: string): IntegrityReport {
   );
   for (const row of plannedWithLines) problems.push(`Transaksi ${row.id} berstatus planned tetapi sudah memiliki jurnal.`);
 
-  const orphanLines = scalar(
+  const orphanLines = await scalar(
     db,
     `SELECT COUNT(*) FROM journal_lines l JOIN transactions t ON t.id = l.transaction_id
      WHERE l.workspace_id = ? AND t.workspace_id <> l.workspace_id`,
@@ -284,6 +286,6 @@ export function verifyIntegrity(db: Db, workspaceId: string): IntegrityReport {
   return { ok: problems.length === 0, problems };
 }
 
-export function rebuildWalletBalance(db: Db, workspaceId: string, walletId: string, asOf?: string): number {
+export async function rebuildWalletBalance(db: Db, workspaceId: string, walletId: string, asOf?: string): Promise<number> {
   return walletBalance(db, workspaceId, walletId, asOf);
 }
