@@ -7,7 +7,3 @@ export function sumMinor(values: (string | number)[]): number {
   for (const value of values) total += toMinor(value);
   return total;
 }
-
-export function isPositive(value: string | number): boolean {
-  return toMinor(value) > 0;
-}

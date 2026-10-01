@@ -1,39 +1,36 @@
-// routes/transaksi/Transaksi.tsx - daftar baris buku besar dengan pencarian, filter, paginasi,
-// detail di lembar bawah, pembatalan berdampak, dan koreksi (PRD FR07, ARCHITECTURE §8).
-// Susunan v2 (DESIGN.md §6, §7): pencarian dan saringan menyatu dalam satu kartu di atas, lalu
-// satu kartu daftar tempat setiap transaksi menjadi LedgerRow dengan kolom tanda yang lurus.
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+// routes/transaksi/Transaksi.tsx - daftar baris buku besar: pencarian dipin, saringan di lembar
+// bawah, kelompok per tanggal, detail di lembar bawah, pembatalan berdampak, dan koreksi
+// (PRD FR07, ARCHITECTURE §8). Saringan hidup di URL query (from, to, type, walletId, categoryId, q)
+// supaya tautan dari layar lain mendarat sudah terfilter dan tombol Kembali bekerja (DESIGN.md "Layout").
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { SelectControl } from '../../components/forms/fields.tsx';
 import { useShell } from '../../components/layout/AppShell.tsx';
 import { DataError } from '../../components/layout/DataError.tsx';
+import { IconAlert, IconCalendar, IconFilter, IconTransfer } from '../../components/icons.tsx';
 import {
-  IconAlert, IconChevronLeft, IconChevronRight, IconFilter, IconIn, IconLedger, IconOut, IconRepeat,
-  IconSearch, IconTransfer,
-} from '../../components/icons.tsx';
-import {
-  AmountInput, Button, Card, ConfirmDialog, EmptyState, Field, IconTile, LedgerRow, LoadingRows, Money,
-  PageHeader, RowTitle, Sheet, StatusPill, TextInput, Textarea, useToast,
+  AmountInput, Button, Card, Chip, ConfirmDialog, EmptyState, Field, IconTile, LedgerRow, LoadingRows,
+  Money, PageHeader, SearchField, Sheet, SignMark, StatusPill, Textarea, TextInput, useToast,
 } from '../../components/ui.tsx';
-import { api, ApiError, type Category, type Transaction, type TxType, type Wallet } from '../../lib/api.ts';
 import {
-  currentPeriod, directionOf, formatDateLong, formatDateShort, formatIDR, formatPeriod, parseAmountInput,
-  periodOptions, relativeDay, STATUS_LABEL, toMinor, TYPE_LABEL, WALLET_TYPE_LABEL,
+  api, ApiError, type Category, type Transaction, type TxPage, type TxStatus, type TxType, type Wallet,
+} from '../../lib/api.ts';
+import {
+  currentPeriod, directionOf, formatDateLong, formatDateShort, formatIDR, parseIso, relativeDay,
+  STATUS_LABEL, toMinor, todayIso, TYPE_LABEL, WALLET_TYPE_LABEL,
 } from '../../lib/format.ts';
 import { useAsync, useDebounced } from '../../lib/hooks.ts';
 
 const PAGE_SIZE = 20;
 
-const TYPE_OPTIONS: { id: TxType | 'all'; label: string }[] = [
-  { id: 'all', label: 'Semua jenis' },
-  { id: 'income', label: 'Pendapatan' },
+type TypeFilter = TxType | 'all';
+
+/** Saringan jenis yang ditawarkan lembar saringan; sisa jenis jarang dipakai jadi tidak dijejalkan. */
+const TYPE_CHIPS: { id: TypeFilter; label: string }[] = [
+  { id: 'all', label: 'Semua' },
   { id: 'expense', label: 'Pengeluaran' },
+  { id: 'income', label: 'Pendapatan' },
   { id: 'transfer', label: 'Transfer' },
-  { id: 'refund', label: 'Pengembalian dana' },
-  { id: 'debt_payment', label: 'Pembayaran utang' },
-  { id: 'receivable_payment', label: 'Penerimaan piutang' },
-  { id: 'adjustment', label: 'Penyesuaian saldo' },
-  { id: 'opening', label: 'Saldo awal' },
 ];
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -46,9 +43,26 @@ const SOURCE_LABEL: Record<string, string> = {
 /** Koreksi hanya untuk jenis yang bisa dicatat ulang dari form ini (ARCHITECTURE §8). */
 const CORRECTABLE: TxType[] = ['income', 'expense', 'transfer'];
 
+function isTxType(value: string | null): value is TxType {
+  return value !== null && value in TYPE_LABEL;
+}
+
+/** Tanggal ISO bergeser sekian hari; dipakai rentang cepat 7 dan 30 hari. */
+function isoShift(days: number, from: string = todayIso()): string {
+  const { y, m, d } = parseIso(from);
+  return new Date(Date.UTC(y, m - 1, d) + days * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** Hari pertama dan terakhir sebuah periode bulan, mis. "2026-09" jadi 1 sampai 30 September. */
+function monthBounds(period: string = currentPeriod()): { from: string; to: string } {
+  const [y, m] = period.split('-').map(Number);
+  const lastDay = new Date(Date.UTC(y ?? 2026, m ?? 1, 0)).getUTCDate();
+  return { from: `${period}-01`, to: `${period}-${String(lastDay).padStart(2, '0')}` };
+}
+
 /**
- * Nada kotak ikon mengikuti arah uang, bukan warnanya saja: masuk hijau, keluar merah,
- * jenis tanpa arah tetap kotak netral (DESIGN.md §2, NFR06).
+ * Nada kotak tanda mengikuti arah uang, bukan warnanya saja: masuk hijau, keluar merah,
+ * jenis tanpa arah tetap kotak netral (DESIGN.md "Colors", NFR06).
  */
 function rowTone(type: TxType): 'in' | 'out' | 'neutral' {
   const direction = directionOf(type);
@@ -57,40 +71,40 @@ function rowTone(type: TxType): 'in' | 'out' | 'neutral' {
   return 'neutral';
 }
 
-/** Glyph per jenis: panah masuk/keluar untuk uang, lalu glyph sendiri untuk jenis tanpa arah. */
-function RowIcon({ type }: { type: TxType }) {
-  if (type === 'transfer') return <IconTransfer size={18} />;
-  if (type === 'refund') return <IconIn size={18} />;
-  if (type === 'reversal') return <IconRepeat size={18} />;
-  const direction = directionOf(type);
-  if (direction === 'in') return <IconIn size={18} />;
-  if (direction === 'out') return <IconOut size={18} />;
-  return <IconLedger size={18} />;
+/** Nada label status: rencana menunggu, batal keluar dari arus uang, sisanya netral. */
+function statusTone(status: TxStatus): 'in' | 'out' | 'warn' | 'neutral' {
+  if (status === 'planned') return 'warn';
+  if (status === 'cancelled') return 'out';
+  return 'neutral';
 }
 
-/** Nama dompet baris: transfer menyebut kedua kakinya, baris tanpa dompet tetap jujur. */
+/** Nama dompet baris tanpa pengulangan: satu transfer bisa punya beberapa kaki di dompet yang sama. */
 function rowWallets(tx: Transaction): string {
-  const names = tx.wallets.map((leg) => leg.walletName);
+  const names = [...new Set(tx.wallets.map((leg) => leg.walletName))];
   return names.length > 0 ? names.join(', ') : 'Tanpa dompet';
 }
 
-/** Judul baris: keterangan yang paling menjelaskan isinya, jatuh ke nama jenis bila kosong. */
+/** Judul baris: kategori untuk pengeluaran/pendapatan, kedua dompet untuk transfer. */
 function rowTitle(tx: Transaction): string {
-  if (tx.note?.trim()) return tx.note.trim();
-  if (tx.category?.name) return tx.category.name;
   if (tx.type === 'transfer') {
     const from = tx.wallets.find((leg) => leg.direction === 'out')?.walletName;
     const to = tx.wallets.find((leg) => leg.direction === 'in')?.walletName;
-    if (from && to) return `${from} ke ${to}`;
+    if (from && to) return `${from} → ${to}`;
   }
+  if (tx.category?.name) return tx.category.name;
   if (tx.counterparty?.name) return tx.counterparty.name;
   return TYPE_LABEL[tx.type] ?? tx.type;
 }
 
-/** Baris meta: tanggal, dompet, jenis, lalu pihak lawan bila ada (DESIGN.md §6: dua baris teks). */
+/**
+ * Baris meta: dompet lalu catatan (DESIGN.md "Components": dua baris teks per baris daftar).
+ * Transfer sudah menyebut kedua dompet di judulnya, jadi posisi itu diisi jenisnya supaya
+ * tidak ada kata yang muncul dua kali dalam satu baris.
+ */
 function rowMeta(tx: Transaction): string {
-  const parts = [formatDateShort(tx.effectiveDate), rowWallets(tx), TYPE_LABEL[tx.type] ?? tx.type];
+  const parts = [tx.type === 'transfer' ? 'Transfer' : rowWallets(tx)];
   if (tx.counterparty?.name) parts.push(tx.counterparty.name);
+  if (tx.note?.trim()) parts.push(tx.note.trim());
   return parts.join(' · ');
 }
 
@@ -100,197 +114,223 @@ function formatDateTime(value: string): string {
   return date.toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+/**
+ * Total hari itu: satu angka bersih bertanda di ujung kepala kelompok, supaya kelompok tanggal
+ * menjawab "hari ini uang bergerak berapa" sebelum satu baris pun dibaca.
+ */
+function DayTotal({ items }: { items: Transaction[] }) {
+  const net = items.reduce((sum, tx) => {
+    // Kaki dompet lebih jujur daripada nominal baris: biaya transfer berdiri di kaki terpisah,
+    // jadi menjumlahkan nominal barisnya saja akan menghilangkan biaya itu.
+    if (tx.wallets.length === 0) {
+      const minor = toMinor(tx.amount);
+      return sum + (directionOf(tx.type) === 'out' ? -minor : minor);
+    }
+    return tx.wallets.reduce(
+      (legs, leg) => legs + (leg.direction === 'in' ? toMinor(leg.amount) : -toMinor(leg.amount)),
+      sum,
+    );
+  }, 0);
+  // Tanda mengikuti tanda totalnya, bukan arah uang masuk atau keluar: kepala kelompok adalah angka
+  // bersih hari itu, jadi titik netral hanya akan menyembunyikan arahnya.
+  const direction = net > 0 ? 'in' : net < 0 ? 'out' : 'zero';
+  return <Money value={net} direction={direction} size="sm" />;
+}
+
+/** Satu kelompok chip saringan dengan labelnya sendiri; label isian formulir tetap boleh. */
+function ChipGroup({ id, label, scroll = false, children }: { id: string; label: string; scroll?: boolean; children: ReactNode }) {
+  return (
+    <div role="group" aria-labelledby={id} className="flex flex-col gap-2">
+      <p id={id} className="text-xs font-semibold text-muted">{label}</p>
+      <div className={`flex flex-wrap gap-2 ${scroll ? 'max-h-64 content-start overflow-y-auto' : ''}`}>{children}</div>
+    </div>
+  );
+}
+
 export function TransaksiPage() {
   const { dataVersion, notifyDataChanged, openQuickEntry } = useShell();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [q, setQ] = useState(() => searchParams.get('q') ?? '');
-  const search = useDebounced(q, 300);
-  const [period, setPeriod] = useState(() => searchParams.get('period') ?? currentPeriod());
-  const [type, setType] = useState<TxType | 'all'>(() => {
-    const raw = searchParams.get('type');
-    return raw && raw in TYPE_LABEL ? (raw as TxType) : 'all';
-  });
-  const [walletId, setWalletId] = useState('');
-  const [categoryId, setCategoryId] = useState('');
-  const [minText, setMinText] = useState('');
-  const [maxText, setMaxText] = useState('');
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  // URL adalah satu-satunya sumber kebenaran saringan: tautan dari Beranda sudah terfilter, dan
+  // tombol Kembali mengembalikan saringan sebelumnya (kontrak lintas layar).
+  const params = useMemo(() => {
+    const rawType = searchParams.get('type');
+    return {
+      from: searchParams.get('from') ?? '',
+      to: searchParams.get('to') ?? '',
+      type: (isTxType(rawType) ? rawType : 'all') as TypeFilter,
+      walletId: searchParams.get('walletId') ?? '',
+      categoryId: searchParams.get('categoryId') ?? '',
+      q: searchParams.get('q') ?? '',
+    };
+  }, [searchParams]);
+
+  const [queryText, setQueryText] = useState(params.q);
+  const debouncedQuery = useDebounced(queryText, 300);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [pickDates, setPickDates] = useState(false);
   const [page, setPage] = useState(1);
+  const [pages, setPages] = useState<Record<number, TxPage>>({});
   const [detailId, setDetailId] = useState<string | null>(null);
 
-  const minValue = useDebounced(parseAmountInput(minText), 400);
-  const maxValue = useDebounced(parseAmountInput(maxText), 400);
+  // Identitas penutup lembar harus stabil: Sheet memasang efek [open, onClose] dan mengembalikan
+  // fokus ke elemen yang aktif saat lembar dibuka, jadi fungsi baru tiap render akan melepas fokus
+  // dari baris yang baru saja ditekan.
+  const closeFilters = useCallback(() => setFilterOpen(false), []);
+  const closeDetail = useCallback(() => setDetailId(null), []);
 
-  const range = useMemo(() => {
-    if (period === 'all') return {} as { from?: string; to?: string };
-    const [year, month] = period.split('-').map(Number);
-    const lastDay = new Date(Date.UTC(year ?? 2026, month ?? 1, 0)).getUTCDate();
-    return { from: `${period}-01`, to: `${period}-${String(lastDay).padStart(2, '0')}` };
-  }, [period]);
+  function updateParams(patch: Record<string, string | null>, options: { replace?: boolean } = {}) {
+    const next = new URLSearchParams(searchParams);
+    for (const [key, value] of Object.entries(patch)) {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    }
+    setSearchParams(next, { replace: options.replace ?? false });
+  }
 
-  const query = useMemo(
+  // Ketikan mencari baru ditulis ke URL setelah berhenti 300ms, dan menimpa entri riwayat yang
+  // sama supaya riwayat tidak dibanjiri satu langkah per huruf.
+  useEffect(() => {
+    if (debouncedQuery === params.q) return;
+    updateParams({ q: debouncedQuery.trim() || null }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedQuery]);
+
+  // URL berubah dari luar (tombol Kembali, tautan): isian pencarian ikut menyesuaikan.
+  useEffect(() => {
+    setQueryText(params.q);
+  }, [params.q]);
+
+  const listQuery = useMemo(
     () => ({
-      ...range,
-      type: type === 'all' ? undefined : type,
-      walletId: walletId || undefined,
-      categoryId: categoryId || undefined,
-      q: search.trim() || undefined,
-      min: minValue > 0 ? String(minValue) : undefined,
-      max: maxValue > 0 ? String(maxValue) : undefined,
-      page,
-      pageSize: PAGE_SIZE,
+      from: params.from || undefined,
+      to: params.to || undefined,
+      type: params.type === 'all' ? undefined : params.type,
+      walletId: params.walletId || undefined,
+      categoryId: params.categoryId || undefined,
+      q: params.q.trim() || undefined,
     }),
-    [range, type, walletId, categoryId, search, minValue, maxValue, page],
+    [params],
   );
 
-  const list = useAsync(() => api.transactions(query), [query, dataVersion]);
+  const pageQuery = useMemo(() => ({ ...listQuery, page, pageSize: PAGE_SIZE }), [listQuery, page]);
+  const list = useAsync(() => api.transactions(pageQuery), [pageQuery, dataVersion]);
   const options = useAsync(async () => {
     const [wallets, categories] = await Promise.all([api.wallets(), api.categories()]);
     return { wallets, categories };
   }, [dataVersion]);
 
-  // Filter apa pun yang berubah mengembalikan daftar ke halaman pertama.
+  // Saringan berubah, atau ada mutasi di tempat lain: buang halaman yang sudah diambil dan mulai
+  // lagi dari halaman pertama supaya daftar tidak mencampur dua saringan berbeda.
   useEffect(() => {
+    setPages({});
     setPage(1);
-  }, [search, period, type, walletId, categoryId, minValue, maxValue]);
+  }, [listQuery, dataVersion]);
 
-  const activeFilters = [type !== 'all', Boolean(walletId), Boolean(categoryId), minValue > 0, maxValue > 0].filter(Boolean).length;
+  useEffect(() => {
+    const chunk = list.data;
+    if (!chunk) return;
+    setPages((previous) => (previous[chunk.page] ? previous : { ...previous, [chunk.page]: chunk }));
+  }, [list.data]);
+
+  const items = useMemo(() => {
+    const out: Transaction[] = [];
+    for (let index = 1; index <= page; index += 1) {
+      const chunk = pages[index];
+      if (!chunk) break;
+      out.push(...chunk.items);
+    }
+    return out;
+  }, [pages, page]);
+
+  const total = pages[1]?.total ?? 0;
+  const hasMore = items.length < total;
+  const loadingMore = list.loading && page > 1;
+
+  const groups = useMemo(() => {
+    const byDate = new Map<string, Transaction[]>();
+    for (const tx of items) {
+      const bucket = byDate.get(tx.effectiveDate);
+      if (bucket) bucket.push(tx);
+      else byDate.set(tx.effectiveDate, [tx]);
+    }
+    return [...byDate];
+  }, [items]);
+
   const wallets = options.data?.wallets ?? [];
   const categories = options.data?.categories ?? [];
+  // Kata kunci pencarian ikut dihitung sebagai saringan, tapi tidak dimasukkan ke lencana tombol
+  // Filter (lencana itu milik lembar saringan). Tanpa ini, pencarian tanpa hasil akan disalahartikan
+  // sebagai buku yang masih kosong.
+  const activeFilters = [
+    params.type !== 'all',
+    Boolean(params.walletId),
+    Boolean(params.categoryId),
+    Boolean(params.from || params.to),
+  ].filter(Boolean).length;
+  const filtered = activeFilters > 0 || params.q.trim().length > 0;
+
+  const today = todayIso();
+  const quickRanges = useMemo(() => {
+    const month = monthBounds();
+    return [
+      { id: '7-hari', label: '7 hari', from: isoShift(-6, today), to: today },
+      { id: '30-hari', label: '30 hari', from: isoShift(-29, today), to: today },
+      { id: 'bulan-ini', label: 'Bulan ini', from: month.from, to: month.to },
+    ];
+  }, [today]);
 
   function resetFilters() {
-    setQ('');
-    setType('all');
-    setWalletId('');
-    setCategoryId('');
-    setMinText('');
-    setMaxText('');
-    setPeriod(currentPeriod());
+    setQueryText('');
+    setPickDates(false);
+    setSearchParams(new URLSearchParams(), { replace: false });
   }
 
-  const total = list.data?.total ?? 0;
-  const shown = list.data?.items.length ?? 0;
-  const start = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
-  const end = start === 0 ? 0 : start + shown - 1;
+  let subtitle = 'Riwayat seluruh transaksi';
+  if (params.from && params.to) subtitle = `Riwayat ${formatDateLong(params.from)} sampai ${formatDateLong(params.to)}`;
+  else if (params.from) subtitle = `Riwayat sejak ${formatDateLong(params.from)}`;
+  else if (params.to) subtitle = `Riwayat sampai ${formatDateLong(params.to)}`;
 
   return (
     <div>
-      <PageHeader
-        title="Transaksi"
-        subtitle={`Riwayat ${period === 'all' ? 'seluruh periode' : formatPeriod(period)}`}
-        action={
-          <Button onClick={() => openQuickEntry()}>Catat transaksi</Button>
-        }
-      />
+      {/* Tanpa tombol aksi di kepala: menambah transaksi sudah punya satu pintu dari cangkang
+          aplikasi (tombol di rel kiri dan tombol tengah bilah bawah), jadi tidak digandakan di sini. */}
+      <PageHeader title="Transaksi" subtitle={subtitle} />
 
-      <div className="mt-3 flex flex-col gap-3">
-        {/* Pencarian dan saringan satu kartu: satu tempat untuk mempersempit daftar (DESIGN.md §7). */}
-        <Card className="px-4 py-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="relative flex-1">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden="true">
-                <IconSearch size={18} />
-              </span>
-              <TextInput
-                id="tx-search"
-                type="search"
-                className="pl-10"
-                aria-label="Cari transaksi berdasarkan catatan"
-                placeholder="Cari catatan transaksi"
-                value={q}
-                onChange={(event) => setQ(event.target.value)}
-              />
-            </div>
-            <Button variant="secondary" aria-expanded={filtersOpen} aria-controls="tx-filters" onClick={() => setFiltersOpen((value) => !value)}>
-              <IconFilter size={18} />
-              {activeFilters > 0 ? `Filter (${activeFilters})` : 'Filter'}
-            </Button>
+      {/* Pencarian dipin di puncak daftar: satu-satunya kendali yang harus selalu dalam jangkauan
+          jempol saat riwayat digulir (DESIGN.md "Layout"). Latarnya permukaan kanvas, bukan garis. */}
+      <div className="pin-under-head z-20 flex items-center gap-2 bg-surface py-2">
+        <SearchField
+          className="flex-1"
+          value={queryText}
+          onValueChange={setQueryText}
+          label="Cari transaksi berdasarkan catatan"
+          placeholder="Cari catatan transaksi"
+        />
+        <Button variant="secondary" aria-haspopup="dialog" onClick={() => setFilterOpen(true)}>
+          <IconFilter size={18} />
+          {activeFilters > 0 ? `Filter (${activeFilters})` : 'Filter'}
+        </Button>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        {list.loading && !pages[1] ? (
+          <div className="flex flex-col gap-3">
+            <p role="status" aria-live="polite" className="text-sm text-muted">
+              Memuat daftar transaksi
+            </p>
+            <LoadingRows rows={8} label="Memuat daftar transaksi" />
           </div>
-
-          {filtersOpen ? (
-            <div
-              id="tx-filters"
-              className="mt-3 grid grid-cols-1 gap-3 border-t border-hairline pt-4 sm:grid-cols-2 lg:grid-cols-3"
-            >
-              <Field label="Periode" htmlFor="tx-period">
-                <SelectControl id="tx-period" value={period} onChange={(event) => setPeriod(event.target.value)}>
-                  <option value="all">Seluruh periode</option>
-                  {periodOptions(18).map((option) => (
-                    <option key={option} value={option}>
-                      {formatPeriod(option)}
-                    </option>
-                  ))}
-                </SelectControl>
-              </Field>
-              <Field label="Jenis" htmlFor="tx-type">
-                <SelectControl id="tx-type" value={type} onChange={(event) => setType(event.target.value as TxType | 'all')}>
-                  {TYPE_OPTIONS.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
-                    </option>
-                  ))}
-                </SelectControl>
-              </Field>
-              <Field label="Dompet" htmlFor="tx-wallet">
-                <SelectControl id="tx-wallet" value={walletId} onChange={(event) => setWalletId(event.target.value)}>
-                  <option value="">Semua dompet</option>
-                  {wallets.map((wallet) => (
-                    <option key={wallet.id} value={wallet.id}>
-                      {wallet.name}
-                    </option>
-                  ))}
-                </SelectControl>
-              </Field>
-              <Field label="Kategori" htmlFor="tx-category">
-                <SelectControl id="tx-category" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
-                  <option value="">Semua kategori</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {`${category.name} · ${category.kind === 'income' ? 'Pendapatan' : 'Pengeluaran'}`}
-                    </option>
-                  ))}
-                </SelectControl>
-              </Field>
-              <Field label="Nominal minimum" htmlFor="tx-min" hint="Kosongkan bila tidak dibatasi.">
-                <TextInput
-                  id="tx-min"
-                  inputMode="numeric"
-                  placeholder="0"
-                  value={minText}
-                  onChange={(event) => setMinText(event.target.value)}
-                />
-              </Field>
-              <Field label="Nominal maksimum" htmlFor="tx-max" hint="Kosongkan bila tidak dibatasi.">
-                <TextInput
-                  id="tx-max"
-                  inputMode="numeric"
-                  placeholder="0"
-                  value={maxText}
-                  onChange={(event) => setMaxText(event.target.value)}
-                />
-              </Field>
-              <div className="sm:col-span-2 lg:col-span-3">
-                <Button variant="ghost" onClick={resetFilters}>
-                  Hapus filter
-                </Button>
-              </div>
-            </div>
-          ) : null}
-        </Card>
-
-        {list.loading && !list.data ? (
-          <LoadingRows rows={8} label="Memuat daftar transaksi" />
-        ) : list.error && !list.data ? (
+        ) : list.error && !pages[1] ? (
           <DataError error={list.error} onRetry={list.reload} />
-        ) : list.data && list.data.items.length === 0 ? (
-          activeFilters > 0 || search.trim() || period !== currentPeriod() ? (
+        ) : items.length === 0 ? (
+          filtered ? (
             <EmptyState
-              title="Tidak ada transaksi yang cocok"
-              body="Periode, jenis, dompet, kategori, atau nominal yang dipilih belum menemukan baris apa pun. Longgarkan filter lalu cari lagi."
+              title="Tidak ada transaksi untuk saringan ini"
+              body="Periode, jenis, dompet, kategori, atau kata kunci yang dipakai belum menemukan baris apa pun. Bersihkan filter untuk melihat seluruh riwayat."
               action={
                 <Button variant="secondary" onClick={resetFilters}>
-                  Hapus filter
+                  Bersihkan filter
                 </Button>
               }
             />
@@ -307,55 +347,193 @@ export function TransaksiPage() {
           )
         ) : (
           <Card className="px-4 py-2">
-            <ul className="flex flex-col">
-              {list.data?.items.map((tx) => (
-                <LedgerRow
-                  key={tx.id}
-                  as="li"
-                  onClick={() => setDetailId(tx.id)}
-                  leading={
-                    <IconTile tone={rowTone(tx.type)}>
-                      <RowIcon type={tx.type} />
-                    </IconTile>
-                  }
-                  trailing={
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                      <Money value={tx.amount} direction={directionOf(tx.type)} size="md" />
-                      {tx.status !== 'posted' ? (
-                        <StatusPill tone="neutral">{STATUS_LABEL[tx.status] ?? tx.status}</StatusPill>
-                      ) : null}
-                    </div>
-                  }
-                >
-                  <RowTitle title={rowTitle(tx)} meta={rowMeta(tx)} />
-                </LedgerRow>
-              ))}
-            </ul>
+            {groups.map(([date, rows]) => (
+              <section key={date}>
+                {/* Kepala kelompok dibedakan dari baris: latar tenggelam, garis bawah, jumlah baris
+                    (hanya kalau lebih dari satu), dan total harian seluruh hari itu. */}
+                <div className="head-band -mx-4 flex items-baseline justify-between gap-3 px-4 py-2">
+                  <h2 className="flex min-w-0 items-baseline gap-2 text-sm font-semibold text-fg">
+                    <span className="truncate">{formatDateLong(date)}</span>
+                    {rows.length > 1 ? <span className="shrink-0 text-xs font-normal text-muted">{rows.length} transaksi</span> : null}
+                  </h2>
+                  <DayTotal items={rows} />
+                </div>
+                <ul className="flex flex-col">
+                  {rows.map((tx) => (
+                    <LedgerRow
+                      key={tx.id}
+                      as="li"
+                      onClick={() => setDetailId(tx.id)}
+                      leading={
+                        // Arah uang terbaca sebelum satu digit pun dibaca, dan seluruh tandanya lurus
+                        // dalam satu kolom (DESIGN.md "Kolom tanda"). Baris netral (transfer antar dompet) tidak
+                        // punya arah tanda, jadi kotaknya memakai glif transfer, bukan kolom kosong.
+                        <IconTile tone={rowTone(tx.type)}>
+                          {directionOf(tx.type) === 'zero' ? (
+                            <IconTransfer />
+                          ) : (
+                            <span className="figure text-base font-medium">
+                              <SignMark value={tx.amount} direction={directionOf(tx.type)} />
+                            </span>
+                          )}
+                        </IconTile>
+                      }
+                      trailing={
+                        <div className="flex shrink-0 flex-col items-end gap-1">
+                          <Money value={tx.amount} direction={directionOf(tx.type)} size="md" />
+                          {tx.status !== 'posted' ? (
+                            <StatusPill tone={statusTone(tx.status)}>{STATUS_LABEL[tx.status] ?? tx.status}</StatusPill>
+                          ) : null}
+                        </div>
+                      }
+                    >
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-fg">{rowTitle(tx)}</p>
+                          {/* Di desktop meta pindah ke kolom tengah, jadi baris register terbaca tiga
+                              kolom dan mata tidak melompat jauh dari nama ke nominal (DESIGN.md "Layout"). */}
+                          <p className="truncate text-xs text-muted lg:hidden">{rowMeta(tx)}</p>
+                        </div>
+                        <p className="hidden w-64 shrink-0 truncate text-right text-xs text-muted lg:block">{rowMeta(tx)}</p>
+                      </div>
+                    </LedgerRow>
+                  ))}
+                </ul>
+              </section>
+            ))}
 
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-hairline py-3">
-              <p className="text-xs text-muted">
-                {total === 0 ? 'Tidak ada baris' : `Baris ${start} sampai ${end} dari ${total}`}
+            <div className="flex flex-col items-center gap-2 border-t border-hairline pt-3">
+              <p className="text-xs text-muted" aria-live="polite">
+                {`Menampilkan ${items.length} dari ${total} transaksi`}
               </p>
-              <div className="flex items-center gap-1">
-                <Button variant="secondary" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>
-                  <IconChevronLeft size={18} />
-                  Sebelumnya
+              {/* Muat lebih banyak, bukan penomoran halaman: riwayat ini digulir satu tangan di
+                  390px, dan menekan satu tombol besar di ujung daftar lebih murah daripada membidik
+                  nomor halaman kecil. `total` dari server membuat sisa barisnya selalu jujur. */}
+              {hasMore ? (
+                <Button variant="secondary" block loading={loadingMore} onClick={() => setPage((value) => value + 1)}>
+                  Muat lebih banyak
                 </Button>
-                <Button variant="secondary" disabled={end >= total} onClick={() => setPage((value) => value + 1)}>
-                  Berikutnya
-                  <IconChevronRight size={18} />
-                </Button>
-              </div>
+              ) : null}
             </div>
           </Card>
         )}
 
-        {list.error && list.data ? (
-          <Card className="px-4 py-3" as="div">
-            <p className="text-xs text-out" role="status">Daftar terakhir gagal diperbarui: {list.error.display}</p>
+        {list.error && pages[1] ? (
+          <Card className="px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-out" role="status">Daftar terakhir gagal diperbarui: {list.error.display}</p>
+              <Button variant="ghost" onClick={list.reload}>
+                Coba lagi
+              </Button>
+            </div>
           </Card>
         ) : null}
       </div>
+
+      <Sheet
+        open={filterOpen}
+        onClose={closeFilters}
+        title="Saringan transaksi"
+        footer={
+          <div className="flex flex-col gap-2 sm:flex-row-reverse">
+            <Button block onClick={closeFilters}>
+              Terapkan
+            </Button>
+            <Button variant="ghost" block onClick={resetFilters}>
+              Bersihkan
+            </Button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-5">
+          <p className="text-sm text-muted">
+            Chip yang ditekan langsung menyaring daftar di belakang lembar ini, dan alamat halaman
+            ikut berubah supaya saringan bisa dibagikan atau dibuka lagi.
+          </p>
+
+          <ChipGroup id="saring-jenis" label="Jenis">
+            {TYPE_CHIPS.map((option) => (
+              <Chip
+                key={option.id}
+                selected={params.type === option.id}
+                onClick={() => updateParams({ type: option.id === 'all' ? null : option.id })}
+              >
+                {option.label}
+              </Chip>
+            ))}
+          </ChipGroup>
+
+          <ChipGroup id="saring-dompet" label="Dompet" scroll>
+            <Chip selected={!params.walletId} onClick={() => updateParams({ walletId: null })}>
+              Semua dompet
+            </Chip>
+            {wallets.map((wallet) => (
+              <Chip
+                key={wallet.id}
+                selected={params.walletId === wallet.id}
+                onClick={() => updateParams({ walletId: params.walletId === wallet.id ? null : wallet.id })}
+              >
+                {wallet.name}
+              </Chip>
+            ))}
+          </ChipGroup>
+
+          <ChipGroup id="saring-kategori" label="Kategori" scroll>
+            <Chip selected={!params.categoryId} onClick={() => updateParams({ categoryId: null })}>
+              Semua kategori
+            </Chip>
+            {categories.map((category) => (
+              <Chip
+                key={category.id}
+                selected={params.categoryId === category.id}
+                onClick={() => updateParams({ categoryId: params.categoryId === category.id ? null : category.id })}
+              >
+                {category.name}
+              </Chip>
+            ))}
+          </ChipGroup>
+
+          <ChipGroup id="saring-rentang" label="Rentang tanggal">
+            {quickRanges.map((range) => (
+              <Chip
+                key={range.id}
+                selected={params.from === range.from && params.to === range.to}
+                onClick={() => {
+                  setPickDates(false);
+                  updateParams({ from: range.from, to: range.to });
+                }}
+              >
+                {range.label}
+              </Chip>
+            ))}
+            <Chip selected={pickDates} onClick={() => setPickDates((value) => !value)}>
+              <IconCalendar size={16} />
+              Pilih tanggal
+            </Chip>
+          </ChipGroup>
+
+          {pickDates ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Dari tanggal" htmlFor="saring-dari">
+                <TextInput
+                  id="saring-dari"
+                  type="date"
+                  value={params.from}
+                  onChange={(event) => updateParams({ from: event.target.value || null }, { replace: true })}
+                />
+              </Field>
+              <Field label="Sampai tanggal" htmlFor="saring-sampai">
+                <TextInput
+                  id="saring-sampai"
+                  type="date"
+                  value={params.to}
+                  onChange={(event) => updateParams({ to: event.target.value || null }, { replace: true })}
+                />
+              </Field>
+            </div>
+          ) : null}
+        </div>
+      </Sheet>
 
       {detailId ? (
         <DetailPanel
@@ -363,7 +541,7 @@ export function TransaksiPage() {
           id={detailId}
           wallets={wallets}
           categories={categories}
-          onClose={() => setDetailId(null)}
+          onClose={closeDetail}
           onChanged={notifyDataChanged}
           onOpenOther={(nextId) => setDetailId(nextId)}
         />
@@ -395,6 +573,10 @@ function DetailPanel({
   const detail = useAsync(() => api.transaction(id), [id]);
   const tx = detail.data;
 
+  // Server mengembalikan transaksi ini sendiri di dalam rantai riwayatnya, jadi baris itu dibuang
+  // lebih dulu supaya daftar hanya berisi versi lain: pembalikan atau penggantinya.
+  const revisions = (tx?.history ?? []).filter((entry) => entry.id !== tx?.id);
+
   const [correctMode, setCorrectMode] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelBusy, setCancelBusy] = useState(false);
@@ -407,6 +589,9 @@ function DetailPanel({
   const [walletId, setWalletId] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [note, setNote] = useState('');
+
+  // Sama seperti lembar saringan: identitas penutup yang stabil menjaga fokus tetap di tempatnya.
+  const closeCancel = useCallback(() => setCancelOpen(false), []);
 
   const impact = useAsync(() => api.transactionImpact(id), [id, cancelOpen], { enabled: cancelOpen });
 
@@ -488,7 +673,7 @@ function DetailPanel({
   let dialogBody = 'Menghitung perubahan saldo dompet yang akan terjadi.';
   let dialogConfirmLabel = 'Tutup';
   let dialogTone: 'primary' | 'danger' = 'primary';
-  let dialogConfirm = () => setCancelOpen(false);
+  let dialogConfirm = closeCancel;
 
   if (impact.data) {
     if (impact.data.canCancel) {
@@ -501,13 +686,13 @@ function DetailPanel({
       dialogTitle = 'Transaksi ini belum bisa dibatalkan';
       dialogBody = [impact.data.summary, ...impact.data.blockedBy].join(' ');
       dialogConfirmLabel = 'Mengerti';
-      dialogConfirm = () => setCancelOpen(false);
+      dialogConfirm = closeCancel;
     }
   } else if (impact.error) {
     dialogTitle = 'Dampak pembatalan tidak dapat diperiksa';
     dialogBody = `${impact.error.display} Periksa koneksi, lalu tekan Batalkan transaksi lagi.`;
     dialogConfirmLabel = 'Tutup';
-    dialogConfirm = () => setCancelOpen(false);
+    dialogConfirm = closeCancel;
   }
 
   return (
@@ -544,6 +729,9 @@ function DetailPanel({
                   Transaksi jenis ini dibuat proses lain, jadi hanya bisa dibaca di sini. Batalkan dari layar asalnya bila perlu.
                 </p>
               ) : null}
+              <Button variant="ghost" block onClick={onClose}>
+                Tutup
+              </Button>
             </div>
           )
         }
@@ -554,18 +742,27 @@ function DetailPanel({
           <DataError error={detail.error} onRetry={detail.reload} />
         ) : tx ? (
           <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-2 pb-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium text-fg">{TYPE_LABEL[tx.type] ?? tx.type}</span>
+                <StatusPill tone={statusTone(tx.status)}>{STATUS_LABEL[tx.status] ?? tx.status}</StatusPill>
+              </div>
+              <Money value={tx.amount} direction={directionOf(tx.type)} size="hero" sign={false} />
+              <p className="text-sm text-muted">
+                {/* relativeDay jatuh kembali ke tanggal singkat untuk selisih lebih dari sepekan,
+                    dan itu hanya mengulang tanggal di sebelahnya, jadi lambangnya dibuang. */}
+                {formatDateLong(tx.effectiveDate)}
+                {relativeDay(tx.effectiveDate) === formatDateShort(tx.effectiveDate)
+                  ? ''
+                  : ` (${relativeDay(tx.effectiveDate)})`}
+              </p>
+            </div>
+
             <dl className="flex flex-col">
-              <DetailRow label="Jenis">{TYPE_LABEL[tx.type] ?? tx.type}</DetailRow>
-              <DetailRow label="Status">{STATUS_LABEL[tx.status] ?? tx.status}</DetailRow>
-              <DetailRow label="Nominal">
-                <Money value={tx.amount} direction={directionOf(tx.type)} size="lg" />
-              </DetailRow>
-              <DetailRow label="Tanggal">
-                {formatDateLong(tx.effectiveDate)} ({relativeDay(tx.effectiveDate)})
-              </DetailRow>
               {tx.category ? <DetailRow label="Kategori">{tx.category.name}</DetailRow> : null}
-              {tx.counterparty ? <DetailRow label="Pihak">{tx.counterparty.name}</DetailRow> : null}
+              <DetailRow label="Dompet">{rowWallets(tx)}</DetailRow>
               <DetailRow label="Catatan">{tx.note ?? 'Tanpa catatan'}</DetailRow>
+              {tx.counterparty ? <DetailRow label="Pihak">{tx.counterparty.name}</DetailRow> : null}
               <DetailRow label="Sumber">{SOURCE_LABEL[tx.source] ?? tx.source}</DetailRow>
               <DetailRow label="Dibuat">{formatDateTime(tx.createdAt)}</DetailRow>
               <DetailRow label="Versi data">{tx.version}</DetailRow>
@@ -594,11 +791,11 @@ function DetailPanel({
               <h3 id="riwayat-koreksi" className="text-xs font-semibold tracking-wide text-muted uppercase">
                 Riwayat koreksi
               </h3>
-              {tx.history.length === 0 ? (
+              {revisions.length === 0 ? (
                 <p className="py-2 text-sm text-muted">Belum ada koreksi atau pembalikan untuk transaksi ini.</p>
               ) : (
                 <ul className="flex flex-col">
-                  {tx.history.map((entry) => (
+                  {revisions.map((entry) => (
                     <LedgerRow key={entry.id} as="li" onClick={() => onOpenOther(entry.id)}>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
@@ -709,7 +906,7 @@ function DetailPanel({
         tone={dialogTone}
         busy={cancelBusy}
         onConfirm={dialogConfirm}
-        onCancel={() => setCancelOpen(false)}
+        onCancel={closeCancel}
       />
     </>
   );

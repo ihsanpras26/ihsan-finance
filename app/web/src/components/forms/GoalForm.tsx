@@ -73,10 +73,10 @@ export function GoalForm({
       title={isEdit ? 'Ubah tujuan' : 'Buat tujuan'}
       footer={
         <div className="flex flex-col gap-2 sm:flex-row-reverse">
-          <Button type="submit" form={formId} loading={busy} block>
+          <Button type="submit" form={formId} loading={busy} size="lg" block>
             {isEdit ? 'Simpan perubahan' : 'Simpan tujuan'}
           </Button>
-          <Button variant="ghost" onClick={onClose} block>
+          <Button variant="ghost" onClick={onClose} size="lg" block>
             Batal
           </Button>
         </div>

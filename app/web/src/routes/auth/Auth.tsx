@@ -1,32 +1,23 @@
 // routes/auth/Auth.tsx - masuk, daftar, dan pemulihan akses dalam satu layar (PRD FR01).
-// Kode pemulihan ditampilkan sekali setelah pendaftaran, dengan tombol salin dan peringatan menyimpan.
-// Sesi baru dipasang di aplikasi setelah pengguna mengakui kode itu, supaya kode tidak terlewat.
+// Pemulihan akses dibuka dari tautan di panel masuk, bukan tab tersendiri, karena kode pemulihan
+// hanya dipakai saat kata sandi terlupa; kode itu ditampilkan sekali sebelum sesi dipasang.
 import { useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SelectControl } from '../../components/forms/fields.tsx';
-import { IconAlert, IconCheck } from '../../components/icons.tsx';
-import { Button, Card, Field, Tabs, TextInput, useToast } from '../../components/ui.tsx';
+import { Button, Card, Field, TabPanel, Tabs, TextInput, useToast } from '../../components/ui.tsx';
+import { IconAlert } from '../../components/icons.tsx';
 import { api, ApiError, type SessionUser } from '../../lib/api.ts';
 import { useSession } from '../../lib/session.tsx';
 
 type Mode = 'masuk' | 'daftar' | 'pulihkan';
+type TabId = 'masuk' | 'daftar';
 
-const MODES: { id: Mode; label: string }[] = [
+const TABS: { id: TabId; label: string }[] = [
   { id: 'masuk', label: 'Masuk' },
   { id: 'daftar', label: 'Daftar' },
-  { id: 'pulihkan', label: 'Pulihkan' },
 ];
 
 const TIMEZONES = ['Asia/Jakarta', 'Asia/Pontianak', 'Asia/Makassar', 'Asia/Jayapura'];
-
-function detectTimezone(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jakarta';
-  } catch {
-    return 'Asia/Jakarta';
-  }
-}
-
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function AuthPage() {
@@ -41,17 +32,24 @@ export function AuthPage() {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [workspaceName, setWorkspaceName] = useState('');
-  const [timezone, setTimezone] = useState(() => detectTimezone());
   const [recoveryCode, setRecoveryCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [issuedCode, setIssuedCode] = useState<string | null>(null);
+  const [timezone, setTimezone] = useState(() => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jakarta';
+    } catch {
+      return 'Asia/Jakarta';
+    }
+  });
   const [pendingUser, setPendingUser] = useState<SessionUser | null>(null);
+  const [issuedCode, setIssuedCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const timezoneOptions = TIMEZONES.includes(timezone) ? TIMEZONES : [timezone, ...TIMEZONES];
+  const activeTab: TabId = mode === 'daftar' ? 'daftar' : 'masuk';
 
   function switchMode(next: Mode) {
     setMode(next);
@@ -68,7 +66,7 @@ export function AuthPage() {
 
   function validate(): Record<string, string> {
     const errors: Record<string, string> = {};
-    if (!email.trim()) errors.email = 'Isi email yang dipakai untuk masuk.';
+    if (!email.trim()) errors.email = mode === 'pulihkan' ? 'Isi email akun yang akan dipulihkan.' : 'Isi email yang dipakai untuk masuk.';
     else if (!EMAIL_PATTERN.test(email.trim())) errors.email = 'Format email belum benar. Contoh: nama@contoh.id.';
 
     if (mode === 'daftar') {
@@ -94,7 +92,7 @@ export function AuthPage() {
     const errors = validate();
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) {
-      setFormError('Ada isian yang perlu diperbaiki sebelum dikirim.');
+      setFormError('Beberapa isian belum benar. Perbaiki isian yang ditandai, lalu kirim lagi.');
       return;
     }
 
@@ -164,172 +162,196 @@ export function AuthPage() {
     }
   }
 
+  const submitLabel = mode === 'masuk' ? 'Masuk ke akun' : mode === 'daftar' ? 'Buat akun' : 'Simpan kata sandi baru';
+
+  const formFields = (
+    <>
+      {mode === 'daftar' ? (
+        <Field label="Nama tampilan" htmlFor="auth-name" required error={fieldErrors.displayName}>
+          <TextInput
+            id="auth-name"
+            autoComplete="name"
+            value={displayName}
+            invalid={Boolean(fieldErrors.displayName)}
+            onChange={(event) => setDisplayName(event.target.value)}
+          />
+        </Field>
+      ) : null}
+
+      <Field label="Email" htmlFor="auth-email" required error={fieldErrors.email}>
+        <TextInput
+          id="auth-email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          value={email}
+          invalid={Boolean(fieldErrors.email)}
+          onChange={(event) => setEmail(event.target.value)}
+        />
+      </Field>
+
+      {mode === 'masuk' || mode === 'daftar' ? (
+        <Field
+          label="Kata sandi"
+          htmlFor="auth-password"
+          required
+          error={fieldErrors.password}
+          hint={mode === 'daftar' ? 'Minimal 8 karakter.' : undefined}
+        >
+          <TextInput
+            id="auth-password"
+            type="password"
+            autoComplete={mode === 'daftar' ? 'new-password' : 'current-password'}
+            value={password}
+            invalid={Boolean(fieldErrors.password)}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+        </Field>
+      ) : null}
+
+      {mode === 'masuk' ? (
+        <Button variant="ghost" size="sm" className="self-start -ml-3" onClick={() => switchMode('pulihkan')}>
+          Lupa kata sandi
+        </Button>
+      ) : null}
+
+      {mode === 'daftar' ? (
+        <>
+          <Field label="Zona waktu" htmlFor="auth-timezone" hint="Dipakai untuk menentukan tanggal transaksi dan batas periode laporan.">
+            <SelectControl id="auth-timezone" value={timezone} onChange={(event) => setTimezone(event.target.value)}>
+              {timezoneOptions.map((zone) => (
+                <option key={zone} value={zone}>
+                  {zone}
+                </option>
+              ))}
+            </SelectControl>
+          </Field>
+          <Field label="Nama ruang keuangan" htmlFor="auth-workspace" hint="Opsional. Boleh dikosongkan, nama bawaan akan dipakai.">
+            <TextInput
+              id="auth-workspace"
+              value={workspaceName}
+              onChange={(event) => setWorkspaceName(event.target.value)}
+            />
+          </Field>
+        </>
+      ) : null}
+
+      {mode === 'pulihkan' ? (
+        <>
+          <Field
+            label="Kode pemulihan"
+            htmlFor="auth-recovery"
+            required
+            error={fieldErrors.recoveryCode}
+            hint="Kode yang ditampilkan sekali saat pendaftaran."
+          >
+            <TextInput
+              id="auth-recovery"
+              autoComplete="off"
+              value={recoveryCode}
+              invalid={Boolean(fieldErrors.recoveryCode)}
+              onChange={(event) => setRecoveryCode(event.target.value)}
+            />
+          </Field>
+          <Field label="Kata sandi baru" htmlFor="auth-new-password" required error={fieldErrors.newPassword} hint="Minimal 8 karakter.">
+            <TextInput
+              id="auth-new-password"
+              type="password"
+              autoComplete="new-password"
+              value={newPassword}
+              invalid={Boolean(fieldErrors.newPassword)}
+              onChange={(event) => setNewPassword(event.target.value)}
+            />
+          </Field>
+        </>
+      ) : null}
+
+      {formError ? (
+        <div role="alert" className="flex items-start gap-2 rounded-control bg-out/8 px-4 py-3">
+          <IconAlert size={18} className="mt-0.5 shrink-0 text-out" />
+          <span className="text-sm text-fg">{formError}</span>
+        </div>
+      ) : null}
+
+      <Button type="submit" size="lg" block loading={busy}>
+        {submitLabel}
+      </Button>
+    </>
+  );
+
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col justify-center px-4 py-10">
-      <div className="flex items-center gap-2.5">
-        <span className="inline-flex size-11 items-center justify-center rounded-control bg-accent text-lg font-bold text-accent-fg" aria-hidden="true">
-          IF
-        </span>
-        <div className="min-w-0">
-          <h1 className="text-lg font-semibold text-fg">Ihsan Finance</h1>
-          <p className="text-2xs text-muted" title="Penanda tempat logo. Berkas logo belum ada.">
-            [LOGO]
-          </p>
-        </div>
-      </div>
-      <p className="mt-3 text-sm text-muted">
-        Buku kas pribadi: catat pendapatan, pengeluaran, utang, piutang, dan tujuan tabungan dalam satu tempat.
-      </p>
+      <Card className="px-5 py-6">
+        <h1 className="text-xl font-semibold tracking-tight text-fg">Ihsan Finance</h1>
+        <p className="text-2xs text-muted" title="Penanda tempat logo. Berkas logo belum ada.">
+          [LOGO]
+        </p>
+        <p className="mt-3 text-sm text-muted">
+          Buku kas pribadi: catat pendapatan, pengeluaran, utang, piutang, dan tujuan tabungan dalam satu tempat.
+        </p>
 
-      {issuedCode ? (
-        <Card className="mt-6 px-5 py-5" as="section">
-          <h2 id="kode-pemulihan" className="text-lg font-semibold text-fg">
-            Simpan kode pemulihan
-          </h2>
-          <p className="mt-2 text-sm text-muted">
-            Kode ini dipakai untuk masuk kembali bila kata sandi terlupa. Kode hanya ditampilkan sekali di layar ini.
-          </p>
-          <p className="tnum mt-4 select-all rounded-control bg-sunken px-3 py-3 text-lg font-semibold tracking-wide text-fg">
-            {issuedCode}
-          </p>
-          <div className="mt-4 flex flex-col gap-2">
-            <Button variant="secondary" block onClick={() => void copyCode()}>
-              {copied ? 'Kode tersalin' : 'Salin kode pemulihan'}
-            </Button>
-            <Button
-              block
-              disabled={!pendingUser}
-              onClick={() => {
-                if (pendingUser) finishSignIn(pendingUser);
-              }}
-            >
-              Kode sudah disimpan, lanjut ke Beranda
-            </Button>
-          </div>
-          <p className="mt-3 flex items-start gap-2 text-xs text-warn">
-            <IconAlert size={15} className="mt-0.5 shrink-0" />
-            <span>Tanpa kode ini, pemulihan akses tidak bisa dilakukan dari aplikasi.</span>
-          </p>
-        </Card>
-      ) : (
-        <Card className="mt-6 px-5 py-5">
-          <Tabs tabs={MODES} active={mode} onChange={switchMode} label="Pilihan akses akun" />
-
-          <form onSubmit={handleSubmit} noValidate className="mt-5 flex flex-col gap-4">
-            {mode === 'daftar' ? (
-              <Field label="Nama tampilan" htmlFor="auth-name" required error={fieldErrors.displayName}>
-                <TextInput
-                  id="auth-name"
-                  autoComplete="name"
-                  value={displayName}
-                  invalid={Boolean(fieldErrors.displayName)}
-                  onChange={(event) => setDisplayName(event.target.value)}
-                />
-              </Field>
-            ) : null}
-
-            <Field label="Email" htmlFor="auth-email" required error={fieldErrors.email}>
-              <TextInput
-                id="auth-email"
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                value={email}
-                invalid={Boolean(fieldErrors.email)}
-                onChange={(event) => setEmail(event.target.value)}
-              />
-            </Field>
-
-            {mode === 'masuk' || mode === 'daftar' ? (
-              <Field
-                label="Kata sandi"
-                htmlFor="auth-password"
-                required
-                error={fieldErrors.password}
-                hint={mode === 'daftar' ? 'Minimal 8 karakter.' : undefined}
+        {issuedCode ? (
+          <section className="mt-6" aria-labelledby="kode-pemulihan">
+            <h2 id="kode-pemulihan" className="text-lg font-semibold text-fg">
+              Simpan kode pemulihan
+            </h2>
+            <p className="mt-2 text-sm text-muted">
+              Kode ini dipakai untuk masuk kembali bila kata sandi terlupa. Kode hanya ditampilkan sekali di layar ini.
+            </p>
+            <p className="tnum mt-4 select-all rounded-control bg-sunken px-3 py-3 text-lg font-semibold tracking-wide text-fg">
+              {issuedCode}
+            </p>
+            <div className="mt-4 flex flex-col gap-2">
+              <Button variant="secondary" block onClick={() => void copyCode()}>
+                {copied ? 'Kode tersalin' : 'Salin kode pemulihan'}
+              </Button>
+              <Button
+                block
+                disabled={!pendingUser}
+                onClick={() => {
+                  if (pendingUser) finishSignIn(pendingUser);
+                }}
               >
-                <TextInput
-                  id="auth-password"
-                  type="password"
-                  autoComplete={mode === 'daftar' ? 'new-password' : 'current-password'}
-                  value={password}
-                  invalid={Boolean(fieldErrors.password)}
-                  onChange={(event) => setPassword(event.target.value)}
-                />
-              </Field>
-            ) : null}
+                Kode sudah disimpan, lanjut ke Beranda
+              </Button>
+            </div>
+            <p className="mt-3 flex items-start gap-2 text-xs text-warn">
+              <IconAlert size={15} className="mt-0.5 shrink-0" />
+              <span>Tanpa kode ini, pemulihan akses tidak bisa dilakukan dari aplikasi.</span>
+            </p>
+          </section>
+        ) : mode === 'pulihkan' ? (
+          <section className="mt-6" aria-labelledby="pulihkan-akses">
+            <h2 id="pulihkan-akses" className="text-lg font-semibold text-fg">
+              Pulihkan akses akun
+            </h2>
+            <p className="mt-2 text-sm text-muted">
+              Isi email akun dan kode pemulihan yang disimpan saat mendaftar, lalu tetapkan kata sandi baru.
+            </p>
+            <form onSubmit={handleSubmit} noValidate className="mt-4 flex flex-col gap-4">
+              {formFields}
+              <Button variant="ghost" size="sm" className="self-start -ml-3" onClick={() => switchMode('masuk')}>
+                Kembali ke masuk
+              </Button>
+            </form>
+          </section>
+        ) : (
+          <>
+            <div className="mt-6">
+              <Tabs tabs={TABS} active={activeTab} onChange={switchMode} label="Pilihan akses akun" idBase="auth" />
+            </div>
+            <TabPanel idBase="auth" id={activeTab} className="mt-4">
+              <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+                {formFields}
+              </form>
+            </TabPanel>
+          </>
+        )}
+      </Card>
 
-            {mode === 'daftar' ? (
-              <>
-                <Field label="Zona waktu" htmlFor="auth-timezone" hint="Dipakai untuk menentukan tanggal transaksi dan batas periode laporan.">
-                  <SelectControl id="auth-timezone" value={timezone} onChange={(event) => setTimezone(event.target.value)}>
-                    {timezoneOptions.map((zone) => (
-                      <option key={zone} value={zone}>
-                        {zone}
-                      </option>
-                    ))}
-                  </SelectControl>
-                </Field>
-                <Field label="Nama ruang keuangan" htmlFor="auth-workspace" hint="Opsional. Boleh dikosongkan, nama bawaan akan dipakai.">
-                  <TextInput
-                    id="auth-workspace"
-                    value={workspaceName}
-                    onChange={(event) => setWorkspaceName(event.target.value)}
-                  />
-                </Field>
-              </>
-            ) : null}
-
-            {mode === 'pulihkan' ? (
-              <>
-                <Field
-                  label="Kode pemulihan"
-                  htmlFor="auth-recovery"
-                  required
-                  error={fieldErrors.recoveryCode}
-                  hint="Kode yang ditampilkan sekali saat pendaftaran."
-                >
-                  <TextInput
-                    id="auth-recovery"
-                    autoComplete="off"
-                    value={recoveryCode}
-                    invalid={Boolean(fieldErrors.recoveryCode)}
-                    onChange={(event) => setRecoveryCode(event.target.value)}
-                  />
-                </Field>
-                <Field label="Kata sandi baru" htmlFor="auth-new-password" required error={fieldErrors.newPassword} hint="Minimal 8 karakter.">
-                  <TextInput
-                    id="auth-new-password"
-                    type="password"
-                    autoComplete="new-password"
-                    value={newPassword}
-                    invalid={Boolean(fieldErrors.newPassword)}
-                    onChange={(event) => setNewPassword(event.target.value)}
-                  />
-                </Field>
-              </>
-            ) : null}
-
-            {formError ? (
-              <div role="alert" className="flex items-start gap-2 rounded-control bg-out/8 px-4 py-3">
-                <IconAlert size={18} className="mt-0.5 shrink-0 text-out" />
-                <span className="text-sm text-fg">{formError}</span>
-              </div>
-            ) : null}
-
-            <Button type="submit" size="lg" block loading={busy}>
-              {mode === 'masuk' ? 'Masuk ke akun' : mode === 'daftar' ? 'Buat akun' : 'Simpan kata sandi baru'}
-            </Button>
-          </form>
-        </Card>
-      )}
-
-      <p className="mt-4 flex items-start gap-2 text-xs text-muted">
-        <IconCheck size={15} className="mt-0.5 shrink-0" />
-        <span>
-          Aplikasi ini mencatat dan merangkum keuangan. Rilis awal tidak melakukan pembayaran dan tidak menyimpan
-          kredensial bank.
-        </span>
+      <p className="mt-4 text-xs text-muted">
+        Aplikasi ini mencatat dan merangkum keuangan. Rilis awal tidak melakukan pembayaran dan tidak menyimpan kredensial
+        bank.
       </p>
     </div>
   );

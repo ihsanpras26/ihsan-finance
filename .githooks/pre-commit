@@ -1,0 +1,16 @@
+#!/bin/sh
+# Ihsan Finance pre-commit gate (AGENTS.md): typecheck + full test suite.
+# Source of truth: docs/DECISIONS.md and PRD. Do not weaken this gate silently.
+set -e
+
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "[pre-commit] pnpm not found on PATH." >&2
+  echo "[pre-commit] Install pnpm, or bypass once with: git commit --no-verify" >&2
+  exit 1
+fi
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+echo "[pre-commit] pnpm --dir app verify"
+pnpm --dir app verify

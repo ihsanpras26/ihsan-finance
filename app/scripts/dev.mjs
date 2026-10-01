@@ -47,7 +47,8 @@ process.on('SIGTERM', () => shutdown(0));
 
 console.log('Menjalankan API dan antarmuka web. Tekan Ctrl+C untuk berhenti.');
 console.log('API  : http://127.0.0.1:8787');
-console.log('Web  : http://127.0.0.1:5173 (proksi /api ke API)');
+// Vite binds IPv6 localhost here, so 127.0.0.1 would print a URL that does not answer.
+console.log('Web  : http://localhost:5173 (proksi /api ke API)');
 console.log('');
 
 run('api', 'node', ['--watch', 'server/src/main.ts'], root);

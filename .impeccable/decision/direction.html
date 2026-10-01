@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Keputusan arah visual — Ihsan Finance</title>
+<style>
+  :root {
+    --ink: #14171c;
+    --ink-2: #5a626d;
+    --ink-3: #8b939e;
+    --page: #f2f3f5;
+    --paper: #ffffff;
+    --rule: #d9dce1;
+    --accent: #14508c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--page); color: var(--ink);
+    font: 15px/1.55 ui-sans-serif, "Segoe UI", system-ui, sans-serif;
+    padding: 32px 20px 80px;
+  }
+  .wrap { max-width: 1320px; margin: 0 auto; }
+  header.top { max-width: 780px; margin-bottom: 28px; }
+  header.top h1 { font-size: 30px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.01em; }
+  header.top p { margin: 0 0 8px; color: var(--ink-2); }
+  .meta { font-size: 12.5px; color: var(--ink-3); font-family: ui-monospace, Consolas, monospace; }
+  .grid { display: grid; gap: 22px; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); align-items: start; }
+  .card {
+    background: var(--paper); border: 1px solid var(--rule); border-radius: 14px;
+    padding: 20px 20px 24px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .card.lead { border-color: var(--ink); box-shadow: 0 18px 40px -32px rgb(20 23 28 / 0.5); }
+  .kicker { font-size: 11.5px; letter-spacing: 0.10em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+  .card h2 { font-size: 21px; margin: 2px 0 0; letter-spacing: -0.01em; }
+  .card h2 small { display: block; font-size: 13px; font-weight: 400; color: var(--ink-2); letter-spacing: 0; margin-top: 4px; }
+  .card ul { margin: 0; padding-left: 18px; color: var(--ink-2); font-size: 13.5px; }
+  .card ul li { margin-bottom: 3px; }
+  .card ul li b { color: var(--ink); font-weight: 600; }
+  .risk { font-size: 13px; color: var(--ink-2); border-top: 1px solid var(--rule); padding-top: 10px; }
+  .risk b { color: var(--ink); }
+  .verdict { font-size: 12.5px; font-family: ui-monospace, Consolas, monospace; color: var(--ink-3); }
+.phone {
+    width: 390px; max-width: 100%; height: 812px; overflow: hidden; position: relative;
+    border: 1px solid var(--rule); border-radius: 18px; background: #fff;
+  }
+  .cap { font-size: 12.5px; color: var(--ink-3); }
+  .quiet { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-top: 26px; }
+  .demoted { background: #fafbfc; border: 1px dashed var(--rule); border-radius: 12px; padding: 14px 16px; }
+  .demoted h3 { font-size: 14px; margin: 0 0 4px; }
+  .demoted p { margin: 0 0 6px; font-size: 12.5px; color: var(--ink-2); }
+  .raises { background: #f7f8fa; border-radius: 12px; padding: 14px 16px; font-size: 13px; }
+  .raises h3 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3); }
+  .raises ol { margin: 0; padding-left: 20px; color: var(--ink-2); }
+  .raises li { margin-bottom: 4px; }
+  .raises li b { color: var(--ink); font-weight: 600; }
+  .facts { margin: 34px 0 0; background: var(--paper); border: 1px solid var(--rule); border-radius: 14px; padding: 20px 22px; max-width: 980px; }
+  .facts h3 { margin: 0 0 10px; font-size: 16px; }
+  .facts ol { margin: 0 0 10px; padding-left: 20px; font-size: 13.5px; color: var(--ink-2); }
+  .facts ol li { margin-bottom: 6px; }
+  .facts b { color: var(--ink); }
+  .facts code { font-size: 12.5px; background: #f2f3f5; padding: 1px 4px; border-radius: 4px; }
+  .facts a { color: var(--accent); }
+
+  /* ---------- A. Terbitan angka (statistical publication) ---------- */
+  .w-stat { background: #fcfbf9; color: #12151a; padding: 22px 20px 0; height: 100%; display: flex; flex-direction: column;
+    font-family: ui-sans-serif, "Segoe UI", system-ui, sans-serif; }
+  .w-stat .masthead { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #4b5560; }
+  .w-stat .masthead b { letter-spacing: 0.14em; }
+  .w-stat .rule-double { border-top: 2px solid #12151a; border-bottom: 1px solid #12151a; height: 3px; margin: 6px 0 14px; }
+  .w-stat .sec { margin-bottom: 14px; }
+  .w-stat .sec > h3 { font-size: 11.5px; letter-spacing: 0.10em; text-transform: uppercase; color: #4b5560; margin: 0 0 6px; font-weight: 600; }
+  .w-stat .fig { font-family: ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; }
+  .w-stat .total { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px solid #12151a; padding-bottom: 6px; }
+  .w-stat .total .n { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; }
+  .w-stat .total .unit { font-size: 11px; color: #4b5560; }
+  .w-stat table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .w-stat td { padding: 5px 0; border-bottom: 1px solid #e6e2da; }
+  .w-stat tr:nth-child(even) td { background: #f4f2ee; }
+  .w-stat td.n { text-align: right; font-family: ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .w-stat tr.sum td { border-top: 1.5px solid #12151a; border-bottom: none; font-weight: 700; }
+  .w-stat .bar { height: 6px; background: #e6e2da; position: relative; margin-top: 4px; }
+  .w-stat .bar i { position: absolute; inset: 0 auto 0 0; background: #12151a; display: block; }
+  .w-stat .fn { font-size: 11px; color: #4b5560; margin-top: auto; border-top: 1px solid #e6e2da; padding: 8px 0; }
+  .w-stat .nav { display: grid; grid-template-columns: repeat(5, 1fr); border-top: 1px solid #12151a; margin: 0 -20px; }
+  .w-stat .nav span { text-align: center; font-size: 10.5px; padding: 9px 0 12px; color: #6b7280; border-left: 1px solid #e6e2da; }
+  .w-stat .nav span:first-child { border-left: 0; }
+  .w-stat .nav span.on { color: #12151a; font-weight: 700; box-shadow: inset 0 2px 0 #12151a; }
+
+  /* ---------- B. Buku tabungan (passbook & stamp) ---------- */
+  .w-pass { background: #f6f7f3; color: #1a1d19; padding: 18px 16px 0; height: 100%; display: flex; flex-direction: column;
+    font-family: ui-monospace, Consolas, monospace; }
+  .w-pass .ph { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px dashed #9aa196; padding-bottom: 8px; }
+  .w-pass .ph .who { font-size: 11px; letter-spacing: 0.08em; }
+  .w-pass .ph .bal { text-align: right; }
+  .w-pass .ph .bal span { font-size: 10px; letter-spacing: 0.08em; color: #5c635a; }
+  .w-pass .ph .bal b { display: block; font-size: 22px; letter-spacing: -0.02em; }
+  .w-pass .cols { display: grid; grid-template-columns: 42px 1fr 78px 86px; font-size: 10px; letter-spacing: 0.06em; color: #5c635a; padding: 8px 0 4px; border-bottom: 1px solid #b9c0b4; }
+  .w-pass .cols span:nth-child(3), .w-pass .cols span:nth-child(4) { text-align: right; }
+  .w-pass .rows { flex: 1; overflow: hidden; }
+  .w-pass .row { display: grid; grid-template-columns: 42px 1fr 78px 86px; font-size: 11.5px; padding: 6px 0; border-bottom: 1px dotted #c8cec2; }
+  .w-pass .row:nth-child(odd) { background: #eef2ea; }
+  .w-pass .row span:nth-child(3), .w-pass .row span:nth-child(4) { text-align: right; font-variant-numeric: tabular-nums; }
+  .w-pass .row.neg span:nth-child(3) { color: #1a1d19; }
+  .w-pass .stamp { position: absolute; right: 18px; bottom: 96px; transform: rotate(-6deg);
+    border: 2px solid #2f6b46; color: #2f6b46; padding: 6px 10px; font-size: 10.5px; letter-spacing: 0.09em; text-align: center; border-radius: 3px; background: rgb(246 247 243 / 0.72); }
+  .w-pass .stamp b { display: block; font-size: 12px; letter-spacing: 0.06em; }
+  .w-pass .tabs { position: absolute; left: 0; right: 0; bottom: 0; height: 64px; background: #ffffff; border-top: 1px solid #b9c0b4;
+    display: grid; grid-template-columns: repeat(5, 1fr); font-family: ui-sans-serif, "Segoe UI", sans-serif; }
+  .w-pass .tabs span { font-size: 10.5px; color: #6f756c; display: grid; place-items: center; padding-top: 4px; }
+  .w-pass .tabs span.on { color: #1a1d19; font-weight: 700; border-top: 2px solid #1a1d19; }
+
+  /* ---------- C. Papan petunjuk (signage) ---------- */
+  .w-sign { background: #101215; padding: 14px 12px 0; height: 100%; display: flex; flex-direction: column; gap: 10px;
+    font-family: ui-sans-serif, "Segoe UI", system-ui, sans-serif; }
+  .w-sign .band { background: #f5c518; color: #101215; padding: 12px 14px; display: flex; align-items: center; gap: 12px; }
+  .w-sign .band .pict { width: 34px; height: 34px; background: #101215; color: #f5c518; display: grid; place-items: center; font-size: 18px; flex: 0 0 auto; }
+  .w-sign .band .msg { flex: 1; }
+  .w-sign .band .msg em { display: block; font-style: normal; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
+  .w-sign .band .msg b { display: block; font-size: 30px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .w-sign .band .msg i { font-style: normal; font-size: 12px; }
+  .w-sign .band.grey { background: #d7dade; }
+  .w-sign .band.amber { background: #f5a416; }
+  .w-sign .arrow { font-size: 22px; font-weight: 700; }
+  .w-sign .bars { margin-top: auto; background: #000; display: grid; grid-template-columns: repeat(5, 1fr); padding: 8px 0 12px; }
+  .w-sign .bars span { color: #8d949c; font-size: 10.5px; text-align: center; }
+  .w-sign .bars span.on { color: #f5c518; font-weight: 700; }
+
+  /* ---------- D. Aplikasi keuangan besar (canon) ---------- */
+  .w-canon { background: #f4f4f5; padding: 18px 16px 0; height: 100%; display: flex; flex-direction: column; gap: 12px;
+    font-family: ui-sans-serif, "Segoe UI", system-ui, sans-serif; }
+  .w-canon .h { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #59616d; }
+  .w-canon .h b { color: #0f1720; font-size: 15px; }
+  .w-canon .hero { background: #fff; border-radius: 18px; padding: 16px 18px; box-shadow: 0 1px 2px rgb(16 24 40 / 0.05); }
+  .w-canon .hero .lbl { font-size: 12.5px; color: #59616d; }
+  .w-canon .hero .amt { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .w-canon .chips { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .w-canon .chip { background: #fff; border-radius: 14px; padding: 12px 14px; font-size: 12.5px; color: #59616d; }
+  .w-canon .chip b { display: block; font-size: 17px; color: #07714e; font-variant-numeric: tabular-nums; }
+  .w-canon .chip.out b { color: #c81a1a; }
+  .w-canon .card2 { background: #fff; border-radius: 18px; padding: 14px 16px; }
+  .w-canon .card2 h4 { margin: 0 0 8px; font-size: 14px; }
+  .w-canon .brow { margin-bottom: 9px; font-size: 12.5px; color: #59616d; }
+  .w-canon .brow .top { display: flex; justify-content: space-between; }
+  .w-canon .brow .top b { color: #0f1720; font-variant-numeric: tabular-nums; }
+  .w-canon .track { height: 6px; border-radius: 999px; background: #eceef0; margin-top: 5px; overflow: hidden; }
+  .w-canon .track i { display: block; height: 100%; background: #0256ff; }
+  .w-canon .track i.warn { background: #96450a; }
+  .w-canon .nav2 { margin-top: auto; background: #fff; border-radius: 18px 18px 0 0; display: grid; grid-template-columns: repeat(5, 1fr); padding: 8px 0 12px; }
+  .w-canon .nav2 span { font-size: 10.5px; color: #59616d; text-align: center; }
+  .w-canon .nav2 span.on { color: #0256ff; font-weight: 700; }
+  .w-canon .nav2 span.fab { color: #fff; }
+  .w-canon .nav2 span.fab b { display: grid; place-items: center; width: 44px; height: 44px; margin: -18px auto 0; background: #0256ff; border-radius: 999px; font-size: 22px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <h1>Keputusan arah visual Ihsan Finance</h1>
+  <p>Empat arah, satu pilihan. Semua pratinjau memakai angka asli dari ruang demo "Keuangan Keluarga"
+     pada 29 September 2026 (saldo Rp27.090.000, arus September +Rp9.750.000 / −Rp1.510.000). Baris
+     transaksi di dalam pratinjau diberi tanda <em>contoh sintetis</em> karena urutannya disusun untuk
+     menunjukkan bentuk, bukan untuk menyalin riwayat.</p>
+  <p>Pratinjau digambar sebagai HTML, bukan gambar hasil AI: mesin ini tidak punya pembuat gambar, jadi
+     arah dibuktikan dengan kode (jalur code-led) seperti kontrak impeccable.</p>
+  <p class="meta">roll 3b9442ef · mode operate · indeks tertugaskan 3 · perintah asal: concept-seed --scope direction --mode operate</p>
+</header>
+
+<div class="facts">
+  <h3>Yang tidak berubah, arah mana pun yang dipilih — fakta alur, bersumber</h3>
+  <ol>
+    <li><b>Lima ruang, empat tab + satu aksi tengah.</b> Preseden lima ruang: YNAB (<a href="https://support.ynab.com/en_us/spaces-in-the-mobile-app-S1iIZQoqgg">Home/Plan/Spending/Accounts/Reflect</a>); tombol tengah di navigasi bawah: Jenius (<a href="https://www.jenius.com/faq/mengenal-jenius/akses-fitur">"tombol biru di tengah navigasi bawah"</a>). Item aktif diberi <code>aria-current="page"</code>; lima item × 48 dp = 240 dp masih muat di layar 360 dp (<a href="https://developer.android.com/guide/topics/ui/accessibility/apps">Android</a>).</li>
+    <li><b>Mencatat: jumlah dulu, baru sisanya.</b> YNAB (<a href="https://support.ynab.com/en_us/how-to-add-transactions-in-ynab-HyDwA_byi">"Enter the amount first"</a>) dan Jenius (<a href="https://www.jenius.com/faq/mengenal-jenius/akses-fitur">"Tentukan jumlah uang, lalu pilih Lanjut"</a>) sama; keypad 3×4 di dalam sheet supaya papan ketik sistem tidak muncul dan aksi tetap di jangkauan jempol.</li>
+    <li><b>Baris transaksi: kategori → judul + subjudul → nominal rata kanan bertanda +/− → tanggal kecil di bawahnya</b>, dipisah garis. Tanda arah uang adalah opsi resmi Copilot (<a href="https://help.copilot.money/en/articles/9828946-display-settings-for-vision">"Display transactions with + and −"</a>), jadi arah uang tidak pernah bergantung pada warna (<a href="https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html">WCAG SC 1.4.1</a>).</li>
+    <li><b>Melihat detail lewat sheet, bukan halaman penuh.</b> Monzo memindahkan detail transaksi ke bottom sheet (<a href="https://community.monzo.com/t/178201">"opening transactions as bottom sheets"</a>); sheet yang bisa digeser wajib punya alternatif satu-jari (<a href="https://m3.material.io/components/bottom-sheets/accessibility">Material 3</a>).</li>
+    <li><b>Pencarian dipin di puncak daftar, penyaring jadi kontrol di sebelahnya.</b> Cash App menaruh keduanya bersebelahan (<a href="https://web.archive.org/web/20250125184618/https://cash.app/help/6540-view-activity">search + filter</a>); rentang tanggal lewat sheet, bukan deretan chip yang menggeser tata letak (Monarch <a href="https://help.monarch.com/hc/en-us/articles/21846787088916-Using-Reports">filter laporan</a>).</li>
+    <li><b>Keadaan menyebut pekerjaannya.</b> YNAB menaruh banner perhatian paling atas dengan jumlah ("[#] New transactions"); pembayaran dua fase Pending→Completed (Cash App) disebut sebagai kata. Target sentuh: 24×24 px wajib, 44×44 disarankan (<a href="https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html">WCAG 2.2</a>), dan <code>prefers-reduced-motion</code> mematikan gerak.</li>
+  </ol>
+  <p class="cap">Tiap butir bersumber ke halaman resmi aplikasi atau spesifikasi; laporan penuh (14 aplikasi, termasuk daftar yang tidak terverifikasi) ada di catatan riset sesi ini. Ini yang membuat "meniru alur aplikasi besar" bisa dipertanggungjawabkan tanpa menyalin visualnya.</p>
+</div>
+
+<div class="grid">
+
+  <!-- ============ A. ASSIGNED ============ -->
+  <article class="card lead">
+    <div class="kicker">Arah yang ditugaskan dadu</div>
+    <h2>Terbitan angka
+      <small>Dunia: terbitan statistik Indonesia — tabel berkolom garis, satuan, catatan kaki. Kanvas kertas, tinta hitam, tanpa kartu.</small>
+    </h2>
+    <ul>
+      <li><b>Dunia:</b> angka disusun seperti terbitan resmi: bagian bernomor, garis tunggal/ganda, satuan yang menyebut dirinya, catatan kaki sebagai sumber.</li>
+      <li><b>Pelukisan pertama:</b> saldo tampil sebagai total yang diakhiri garis tebal, di bawahnya baris dompet bergaris; arus bulan sebagai tabel; anggaran sebagai angka terpakai/limit dengan bilah 6px di dalam sel.</li>
+      <li><b>Interaksi khas:</b> tekan sebuah angka, dan baris-baris yang menjumlahkannya turun seperti catatan kaki — setiap ringkasan selalu bisa dibuka menjadi penyusunnya (FR04).</li>
+      <li><b>Menjangkau:</b> Transaksi jadi buku besar berkolom, Laporan jadi tabel bertanda periode, Rencana jadi tabel target, Profil jadi daftar satuan.</li>
+    </ul>
+    <div class="phone">
+      <div class="w-stat">
+        <div class="masthead"><b>Ihsan Finance</b><span>Periode 2026-09</span></div>
+        <div class="rule-double"></div>
+
+        <div class="sec">
+          <h3>1 · Saldo dompet</h3>
+          <div class="total"><span class="n fig">27.090.000</span><span class="unit">rupiah</span></div>
+          <table>
+            <tr><td>Bank BCA</td><td class="n">25.399.000</td></tr>
+            <tr><td>Tunai</td><td class="n">478.000</td></tr>
+            <tr><td>GoPay</td><td class="n">1.213.000</td></tr>
+          </table>
+        </div>
+
+        <div class="sec">
+          <h3>2 · Arus bulan ini</h3>
+          <table>
+            <tr><td>Pendapatan</td><td class="n">+9.750.000</td></tr>
+            <tr><td>Pengeluaran</td><td class="n">−1.510.000</td></tr>
+            <tr class="sum"><td>Selisih</td><td class="n">+8.240.000</td></tr>
+          </table>
+        </div>
+
+        <div class="sec">
+          <h3>3 · Anggaran</h3>
+          <table>
+            <tr><td>Makan dan minum<div class="bar"><i style="width:55%"></i></div></td><td class="n">492/900</td></tr>
+            <tr><td>Belanja harian<div class="bar"><i style="width:64%"></i></div></td><td class="n">319/500</td></tr>
+            <tr><td>Transportasi<div class="bar"><i style="width:16%"></i></div></td><td class="n">62/400</td></tr>
+            <tr><td>Tagihan ¹<div class="bar"><i style="width:94%"></i></div></td><td class="n">425/450</td></tr>
+          </table>
+        </div>
+
+        <div class="sec">
+          <h3>4 · Jatuh tempo</h3>
+          <table>
+            <tr><td>Piutang · Dimas</td><td class="n">750.000</td></tr>
+            <tr><td>Jatuh dalam</td><td class="n">5 hari</td></tr>
+          </table>
+        </div>
+
+        <div class="fn">¹ Mendekati batas 80%. Sumber: buku besar jurnal berpasangan. Kekayaan bersih tercatat 22.340.000 (kas 27.090.000 + piutang 750.000 − utang 5.500.000).</div>
+        <div class="nav">
+          <span class="on">Beranda</span><span>Transaksi</span><span>Tambah</span><span>Rencana</span><span>Laporan</span>
+        </div>
+      </div>
+    </div>
+    <div class="raises">
+      <h3>Angkatan wajib (dari penantang yang kalah)</h3>
+      <ol>
+        <li><b>Angka monumental sekali lihat</b> — satu angka per layar pada 44px+, tanpa hiasan (dari tabung nixie).</li>
+        <li><b>Ketajaman utuh</b> — hanya garis 1px dan tint datar; tanpa blur, tanpa pendar (dari desktop satu-bit).</li>
+        <li><b>Keadaan menyebut namanya</b> — "Terkirim", "Draf", "Dibatalkan" sebagai kata (dari tata bahasa kutipan industri).</li>
+        <li><b>Perbandingan berskala tetap</b> — dua periode digambar dengan aturan yang sama supaya bedanya terbaca (dari folio botani).</li>
+      </ol>
+    </div>
+    <div class="risk"><b>Risiko jujur:</b> arah ini bisa terbaca kelembagaan dan agak dingin untuk aplikasi harian; tanpa disiplin "satu angka per layar" ia bisa turun menjadi spreadsheet yang rapi.</div>
+  </article>
+
+  <!-- ============ B. PICK ============ -->
+  <article class="card">
+    <div class="kicker">Pilihan impeccable (peringkat pertama saya)</div>
+    <h2>Buku tabungan &amp; cap bank
+      <small>Dunia: buku tabungan berjalan dari bank Indonesia — baris cetak titik-titik, saldo berjalan, pita tint pengaman, cap tanda sah.</small>
+    </h2>
+    <ul>
+      <li><b>Dunia:</b> lembar berjalan dengan saldo bertambah tiap baris; tint hijau pucat bergantian; semua huruf angka mono; cap sebagai tanda "sudah dibukukan".</li>
+      <li><b>Pelukisan pertama:</b> kepala buku berisi pemilik, nomor urut, saldo terakhir; di bawahnya baris jurnal yang seluruhnya sejajar kanan; cap tercatat mendarat di baris terakhir.</li>
+      <li><b>Interaksi khas:</b> cap mendarat hanya setelah server mengonfirmasi — pengganti kunci idempotensi yang selama ini tidak terlihat oleh pengguna.</li>
+      <li><b>Menjangkau:</b> Transaksi = baris buku; Rencana = halaman target dengan saldo berjalan; Laporan = cetak ulang periode; Profil = identitas pemegang buku.</li>
+    </ul>
+    <div class="phone">
+      <div class="w-pass">
+        <div class="ph">
+          <div class="who">KEUANGAN KELUARGA<br>•••• 7781</div>
+          <div class="bal"><span>SALDO</span><b>27.090.000</b></div>
+        </div>
+        <div class="cols"><span>TGL</span><span>KETERANGAN</span><span>DEBET</span><span>SALDO</span></div>
+        <div class="rows">
+          <div class="row"><span>12/09</span><span>Gaji bulanan</span><span>+9.750.000</span><span>26.740.000</span></div>
+          <div class="row"><span>15/09</span><span>Utang koperasi</span><span>−560.000</span><span>26.180.000</span></div>
+          <div class="row"><span>18/09</span><span>Makan dan minum</span><span>−210.000</span><span>25.970.000</span></div>
+          <div class="row"><span>20/09</span><span>Terima piutang Dimas</span><span>+560.000</span><span>26.530.000</span></div>
+          <div class="row"><span>21/09</span><span>Tagihan listrik</span><span>−425.000</span><span>26.105.000</span></div>
+          <div class="row"><span>26/09</span><span>Transfer ke GoPay</span><span>+985.000</span><span>27.090.000</span></div>
+        </div>
+        <div class="stamp"><b>TERCATAT</b>29/09 19:52</div>
+        <div class="tabs">
+          <span class="on">Buku</span><span>Cari</span><span>Catat</span><span>Rencana</span><span>Cetak</span>
+        </div>
+      </div>
+    </div>
+    <div class="risk"><b>Risiko jujur (kedekatan):</b> baris buku tabungan mirip daftar riwayat yang sudah dipakai hampir semua aplikasi bank; keunggulannya bisa hilang kalau cap dan saldo berjalan diperlakukan sebagai hiasan, bukan aturan.</div>
+    <div class="cap">Baris 12/09–26/09 adalah contoh sintetis dengan saldo yang sambung satu sama lain hingga 27.090.000.</div>
+  </article>
+
+  <!-- ============ C. CHALLENGER ============ -->
+  <article class="card">
+    <div class="kicker">Penantang kompetitif (hasil fusi)</div>
+    <h2>Papan petunjuk bandara
+      <small>Dunia: papan kuning jenuh dengan huruf hitam, piktogram, satu pesan per baris, angka monumental, panah menempel di tepi. Dufusikan ke arah "Terbitan angka".</small>
+    </h2>
+    <ul>
+      <li><b>Menang di:</b> kejelasan — satu keputusan per baris, jarak dan waktu selalu eksplisit, mustahil tersesat.</li>
+      <li><b>Kalah di:</b> identifikasi — papan bandara tidak tumbuh dari kebiasaan mencatat uang; kuning jenuh dipakai untuk belanja, peringatan, dan merek sekaligus.</li>
+      <li><b>Vonis:</b> kompetitif (satu sumbu). Yang diambil: baris satu-pesan, panah sebagai arah uang, angka besar sebagai penunjuk tujuan.</li>
+      <li><b>Yang tidak diambil:</b> latar kuning penuh layar dan piktogram manusia.</li>
+    </ul>
+    <div class="phone">
+      <div class="w-sign">
+        <div class="band">
+          <div class="pict">◧</div>
+          <div class="msg"><em>Uang tersedia</em><b>Rp27.090.000</b><i>3 dompet · Bank BCA, Tunai, GoPay</i></div>
+          <div class="arrow">→</div>
+        </div>
+        <div class="band grey">
+          <div class="pict">⇅</div>
+          <div class="msg"><em>September 2026</em><b>+9.750.000</b><i>masuk · keluar −1.510.000 · selisih +8.240.000</i></div>
+        </div>
+        <div class="band amber">
+          <div class="pict">!</div>
+          <div class="msg"><em>Anggaran tersisa</em><b>Rp952.500</b><i>Tagihan 94% dari Rp450.000 · hampir penuh</i></div>
+        </div>
+        <div class="band">
+          <div class="pict">◷</div>
+          <div class="msg"><em>Jatuh tempo 5 hari</em><b>Rp750.000</b><i>Piutang dari Dimas · 4 Oktober 2026</i></div>
+        </div>
+        <div class="bars"><span class="on">Arah</span><span>Riwayat</span><span>Catat</span><span>Rencana</span><span>Cetak</span></div>
+      </div>
+    </div>
+    <div class="risk"><b>Risiko jujur:</b> satu pesan per baris menghabiskan tinggi layar; konten padat (daftar 20 transaksi, tabel laporan) tidak bisa memakai tata bahasa ini tanpa kehilangan sifat papannya.</div>
+  </article>
+
+  <!-- ============ D. CANON (quiet) ============ -->
+  <article class="card">
+    <div class="kicker">Pintu biasa (tidak saya rekomendasikan, tidak saya bantah)</div>
+    <h2>Aplikasi keuangan besar, apa adanya
+      <small>Dunia: kanvas abu terang, kartu putih radius 18, angka besar, chip arus, bilah progres, navigasi pil dengan tombol tengah. Tanpa ironi, tanpa keunikan yang diselundupkan.</small>
+    </h2>
+    <ul>
+      <li><b>Yang dibutuhkan bila dipilih:</b> sebutkan 2 atau 3 aplikasi yang jadi patokan mutunya; saya jadikan itu lantai kualitas dan mengerjakannya habis-habisan.</li>
+      <li><b>Patokan mutu yang saya usulkan:</b> YNAB (banner perhatian paling atas, ruang bernomor), Copilot Money (urutan dasbor tetap: arus → tinjauan → anggaran → jatuh tempo), Monzo (detail sebagai bottom sheet), Jenius (tombol tengah di navigasi bawah) — pada tingkat kerapian halaman bantuan resmi mereka.</li>
+      <li><b>Konsekuensi:</b> hasilnya tidak akan salah, tetapi juga tidak akan menjadi alasan orang memilih Ihsan Finance.</li>
+    </ul>
+    <div class="phone">
+      <div class="w-canon">
+        <div class="h"><b>Keuangan Keluarga</b><span>Mei · 29 Sep</span></div>
+        <div class="hero">
+          <div class="lbl">Total saldo dompet</div>
+          <div class="amt">Rp27.090.000</div>
+          <div class="lbl">Kekayaan bersih tercatat Rp22.340.000</div>
+        </div>
+        <div class="chips">
+          <div class="chip">Masuk<b>+Rp9.750.000</b></div>
+          <div class="chip out">Keluar<b>−Rp1.510.000</b></div>
+        </div>
+        <div class="card2">
+          <h4>Anggaran September</h4>
+          <div class="brow"><div class="top"><span>Makan dan minum</span><b>55%</b></div><div class="track"><i style="width:55%"></i></div></div>
+          <div class="brow"><div class="top"><span>Belanja harian</span><b>64%</b></div><div class="track"><i style="width:64%"></i></div></div>
+          <div class="brow"><div class="top"><span>Tagihan</span><b>94%</b></div><div class="track"><i class="warn" style="width:94%"></i></div></div>
+        </div>
+        <div class="nav2">
+          <span class="on">Beranda</span><span>Transaksi</span><span class="fab"><b>+</b></span><span>Rencana</span><span>Laporan</span>
+        </div>
+      </div>
+    </div>
+  </article>
+
+</div>
+
+<section class="quiet">
+  <div class="demoted">
+    <h3>Tabung nixie</h3>
+    <p class="verdict">vonis: ditolak (dua sumbu)</p>
+    <p>Angka menyala oranye di dalam tabung. Pendar berwarna di sekitar angka adalah tepat pola yang dilarang R-01/R-13 dan yang membuat versi sekarang terasa dibuat mesin. Yang diambil: angka monumental sekali lihat.</p>
+  </div>
+  <div class="demoted">
+    <h3>Desktop satu-bit</h3>
+    <p class="verdict">vonis: ditolak (dua sumbu)</p>
+    <p>Dither dan ikon 32px. Jujur pada dunianya, tetapi dither mengorbankan keterbacaan angka dan kontras terukur. Yang diambil: ketajaman tanpa blur.</p>
+  </div>
+  <div class="demoted">
+    <h3>Folio botani</h3>
+    <p class="verdict">vonis: ditolak (dua sumbu)</p>
+    <p>Lima lempeng pada skala tetap. Materialnya tidak berhubungan dengan uang. Yang diambil: disiplin perbandingan berskala tetap untuk dua periode.</p>
+  </div>
+  <div class="demoted">
+    <h3>Tata bahasa kutipan industri</h3>
+    <p class="verdict">vonis: ditolak (dua sumbu)</p>
+    <p>Tanda kutip lurus, garis hazard, label sengaja kasar. Nada menantang tidak cocok untuk uang pribadi. Yang diambil: keadaan menyebut namanya sebagai kata.</p>
+  </div>
+  <div class="demoted">
+    <h3>Tambang awan</h3>
+    <p class="verdict">vonis: ditolak (dua sumbu)</p>
+    <p>Balok cuaca yang dipotong dan dirakit. Tidak ada satu pun aturannya yang bisa membawa angka lebih jelas. Tidak ada yang diambil.</p>
+  </div>
+</section>
+
+<p class="cap" style="margin-top:22px">Papan kualitas penantang yang ditimbang: nixie · one-bit desktop · airport signage · botanical folio · streetwear quotes · cloud quarry (katalog impeccable, revisi pool c3b204a1eed6).</p>
+</div>
+</body>
+</html>

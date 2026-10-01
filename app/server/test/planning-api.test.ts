@@ -5,7 +5,11 @@ import type { FastifyInstance } from 'fastify';
 import { makeDb } from './helpers.ts';
 import { buildServer } from '../src/http/server.ts';
 import { runScheduler } from '../src/workers/scheduler.ts';
+import { localDateInTz } from '../src/core/dates.ts';
 import type { Db } from '../src/db/index.ts';
+
+/** Zona waktu ruang kerja yang didaftarkan `boot()`. */
+const WS_TIMEZONE = 'Asia/Jakarta';
 
 async function boot(): Promise<{ app: FastifyInstance; db: Db; cookie: string; walletId: string; categoryId: string; incomeCategoryId: string }> {
   const db = makeDb();
@@ -247,7 +251,9 @@ test('beranda merangkum saldo, anggaran, tujuan, dan pengingat dalam satu panggi
   try {
     await app.inject({
       method: 'POST', url: '/api/v1/transactions', headers: { cookie, 'idempotency-key': 'h-1' },
-      payload: { type: 'expense', amount: '125000', walletId, categoryId, effectiveDate: new Date().toISOString().slice(0, 10) },
+      // Tanggal efektif adalah tanggal lokal ruang kerja, bukan UTC: pada 00:00-06:59 WIB
+      // keduanya berbeda hari dan transaksi akan jatuh ke periode bulan sebelumnya.
+      payload: { type: 'expense', amount: '125000', walletId, categoryId, effectiveDate: localDateInTz(WS_TIMEZONE) },
     });
     await app.inject({
       method: 'POST', url: '/api/v1/goals', headers: { cookie, 'idempotency-key': 'h-2' },

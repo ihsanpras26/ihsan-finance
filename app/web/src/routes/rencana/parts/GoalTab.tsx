@@ -1,7 +1,7 @@
-// routes/rencana/parts/GoalTab.tsx : savings goals: progress, shortfall, and a monthly plan.
-// A passed target date offers to change the plan instead of producing a negative or zero division.
-// Each goal is one card: name and date first, the bar with its percentage, then the two figures
-// (Terkumpul and Target) stacked in the sign column so a list of goals compares down one edge.
+// routes/rencana/parts/GoalTab.tsx : tujuan dana: progres, kekurangan, dan saran setoran bulanan.
+// Saran setoran datang dari server; tanggal target yang lewat atau tanpa ruang bulan menawarkan ubah rencana.
+// Tiap kartu memuat nama, bilah persentase, lalu Terkumpul, Target, dan kekurangan pada kolom angka
+// yang lurus ke tepi kanan, dengan keadaannya ditulis berkata: Aktif, Tercapai, atau Diarsipkan.
 import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import { api, type Goal } from '../../../lib/api.ts';
 import { useAsync } from '../../../lib/hooks.ts';
@@ -13,7 +13,7 @@ import { IconGoal } from '../../../components/icons.tsx';
 import { GoalForm } from '../../../components/forms/GoalForm.tsx';
 import { AllocationForm } from '../../../components/forms/AllocationForm.tsx';
 import { errorMessage, issuesFrom, RadioGroup, type FormIssues } from '../../../components/forms/support.tsx';
-import { formatDateLong, formatIDR, parseIso, toMinor, todayIso } from '../../../lib/format.ts';
+import { formatDateLong, toMinor, todayIso } from '../../../lib/format.ts';
 import { sumMinor } from './money.ts';
 
 type PlanState =
@@ -196,8 +196,7 @@ function GoalCard({
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        {achieved ? <StatusPill tone="in">Tercapai</StatusPill> : null}
-        {archived ? <StatusPill tone="neutral">Diarsipkan</StatusPill> : null}
+        {achieved ? <StatusPill tone="in">Tercapai</StatusPill> : archived ? <StatusPill tone="neutral">Diarsipkan</StatusPill> : <StatusPill tone="accent">Aktif</StatusPill>}
         <StatusPill tone="neutral">{PRIORITY_LABEL[String(goal.priority)] ?? 'Sedang'}</StatusPill>
       </div>
 
@@ -279,7 +278,7 @@ function PlanLine({
     return (
       <div className="flex flex-wrap items-center gap-3">
         <p className="text-xs text-muted">
-          Belum ada tanggal target, jadi proyeksi setoran bulanan belum bisa dihitung. Tambahkan tanggal target bila sudah ada rencananya.
+          Belum ada tanggal target, jadi saran setoran bulanan belum bisa ditetapkan. Tambahkan tanggal target bila sudah ada rencananya.
         </p>
         <Button variant="secondary" onClick={onChangePlan}>
           Ubah rencana
@@ -288,8 +287,9 @@ function PlanLine({
     );
   }
 
-  const months = monthsUntil(goal.targetDate, today);
-  if (months <= 0) {
+  // Saran setoran datang dari server (monthlyPlan); tanggal target yang tidak lagi memberi ruang
+  // bulan ditandai di sini supaya tidak ada pembagian nol atau angka negatif di layar.
+  if (goal.monthlyPlan === null) {
     return (
       <div className="flex flex-wrap items-center gap-3">
         <p className="text-xs text-muted">
@@ -303,23 +303,12 @@ function PlanLine({
     );
   }
 
-  const perMonth = Math.ceil(shortfall / months);
   return (
     <p className="text-xs text-muted">
-      Proyeksi setoran <Money value={perMonth} direction="in" size="sm" /> per bulan selama {months} bulan tersisa sampai {formatDateLong(goal.targetDate)}.
-      Asumsi: kekurangan {formatIDR(shortfall)} dibagi {months} bulan tersisa, tanpa bunga. Sesuaikan bila tidak sesuai kemampuan.
+      Saran setoran <Money value={goal.monthlyPlan} direction="in" size="sm" /> per bulan sampai {formatDateLong(goal.targetDate)}, tanpa bunga.
+      Sesuaikan bila tidak sesuai kemampuan.
     </p>
   );
-}
-
-/** Whole months from today to the target date; a partial month counts as one. Zero means the date has arrived. */
-function monthsUntil(targetDate: string, today: string): number {
-  if (targetDate <= today) return 0;
-  const from = parseIso(today);
-  const to = parseIso(targetDate);
-  let months = (to.y - from.y) * 12 + (to.m - from.m);
-  if (to.d > from.d) months += 1;
-  return Math.max(0, months);
 }
 
 function ArchiveGoalSheet({

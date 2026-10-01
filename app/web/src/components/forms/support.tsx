@@ -76,7 +76,7 @@ export function ReviewList({ rows, note }: { rows: { label: string; value: React
       {rows.map((row) => (
         <div key={row.label} className="row-divide flex items-baseline justify-between gap-3 py-2.5">
           <span className="text-sm text-muted">{row.label}</span>
-          <span className={`num text-sm ${row.strong ? 'font-semibold text-fg' : 'text-fg'}`}>{row.value}</span>
+          <span className={`tnum text-sm ${row.strong ? 'font-semibold text-fg' : 'text-fg'}`}>{row.value}</span>
         </div>
       ))}
       {note ? <p className="py-2.5 text-xs text-muted">{note}</p> : null}
@@ -103,11 +103,8 @@ export function SwitchRow({
         onClick={() => onChange(!checked)}
         className="press flex min-h-[44px] w-14 shrink-0 items-center justify-center rounded-control disabled:opacity-55"
       >
-        <span className={`relative h-6 w-11 rounded-chip transition-colors duration-150 ${checked ? 'bg-accent' : 'bg-hairline'}`}>
-          <span
-            aria-hidden="true"
-            className={`absolute top-0.5 size-5 rounded-chip bg-white shadow-[0_1px_2px_rgb(16_24_40/0.2)] transition-transform duration-150 ${checked ? 'left-[22px]' : 'left-0.5'}`}
-          />
+        <span className={`flex h-6 w-11 items-center rounded-chip p-0.5 transition-colors duration-150 ${checked ? 'justify-end bg-accent' : 'justify-start bg-hairline'}`}>
+          <span aria-hidden="true" className="size-5 rounded-chip bg-white shadow-card" />
         </span>
       </button>
     </div>

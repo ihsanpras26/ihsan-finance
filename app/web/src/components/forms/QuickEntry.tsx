@@ -1,18 +1,15 @@
 // components/forms/QuickEntry.tsx - input cepat (PRD §05, ARCHITECTURE §8).
-// Aturan yang dijaga di berkas ini:
-// 1. Nominal tampil lebih dulu dengan papan angka; dompet dan tanggal selalu terlihat sebelum simpan.
-// 2. Satu tombol simpan; menekan berulang memakai kunci idempotensi yang sama, jadi tidak menggandakan.
-// 3. Jaringan gagal: isian disimpan sebagai draf lokal dan diberi label "Belum tersinkron".
-//    Kata "Tersimpan" hanya muncul setelah server mengonfirmasi (PRD FR22).
+// Nominal diisi lewat papan angka yang selalu terlihat; dompet, kategori, dan tanggal dipilih dari
+// baris chip di atasnya. Jaringan gagal: isian disimpan sebagai draf lokal berlabel "Belum
+// tersinkron", dan kata "Tersimpan" hanya muncul setelah server mengonfirmasi (PRD FR22).
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, ApiError, newIdempotencyKey, type Category, type Preferences, type Wallet } from '../../lib/api.ts';
 import { directionOf, formatDateLong, formatDateShort, formatIDR, formatSigned, todayIso, TYPE_LABEL, WALLET_TYPE_LABEL } from '../../lib/format.ts';
 import { useAsync, useOnline } from '../../lib/hooks.ts';
 import { clearDraft, listDrafts, saveDraft, type Draft } from '../../lib/offline.ts';
 import { useSession } from '../../lib/session.tsx';
-import { IconAlert, IconChevronDown, IconCloudOff } from '../icons.tsx';
-import { AmountInput, Button, Field, OfflineBadge, Sheet, StatusPill, TextInput, Textarea, useToast } from '../ui.tsx';
-import { SelectControl } from './fields.tsx';
+import { IconAlert, IconChevronDown, IconChevronLeft, IconCloudOff } from '../icons.tsx';
+import { AmountInput, Button, Chip, Field, Money, OfflineBadge, Sheet, StatusPill, TextInput, Textarea, useToast } from '../ui.tsx';
 
 export type QuickEntryType = 'expense' | 'income' | 'transfer';
 
@@ -40,6 +37,49 @@ function pickCategory(list: Category[], preferences: Preferences): string {
   return (match ?? list[0])?.id ?? '';
 }
 
+// Batas P0 untuk satu peristiwa (AGENTS.md aturan 1): papan angka berhenti di sini, bukan membulatkan.
+const AMOUNT_MAX = 999_999_999_999;
+
+function appendDigits(current: number, digits: string): number {
+  const merged = `${current}${digits}`.replace(/^0+(?=\d)/, '');
+  const next = Number(merged);
+  return Number.isSafeInteger(next) && next <= AMOUNT_MAX ? next : current;
+}
+
+function shiftIsoDate(iso: string, days: number): string {
+  const [year, month, day] = iso.split('-').map(Number);
+  const date = new Date(year ?? 1970, (month ?? 1) - 1, day ?? 1);
+  date.setDate(date.getDate() + days);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+/** Papan angka 3x4: angka, "000", dan hapus satu angka. Semua tombol setinggi 48px. */
+function Keypad({ onDigit, onBackspace }: { onDigit: (digits: string) => void; onBackspace: () => void }) {
+  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '000', '0'];
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {keys.map((key) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => onDigit(key)}
+          className="tnum press h-12 rounded-control bg-sunken text-lg font-semibold text-fg transition-colors duration-150 hover:bg-fg/8"
+        >
+          {key}
+        </button>
+      ))}
+      <button
+        type="button"
+        onClick={onBackspace}
+        aria-label="Hapus satu angka"
+        className="press inline-flex h-12 items-center justify-center rounded-control bg-sunken text-muted transition-colors duration-150 hover:bg-fg/8 hover:text-fg"
+      >
+        <IconChevronLeft size={22} />
+      </button>
+    </div>
+  );
+}
+
 export function QuickEntry({
   open, init, onClose, onSaved,
 }: {
@@ -62,6 +102,7 @@ export function QuickEntry({
   const [date, setDate] = useState(() => todayIso());
   const [note, setNote] = useState('');
   const [detailOpen, setDetailOpen] = useState(false);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [key, setKey] = useState(() => newIdempotencyKey());
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -133,6 +174,31 @@ export function QuickEntry({
     setCategoryId((current) => (current && categoryList.some((category) => category.id === current) ? current : pickCategory(categoryList, preferences)));
   }, [open, type, categories.data, preferences]);
 
+  // Papan fisik dan papan angkat HP tetap bekerja: angka menambah, Backspace mengurangi. Fokus di
+  // isian teks (catatan, biaya, tanggal) tidak diganggu.
+  useEffect(() => {
+    if (!open) return;
+    function onKey(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+      if (/^[0-9]$/.test(event.key)) {
+        event.preventDefault();
+        setAmount((current) => appendDigits(current, event.key));
+      } else if (event.key === 'Backspace') {
+        event.preventDefault();
+        setAmount((current) => Math.floor(current / 10));
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  const selectedWallet = activeWallets.find((wallet) => wallet.id === walletId) ?? null;
+  const selectedToWallet = activeWallets.find((wallet) => wallet.id === toWalletId) ?? null;
+  const today = todayIso();
+  const yesterday = shiftIsoDate(today, -1);
+  const customDate = date !== today && date !== yesterday;
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
@@ -202,69 +268,49 @@ export function QuickEntry({
       onClose={onClose}
       title="Catat transaksi"
       footer={
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
           {draft ? (
             <div className="flex flex-wrap items-center gap-2">
               <OfflineBadge savedAt={draft.savedAt} />
               <StatusPill tone="warn">Belum tersinkron</StatusPill>
             </div>
           ) : null}
+          {formError ? (
+            <p role="alert" className="flex items-start gap-2 rounded-control bg-out/8 px-3 py-2 text-xs text-fg">
+              <IconAlert size={16} className="mt-0.5 shrink-0 text-out" />
+              <span>{formError}</span>
+            </p>
+          ) : null}
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-2xs font-semibold text-muted">Nominal</span>
+            <span aria-live="polite" className="figure text-3xl text-fg">
+              {formatIDR(amount)}
+            </span>
+          </div>
+          {fieldErrors.amount ? (
+            <p role="alert" className="text-xs text-out">
+              {fieldErrors.amount}
+            </p>
+          ) : null}
+          <Keypad
+            onDigit={(digits) => setAmount((current) => appendDigits(current, digits))}
+            onBackspace={() => setAmount((current) => Math.floor(current / 10))}
+          />
           <Button type="submit" form={FORM_ID} size="lg" block loading={busy}>
             {draft ? 'Kirim ulang transaksi' : 'Simpan transaksi'}
           </Button>
         </div>
       }
     >
-      <form id={FORM_ID} onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="qe-amount" className="text-xs font-semibold text-muted">
-            Nominal
-            <span className="ml-0.5 text-out" aria-hidden="true">
-              *
-            </span>
-            <span className="sr-only"> (wajib)</span>
-          </label>
-          <AmountInput
-            id="qe-amount"
-            autoFocus
-            value={amount}
-            onValueChange={setAmount}
-            invalid={Boolean(fieldErrors.amount)}
-            label="Nominal transaksi"
-          />
-          {fieldErrors.amount ? (
-            <p role="alert" className="flex items-start gap-1.5 text-xs text-out">
-              <IconAlert size={15} className="mt-0.5 shrink-0" />
-              <span>{fieldErrors.amount}</span>
-            </p>
-          ) : null}
-        </div>
-
-        <div role="group" aria-label="Jenis transaksi" className="flex flex-col gap-1.5">
-          <span className="text-xs font-semibold text-muted">
-            Jenis
-            <span className="ml-0.5 text-out" aria-hidden="true">
-              *
-            </span>
-            <span className="sr-only"> (wajib)</span>
-          </span>
-          <div className="grid grid-cols-3 gap-1 rounded-control bg-sunken p-1">
-            {TYPE_CHOICES.map((choice) => {
-              const selected = choice.id === type;
-              return (
-                <button
-                  key={choice.id}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => setType(choice.id)}
-                  className={`press min-h-[44px] rounded-[8px] px-2 text-sm font-semibold transition-colors duration-150 ${
-                    selected ? 'bg-raised text-fg shadow-[0_1px_2px_rgb(16_24_40/0.08)]' : 'text-muted hover:text-fg'
-                  }`}
-                >
-                  {choice.label}
-                </button>
-              );
-            })}
+      <form id={FORM_ID} onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
+        <div role="group" aria-label="Jenis transaksi" className="flex flex-col gap-2">
+          <span className="text-2xs font-semibold text-muted">Jenis</span>
+          <div className="grid grid-cols-3 gap-2">
+            {TYPE_CHOICES.map((choice) => (
+              <Chip key={choice.id} selected={choice.id === type} onClick={() => setType(choice.id)} className="justify-center">
+                {choice.label}
+              </Chip>
+            ))}
           </div>
         </div>
 
@@ -277,90 +323,123 @@ export function QuickEntry({
           </div>
         ) : null}
 
-        <Field
-          label={type === 'transfer' ? 'Dompet asal' : 'Dompet'}
-          htmlFor="qe-wallet"
-          required
-          error={fieldErrors.walletId}
-          hint={wallets.loading ? 'Memuat daftar dompet.' : activeWallets.length === 0 ? 'Belum ada dompet aktif. Buat dompet lebih dulu di layar Profil.' : undefined}
-        >
-          <SelectControl
-            id="qe-wallet"
-            value={walletId}
-            invalid={Boolean(fieldErrors.walletId)}
-            disabled={wallets.loading || activeWallets.length === 0}
-            onChange={(event) => setWalletId(event.target.value)}
-          >
-            {activeWallets.length === 0 ? <option value="">Tidak ada dompet aktif</option> : null}
+        <div role="group" aria-label={type === 'transfer' ? 'Dompet asal' : 'Dompet'} className="flex flex-col gap-2">
+          <span className="text-2xs font-semibold text-muted">{type === 'transfer' ? 'Dompet asal' : 'Dompet'}</span>
+          {wallets.loading ? <p className="text-xs text-muted">Memuat daftar dompet.</p> : null}
+          {!wallets.loading && activeWallets.length === 0 ? (
+            <p className="text-xs text-warn">Belum ada dompet aktif. Buat dompet lebih dulu di layar Profil.</p>
+          ) : null}
+          <div className="flex gap-2 overflow-x-auto pb-1">
             {activeWallets.map((wallet) => (
-              <option key={wallet.id} value={wallet.id}>
-                {`${wallet.name} · ${WALLET_TYPE_LABEL[wallet.type] ?? wallet.type} · ${formatIDR(wallet.balance)}`}
-              </option>
+              <Chip key={wallet.id} selected={wallet.id === walletId} onClick={() => setWalletId(wallet.id)}>
+                {wallet.name}
+              </Chip>
             ))}
-          </SelectControl>
-        </Field>
+          </div>
+          {selectedWallet ? (
+            <p className="flex items-center gap-1.5 text-xs text-muted">
+              <span>{WALLET_TYPE_LABEL[selectedWallet.type] ?? selectedWallet.type}</span>
+              <span aria-hidden="true">·</span>
+              {/* Saldo dompet yang dipilih adalah angka tunggal, bukan kolom angka: tanpa kolom
+                  tanda, karena pemisah "·" di sebelahnya sudah memisahkan label dari nominal. */}
+              <Money value={selectedWallet.balance} size="sm" sign={false} />
+            </p>
+          ) : null}
+          {fieldErrors.walletId ? (
+            <p role="alert" className="text-xs text-out">
+              {fieldErrors.walletId}
+            </p>
+          ) : null}
+        </div>
 
         {type === 'transfer' ? (
-          <Field label="Dompet tujuan" htmlFor="qe-to-wallet" required error={fieldErrors.toWalletId}>
-            <SelectControl
-              id="qe-to-wallet"
-              value={toWalletId}
-              invalid={Boolean(fieldErrors.toWalletId)}
-              disabled={wallets.loading || activeWallets.length === 0}
-              onChange={(event) => setToWalletId(event.target.value)}
-            >
-              <option value="">Pilih dompet tujuan</option>
+          <div role="group" aria-label="Dompet tujuan" className="flex flex-col gap-2">
+            <span className="text-2xs font-semibold text-muted">Dompet tujuan</span>
+            <div className="flex gap-2 overflow-x-auto pb-1">
               {activeWallets
                 .filter((wallet) => wallet.id !== walletId)
                 .map((wallet) => (
-                  <option key={wallet.id} value={wallet.id}>
-                    {`${wallet.name} · ${WALLET_TYPE_LABEL[wallet.type] ?? wallet.type} · ${formatIDR(wallet.balance)}`}
-                  </option>
+                  <Chip key={wallet.id} selected={wallet.id === toWalletId} onClick={() => setToWalletId(wallet.id)}>
+                    {wallet.name}
+                  </Chip>
                 ))}
-            </SelectControl>
-          </Field>
+            </div>
+            {selectedToWallet ? (
+              <p className="flex items-center gap-1.5 text-xs text-muted">
+                <span>{WALLET_TYPE_LABEL[selectedToWallet.type] ?? selectedToWallet.type}</span>
+                <span aria-hidden="true">·</span>
+                <Money value={selectedToWallet.balance} size="sm" sign={false} />
+              </p>
+            ) : null}
+            {fieldErrors.toWalletId ? (
+              <p role="alert" className="text-xs text-out">
+                {fieldErrors.toWalletId}
+              </p>
+            ) : null}
+          </div>
         ) : (
-          <Field
-            label="Kategori"
-            htmlFor="qe-category"
-            required
-            error={fieldErrors.categoryId}
-            hint={categories.loading ? 'Memuat daftar kategori.' : categoryList.length === 0 ? 'Belum ada kategori untuk jenis ini. Buat kategori lebih dulu di layar Profil.' : undefined}
-          >
-            <SelectControl
-              id="qe-category"
-              value={categoryId}
-              invalid={Boolean(fieldErrors.categoryId)}
-              disabled={categories.loading || categoryList.length === 0}
-              onChange={(event) => setCategoryId(event.target.value)}
-            >
-              {categoryList.length === 0 ? <option value="">Tidak ada kategori</option> : null}
+          <div role="group" aria-label="Kategori" className="flex flex-col gap-2">
+            <span className="text-2xs font-semibold text-muted">Kategori</span>
+            {categories.loading ? <p className="text-xs text-muted">Memuat daftar kategori.</p> : null}
+            {!categories.loading && categoryList.length === 0 ? (
+              <p className="text-xs text-warn">Belum ada kategori untuk jenis ini. Buat kategori lebih dulu di layar Profil.</p>
+            ) : null}
+            <div className="flex gap-2 overflow-x-auto pb-1">
               {categoryList.map((category) => (
-                <option key={category.id} value={category.id}>
+                <Chip key={category.id} selected={category.id === categoryId} onClick={() => setCategoryId(category.id)}>
                   {category.name}
-                </option>
+                </Chip>
               ))}
-            </SelectControl>
-          </Field>
+            </div>
+            {fieldErrors.categoryId ? (
+              <p role="alert" className="text-xs text-out">
+                {fieldErrors.categoryId}
+              </p>
+            ) : null}
+          </div>
         )}
 
-        <Field
-          label="Tanggal"
-          htmlFor="qe-date"
-          required
-          error={fieldErrors.effectiveDate}
-          hint={futureDate ? 'Tanggal setelah hari ini disimpan sebagai rencana dan belum mengubah saldo.' : `Hari ini ${formatDateLong(todayIso())}.`}
-        >
-          <TextInput
-            id="qe-date"
-            type="date"
-            value={date}
-            invalid={Boolean(fieldErrors.effectiveDate)}
-            onChange={(event) => setDate(event.target.value)}
-          />
-        </Field>
+        <div role="group" aria-label="Tanggal transaksi" className="flex flex-col gap-2">
+          <span className="text-2xs font-semibold text-muted">Tanggal</span>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            <Chip selected={date === today} onClick={() => setDate(today)}>
+              Hari ini
+            </Chip>
+            <Chip selected={date === yesterday} onClick={() => setDate(yesterday)}>
+              Kemarin
+            </Chip>
+            <Chip
+              selected={customDate}
+              aria-expanded={datePickerOpen}
+              aria-controls="qe-date"
+              onClick={() => setDatePickerOpen((value) => !value)}
+            >
+              {customDate ? formatDateShort(date) : 'Pilih tanggal'}
+            </Chip>
+          </div>
+          {customDate || datePickerOpen ? (
+            <div id="qe-date">
+              <TextInput
+                aria-label="Tanggal transaksi"
+                type="date"
+                value={date}
+                invalid={Boolean(fieldErrors.effectiveDate)}
+                onChange={(event) => setDate(event.target.value)}
+              />
+            </div>
+          ) : null}
+          {fieldErrors.effectiveDate ? (
+            <p role="alert" className="text-xs text-out">
+              {fieldErrors.effectiveDate}
+            </p>
+          ) : (
+            <p className="text-xs text-muted">
+              {futureDate ? 'Tanggal setelah hari ini disimpan sebagai rencana dan belum mengubah saldo.' : `Hari ini ${formatDateLong(today)}.`}
+            </p>
+          )}
+        </div>
 
-        <div className="pt-3">
+        <div className="pt-1">
           <button
             type="button"
             aria-expanded={detailOpen}
@@ -372,7 +451,7 @@ export function QuickEntry({
             <IconChevronDown size={18} className={`transition-transform duration-150 ${detailOpen ? 'rotate-180' : ''}`} />
           </button>
           {detailOpen ? (
-            <div id="qe-detail" className="flex flex-col gap-4 pt-1">
+            <div id="qe-detail" className="flex flex-col gap-4 pt-2">
               <Field label="Catatan" htmlFor="qe-note" hint="Opsional, maksimal 500 karakter.">
                 <Textarea
                   id="qe-note"
@@ -396,13 +475,6 @@ export function QuickEntry({
             <IconCloudOff size={16} className="mt-0.5 shrink-0" />
             Tidak ada koneksi. Menyimpan sekarang menaruh transaksi sebagai draf di perangkat ini, bukan di server.
           </p>
-        ) : null}
-
-        {formError ? (
-          <div role="alert" className="flex items-start gap-2 rounded-control bg-out/8 px-4 py-3">
-            <IconAlert size={18} className="mt-0.5 shrink-0 text-out" />
-            <span className="text-sm text-fg">{formError}</span>
-          </div>
         ) : null}
       </form>
     </Sheet>

@@ -1,18 +1,20 @@
 // components/layout/AppShell.tsx - kerangka tata letak.
 // HP (< 1024px): kepala ringkas dengan sapaan dan avatar, bilah bawah 5 tujuan dengan tombol Tambah
-// bulat di tengah sebagai satu-satunya aksi utama (DESIGN.md §6).
+// bulat di tengah sebagai satu-satunya aksi utama (DESIGN.md "Components").
 // Desktop (>= 1024px): rel kiri 248px dengan merek, tombol Tambah, dan 5 tujuan; kolom isi 1120px.
 // Alasan susunan: di HP pengguna mencatat sambil berdiri, jadi Tambah satu jempol dari mana saja;
 // di desktop pengguna meninjau.
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link, NavLink, useLocation } from 'react-router-dom';
-import { useOnline } from '../../lib/hooks.ts';
+import { Link, useLocation } from 'react-router-dom';
+import { api } from '../../lib/api.ts';
+import { useAsync, useOnline } from '../../lib/hooks.ts';
 import { useSession } from '../../lib/session.tsx';
+import { ErrorBoundary } from './ErrorBoundary.tsx';
 import { QuickEntry, type QuickEntryInit } from '../forms/QuickEntry.tsx';
 import {
   IconBell, IconCloudOff, IconGoal, IconLedger, IconMoon, IconPlus, IconReport, IconSun, IconUser, IconWallet,
 } from '../icons.tsx';
-import { Avatar, Button, IconButton } from '../ui.tsx';
+import { Avatar, Button } from '../ui.tsx';
 
 interface ShellValue {
   /** Bertambah setiap ada mutasi yang berhasil, sehingga layar memuat ulang datanya. */
@@ -43,15 +45,6 @@ const PROFIL_ITEM = { to: '/profil', label: 'Profil', Icon: IconUser, end: false
 
 const ALL_ITEMS = [...NAV_ITEMS, PROFIL_ITEM];
 
-/** Judul kepala di HP mengikuti tujuan yang sedang dibuka. */
-const TITLES: Record<string, string> = {
-  '/': 'Beranda',
-  '/transaksi': 'Transaksi',
-  '/rencana': 'Rencana',
-  '/laporan': 'Laporan',
-  '/profil': 'Profil',
-};
-
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, theme, setTheme } = useSession();
   const online = useOnline();
@@ -73,6 +66,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     [dataVersion, notifyDataChanged, openQuickEntry],
   );
 
+  // Satu kueri murah per perubahan data: lonceng tidak boleh diam saat ada yang menunggu dibaca.
+  const unread = useAsync(() => api.notifications({ status: 'unread' }), [dataVersion]);
+  const unreadCount = unread.data?.length ?? 0;
+
   const darkNow = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   const themeLabel = darkNow ? 'Mode terang' : 'Mode gelap';
   const toggleTheme = () => setTheme(darkNow ? 'light' : 'dark');
@@ -81,8 +78,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }, [location.pathname]);
-
-  const pageTitle = TITLES[location.pathname] ?? 'Ihsan Finance';
 
   return (
     <ShellContext.Provider value={shell}>
@@ -95,9 +90,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <div className="min-h-dvh">
         {/* Rel kiri: hanya desktop. */}
-        <aside className="fixed inset-y-0 left-0 z-30 hidden w-[248px] flex-col bg-raised px-4 py-5 lg:flex">
+        <aside className="fixed inset-y-0 left-0 z-30 hidden w-[248px] flex-col border-r border-hairline bg-raised px-4 py-5 lg:flex">
           <Link to="/" className="flex min-h-[44px] items-center gap-2.5 rounded-control px-1">
-            <span className="inline-flex size-9 items-center justify-center rounded-control bg-accent text-base font-bold text-accent-fg" aria-hidden="true">
+            <span className="inline-flex size-9 items-center justify-center rounded-control bg-accent-solid text-base font-bold text-accent-fg" aria-hidden="true">
               IF
             </span>
             <span className="text-base font-semibold text-fg">Ihsan Finance</span>
@@ -109,21 +104,22 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Button>
 
           <nav aria-label="Navigasi utama" className="mt-6 flex flex-col gap-1">
-            {ALL_ITEMS.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                className={({ isActive }) =>
-                  `flex min-h-[44px] items-center gap-3 rounded-control px-3 text-sm transition-colors duration-150 ${
-                    isActive ? 'bg-accent-soft font-semibold text-accent' : 'font-medium text-muted hover:bg-fg/6 hover:text-fg'
-                  }`
-                }
-              >
-                <item.Icon size={19} />
-                {item.label}
-              </NavLink>
-            ))}
+            {ALL_ITEMS.map((item) => {
+              const active = item.end ? location.pathname === item.to : location.pathname.startsWith(item.to);
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  aria-current={active ? 'page' : undefined}
+                  className={`flex min-h-[48px] items-center gap-3 rounded-control px-3 text-sm transition-colors duration-150 ${
+                    active ? 'bg-accent-soft font-semibold text-accent' : 'font-medium text-muted hover:bg-fg/6 hover:text-fg'
+                  }`}
+                >
+                  <item.Icon size={19} />
+                  {item.label}
+                </Link>
+              );
+            })}
           </nav>
 
           <div className="mt-auto flex flex-col gap-3 pt-4">
@@ -142,27 +138,25 @@ export function AppShell({ children }: { children: ReactNode }) {
         </aside>
 
         <div className="lg:pl-[248px]">
-          {/* Kepala: HP memakai judul halaman dan aksi akun; desktop hanya bilah tipis.
-              Safe-area atas dijaga supaya judul tidak tertutup poni pada perangkat berponi. */}
-          <header className="sticky top-0 z-30 border-b border-hairline/60 bg-surface/85 pt-[env(safe-area-inset-top)] backdrop-blur-md lg:hidden">
+          {/* Kepala: identitas ruang kerja dan aksi akun. Judul halaman hidup di dalam konten
+              sebagai satu h1 per layar (PageHeader), jadi kepala tidak mengulanginya.
+              Safe-area atas dijaga supaya isi kepala tidak tertutup poni pada perangkat berponi. */}
+          <header className="sticky top-0 z-30 border-b border-hairline bg-surface pt-[env(safe-area-inset-top)] lg:hidden">
             <div className="mx-auto flex min-h-[56px] max-w-[1120px] items-center gap-2 px-4">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-2xs font-medium text-muted">
-                  {user?.workspaceName}
-                </p>
-                <p className="truncate text-lg font-semibold tracking-tight text-fg">{pageTitle}</p>
-              </div>
+              <p className="min-w-0 flex-1 truncate text-sm font-semibold text-fg">
+                {user?.workspaceName}
+              </p>
               <div className="flex items-center gap-1">
-                <IconButton label={themeLabel} onClick={toggleTheme}>
-                  {darkNow ? <IconSun /> : <IconMoon />}
-                </IconButton>
                 <Link
                   to="/notifikasi"
-                  aria-label="Notifikasi"
+                  aria-label={unreadCount > 0 ? `Notifikasi, ${unreadCount} belum dibaca` : 'Notifikasi'}
                   title="Notifikasi"
-                  className="press inline-flex size-11 items-center justify-center rounded-control text-muted transition-colors duration-150 hover:bg-fg/6 hover:text-fg"
+                  className="press relative inline-flex size-11 items-center justify-center rounded-control text-muted transition-colors duration-150 hover:bg-fg/6 hover:text-fg"
                 >
                   <IconBell />
+                  {unreadCount > 0 ? (
+                    <span aria-hidden="true" className="absolute top-2 right-2 size-2 rounded-chip bg-out ring-2 ring-surface" />
+                  ) : null}
                 </Link>
                 <Link to={PROFIL_ITEM.to} aria-label="Profil" title="Profil" className="press inline-flex size-11 items-center justify-center rounded-control">
                   <Avatar name={user?.displayName ?? '?'} size="sm" />
@@ -187,7 +181,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             id="konten"
             className="mx-auto w-full max-w-[1120px] px-4 pb-[calc(5.75rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pb-16"
           >
-            {children}
+            <ErrorBoundary key={location.pathname}>{children}</ErrorBoundary>
           </main>
         </div>
 
@@ -205,7 +199,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 type="button"
                 onClick={() => openQuickEntry()}
                 aria-label="Tambah transaksi"
-                className="press -mt-5 inline-flex size-14 items-center justify-center rounded-chip bg-accent text-accent-fg shadow-[0_8px_20px_-6px_var(--accent)] transition-[filter] duration-150 hover:brightness-110"
+                className="press -mt-5 inline-flex size-14 items-center justify-center rounded-chip bg-accent-solid text-accent-fg shadow-lift transition-[filter] duration-150 hover:brightness-110"
               >
                 <IconPlus size={26} />
               </button>
@@ -223,30 +217,26 @@ export function AppShell({ children }: { children: ReactNode }) {
 }
 
 function TabLink({ item }: { item: (typeof NAV_ITEMS)[number] }) {
+  const { pathname } = useLocation();
+  const active = item.end ? pathname === item.to : pathname.startsWith(item.to);
   return (
-    <NavLink
+    <Link
       to={item.to}
-      end={item.end}
-      className={({ isActive }) =>
-        `press relative flex min-h-[58px] flex-col items-center justify-center gap-1 px-1 pt-1 text-2xs font-semibold transition-colors duration-150 ${
-          isActive ? 'text-accent' : 'text-muted'
-        }`
-      }
+      aria-current={active ? 'page' : undefined}
+      className={`press relative flex min-h-[58px] flex-col items-center justify-center gap-1 px-1 pt-1 text-2xs font-semibold transition-colors duration-150 ${
+        active ? 'text-accent' : 'text-muted'
+      }`}
     >
-      {({ isActive }) => (
-        <>
-          {/* Active marker: a short accent bar above the icon, so the current tab reads at a glance
-              without relying on colour alone (NFR06). */}
-          <span
-            aria-hidden="true"
-            className={`absolute top-0 h-[3px] w-8 rounded-chip transition-opacity duration-150 ${
-              isActive ? 'bg-accent opacity-100' : 'opacity-0'
-            }`}
-          />
-          <item.Icon size={22} />
-          <span>{item.label}</span>
-        </>
-      )}
-    </NavLink>
+      {/* Active marker: a short accent bar above the icon, so the current tab reads at a glance
+          without relying on colour alone (NFR06). */}
+      <span
+        aria-hidden="true"
+        className={`absolute top-0 h-[3px] w-8 rounded-chip transition-opacity duration-150 ${
+          active ? 'bg-accent opacity-100' : 'opacity-0'
+        }`}
+      />
+      <item.Icon size={22} />
+      <span>{item.label}</span>
+    </Link>
   );
 }

@@ -1,7 +1,7 @@
 // lib/session.tsx: sesi, preferensi, tema. Sumber kebenaran tetap server.
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api, ApiError, setCsrfToken, type Preferences, type SessionUser } from './api.ts';
-import { applyTheme, readHideAmounts, readTheme, writeHideAmounts, writeTheme } from './offline.ts';
+import { applyTheme, clearAllDrafts, readHideAmounts, readTheme, writeHideAmounts, writeTheme } from './offline.ts';
 import { MoneyVisibilityProvider } from '../components/ui.tsx';
 
 export interface SessionValue {
@@ -104,9 +104,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     } catch {
       // signing out locally is still the right outcome
     }
+    // Layar Keamanan menjanjikan draf lokal ikut terhapus; draf bisa memuat nominal dan catatan.
+    if (user) clearAllDrafts(user.workspaceId);
     setCsrfToken(null);
     setUser(null);
-  }, []);
+  }, [user]);
 
   const value = useMemo<SessionValue>(
     () => ({

@@ -1,0 +1,81 @@
+{
+  "generatedAt": "2026-10-01T11:37:44.107Z",
+  "scope": "24 halaman: 6 rute x {390x844, 1440x900} x {terang, gelap}",
+  "bundle": "index-HPQJsJuM.js (465.002 B, gzip 136.330 B) / index-Db3C64u0.css (36.773 B, gzip 8.041 B); halaman diuji lewat dev server atas src yang sama",
+  "checker": "compositing oklab/rgba-aware v3: tint dihitung di atas rantai latar, kontrol kustom diukur pada label pembungkusnya, nol diperiksa sebagai kolom kosong",
+  "totals": {
+    "contrastChecks": 3724,
+    "contrastFailures": 0,
+    "figures": 1256,
+    "figuresNonMono": 0,
+    "tnum": 88,
+    "tnumMono": 0,
+    "smallTap": 0,
+    "zeroAmounts": 500,
+    "zeroLyingSigns": 0,
+    "overflowX": 0,
+    "h1": 24,
+    "blur": 0,
+    "bgGradients": 0,
+    "svgGradients": 4,
+    "signCols": 1044,
+    "signDots": 0,
+    "leftoverMidDot": 0,
+    "moneyDots": 0,
+    "emptyTiles": 0
+  },
+  "expectedExceptions": [
+    {
+      "what": "gradien SVG isian area grafik",
+      "count": 4,
+      "per": "/laporan, satu per halaman (4 halaman)",
+      "doc": "docs/DESIGN.md aturan warna data"
+    }
+  ],
+  "tightestPassing": [
+    {
+      "route": "/profil",
+      "size": 11.5,
+      "theme": "light",
+      "text": "Pengeluaran",
+      "ratio": 4.74,
+      "fg": "rgb(200, 26, 26)",
+      "bg": "oklab(0.532527 0.181161 0.0959569 / 0.12)"
+    },
+    {
+      "route": "/profil",
+      "size": 11.5,
+      "theme": "light",
+      "text": "Pengeluaran",
+      "ratio": 4.74,
+      "fg": "rgb(200, 26, 26)",
+      "bg": "oklab(0.532527 0.181161 0.0959569 / 0.12)"
+    },
+    {
+      "route": "/profil",
+      "size": 11.5,
+      "theme": "light",
+      "text": "Pengeluaran",
+      "ratio": 4.74,
+      "fg": "rgb(200, 26, 26)",
+      "bg": "oklab(0.532527 0.181161 0.0959569 / 0.12)"
+    },
+    {
+      "route": "/profil",
+      "size": 11.5,
+      "theme": "light",
+      "text": "Pengeluaran",
+      "ratio": 4.74,
+      "fg": "rgb(200, 26, 26)",
+      "bg": "oklab(0.532527 0.181161 0.0959569 / 0.12)"
+    }
+  ],
+  "failures": [],
+  "notes": [
+    "tanda nol: 500 nominal nol diperiksa, 0 memakai teks + atau -; 1044 kolom tanda, 0 titik netral, 0 sisa glif titik tengah",
+    "baris netral (transfer antar dompet) memakai glif transfer di kotak kiri; 0 kotak ikon kosong dari 17 kotak di /transaksi",
+    "ukuran sentuh: 0 target di bawah 44px, termasuk checkbox/radio yang diukur pada labelnya",
+    "monospace hanya untuk .figure: 1256 elemen, 0 meleset; 88 elemen .tnum memakai rupa teks karena bukan nominal uang",
+    "kontras terendah yang lulus 4.74:1 (terang, /profil, label nada Pengeluaran #c81a1a pada tint 12%); mode gelap di atas 5.6:1 setelah --accent menjadi #60a5fa"
+  ]
+}

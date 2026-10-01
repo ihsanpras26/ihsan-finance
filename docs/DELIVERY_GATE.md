@@ -5,6 +5,19 @@ Mode: **During** (gerbang dijalankan sebelum penyerahan)
 Arah visual: `docs/DESIGN.md` (Design Read: alat ukur untuk uang, ENERGY 2 / RHYTHM 2 / MOTION 2)
 Bukti mentah: `pnpm verify`, `pnpm smoke`, dan telusuri klik `agent-browser` pada Chrome 153.
 
+> **Catatan pembaruan (1 Oktober 2026).** Laporan empat blok di bawah dijalankan 22 September 2026
+> pada arah D-15. Sejumlah klaim di dalamnya sudah tidak berlaku dan dikoreksi di `# Gerbang D-18`
+> pada akhir berkas ini, bukan ditulis ulang di tempatnya supaya jejaknya terbaca; daftar lengkapnya
+> ada di bagian "Klaim lama yang dikoreksi". Tiga yang paling terlihat: aksen teal `#0f6b5c` (Blok 3
+> dan Blok 4) kini biru `#0256ff`; hitungan `74/74` tes server kini `78/78` tes server ditambah
+> `5/5` tes web; dan "0 elemen berbayangan saat diam" tidak lagi berlaku karena kartu kini memakai
+> token `--shadow-card` per arah canon.
+>
+> Rujukan `DESIGN.md §N` di blok D-15 dan D-16 juga memakai penomoran dokumen sebelum penyusunan
+> ulang. Padanannya sekarang: `§1` dan `§4` Layout, `§2` Colors, `§3` Typography, `§5` Kolom tanda,
+> `§6`, `§9`, `§10`, dan `§12` Components, `§7` Layout (susunan per layar), `§8` Motion. Anggaran
+> `§11` (aset dan logo) tidak lagi punya bagian sendiri di `DESIGN.md`.
+
 Aturan gerbang: satu saja jawaban yang salah arah, jangan serahkan. Laporan ini tidak boleh
 didelegasikan.
 
@@ -302,3 +315,332 @@ Dua probe pertama sesi ini menghasilkan temuan palsu sebelum diperbaiki, dan ked
 alat ukur yang salah sasaran, bukan dari aplikasi. Pelajarannya dicatat di berkas skill: CSSOM bukan
 sumber kebenaran untuk aturan yang disuntik, dan pengukuran klirens harus dibatasi ke elemen berteks.
 
+
+---
+
+# Gerbang D-18 · Arah canon: konvensi aplikasi keuangan besar
+
+**Tanggal:** 1 Oktober 2026 (redesain keempat, arah `D-18`; angka diperbarui setelah tinjauan desain kelima)
+**Ruang lingkup:** seluruh lapisan tampilan `app/web` (enam slice rute: Beranda, Transaksi, Rencana,
+Laporan, Notifikasi, Profil, plus layar masuk), teks antarmuka, dan tiga celah PRD yang ditutup.
+**Tidak berubah:** perilaku finansial (uang integer Rupiah, jurnal berpasangan, `workspace_id` dari
+sesi, idempotensi, batas Rp999.999.999.999), kontrak API, dan skema basis data.
+**Build yang dinilai:** `index-HPQJsJuM.js` 465.002 B (gzip 136.330 B) dan `index-Db3C64u0.css`
+36.773 B (gzip 8.041 B); `vite build` EXIT=0. Halaman diukur lewat dev server atas berkas sumber
+yang sama, dan `impeccable detect` dijalankan atas `dist` hasil build ini (`[]` untuk `dist`,
+`index.html`, dan `src`).
+**Alat ukur:** Chrome headless lewat `agent-browser` (DOM, gaya terhitung, geometri), `impeccable
+detect`, `node --test`, `node scripts/smoke.mjs`. Bukti mentah audit ada di
+`.impeccable/review/audit-d18.json` (24 halaman: 6 rute x 2 viewport x 2 tema), ditulis ulang setelah
+perbaikan tinjauan; tangkapan layar tema terang ada di `.impeccable/review/*.png`.
+
+## Blok 1 · Hard Gate (semua jawaban harus TIDAK)
+
+| # | Pertanyaan | Jawaban | Bukti |
+|---|---|---|---|
+| R-02 | Ada em dash di teks mana pun di luar pengecualian? | **TIDAK** | Pemindaian teks antarmuka pada 24 halaman: 0 em dash di dalam DOM. |
+| R-03 | Ada luapan horizontal atau tata letak rusak di mobile? | **TIDAK** | 390x844, enam rute, dua tema: `scrollWidth - innerWidth = 0` di 12 halaman. Target sentuh pada Beranda: 16 kendali, tinggi terkecil **44 px**. Di 24 halaman: **0 kendali** di bawah 44 px (di luar tautan lewati `.sr-only` 1x1 px yang memakai `focus:min-h-[44px]`). Seluruh aksi di kaki lembar (sembilan formulir) dan aksi per-baris di lembar berulang diukur **52 px**. |
+| R-17 | Ada statistik tanpa sumber nyata? | **TIDAK** | Tidak ada satu pun angka statistik di antarmuka. Setiap angka berasal dari jurnal; 78 tes server lulus. |
+| R-18 | Ada testimoni fiktif? | **TIDAK** | Tidak ada bagian testimoni di aplikasi. |
+| R-23 | Ada aset visual dibuat tanpa instruksi atau placeholder jujur? | **TIDAK** | `DESIGN.md` menyatakan belum ada logo disetujui; penanda jujur `[LOGO]` dan `public/icon.svg` yang berkomentar sebagai penanda sementara. Ikon adalah glyph SVG buatan sendiri, 0 pustaka ikon di `package.json`. Tidak ada avatar atau foto. |
+| R-24 | Ada tautan navigasi ke halaman yang tidak ada? | **TIDAK** | Keenam rute dibuka satu per satu dan semuanya merender layar berisi (`h1` ada, tanpa galat). |
+| R-25 | Ada teks dengan kontras di bawah WCAG AA? | **TIDAK** | **3.724 pemeriksaan** (simpul teks berisi x 24 halaman, dua tema), latar efektif dihitung dengan mengompositkan nilai `oklab(... / alfa)` di atas rantai latar; kendali kustom (kotak centang, tombol radio) diukur pada label pembungkusnya. **0 gagal.** Ambang 4.5:1 teks normal, 3:1 teks besar. Pasangan terketat yang lulus 4,74:1 (terang, `/profil`, label nada "Pengeluaran" `#c81a1a` di atas tint 12 persen). |
+| R-26 | Ada tombol, dropdown, atau formulir yang tidak melakukan apa pun? | **TIDAK** | Lembar konfirmasi berulang baru: `Konfirmasi` mencatat transaksi (toast "Transaksi berulang tercatat: +Rp8.500.000 pada 1 Okt 2026."), `Lewati` melewati kejadian (toast "Kejadian 1 Okt 2026 dilewati. Rencananya tetap berjalan."). Keduanya mengubah basis data, lihat R-35. |
+| R-27 | Antarmuka kurang keadaan kosong, memuat, atau galat? | **TIDAK** | Setiap daftar memakai `LoadingRows`, `EmptyState`, dan `DataError`. Lembar konfirmasi berulang punya ketiganya, termasuk `EmptyState` "Tidak ada yang menunggu" setelah baris terakhir diputuskan. |
+| R-28 | FAQ berisi pertanyaan generik? | **TIDAK** | Tidak ada FAQ. |
+| R-32 | Tidak dapat dinavigasi papan tombol atau tanpa fokus terlihat? | **TIDAK** | Escape menutup lembar konfirmasi berulang dan mengembalikan fokus ke tombol pemicunya (diukur: `document.activeElement` = "Konfirmasi transaksi berulang"). Semua kendali >= 44 px dan punya cincin fokus; tidak ada jebakan fokus. |
+| R-33 | Ada fitur ditambahkan dengan menambal sumber/CSS dari luar? | **TIDAK** | Semua perubahan ada di berkas sumber. |
+| R-34 | Satu mode tema rusak? | **TIDAK** | 24 halaman dijalankan penuh di tema terang dan gelap: kontras 0 gagal, luapan 0, `h1` tunggal, dan token bayangan kartu berbeda per tema tetapi geometrinya sama. |
+| R-35 | Diserahkan tanpa dijalankan atau tanpa catatan telusuri klik? | **TIDAK** | Dibangun (`vite build` EXIT=0) dan dijalankan; telusuri klik ada di bagian bawah laporan ini. |
+| R-36 | Ada klaim keamanan, kepatuhan, kinerja, atau pelanggan yang dikarang? | **TIDAK** | Satu-satunya kalimat tentang batas produk berbunyi "Rilis awal tidak melakukan pembayaran dan tidak menyimpan kredensial bank". |
+| R-37 | Dibangun tanpa arah dan tidak dilabeli? | **TIDAK** | `docs/DESIGN.md` memuat arah canon, dial, dan alasan satu baris per keputusan; keputusan arahnya di `docs/DECISIONS.md` D-18 dan D-19. |
+| R-38 | Ada konten bergaya realistis yang dikarang? | **TIDAK** | Data contoh dibuat `server/src/tools/seed.ts` dan dijelaskan sebagai data contoh di `docs/STATUS.md`. |
+
+**Blok 1: PASS.**
+
+## Blok 2 · Purpose Gate (semua jawaban harus TIDAK)
+
+| # | Pertanyaan | Jawaban | Alasan tertulis |
+|---|---|---|---|
+| R-01 | Gradien atau glow sebagai bawaan tanpa tujuan? | **TIDAK** | 0 elemen dengan `background-image: linear-gradient/radial-gradient` di 24 halaman. Empat gradien SVG di `/laporan` (satu per halaman) mengisi area grafik sebagai pengkodean data, bukan hiasan; `--glow-accent` dan `.bg-aurora` sudah dihapus oleh D-18 butir 2. Pengecualian ini tercatat di `DESIGN.md` dan di `expectedExceptions` berkas audit. |
+| R-04 | Ikon generik atau pustaka ikon tanpa relevansi? | **TIDAK** | 0 pustaka ikon di `package.json`; glyph SVG digambar sendiri dan relevan dengan isinya. |
+| R-06 | Monospace besar, label kapital jarak lebar, atau rupa tanpa alasan? | **TIDAK** | Monospace dipakai untuk 1.256 simpul `.figure` dan **0 di antaranya bukan monospace**; angka terbesar di layar adalah total saldo 34 px pada Beranda, yaitu angka fokus. Label kapital 11,5 px hanya dipakai untuk label kolom pendek di dalam kartu (`--text-2xs`) dan alasannya tertulis di `DESIGN.md` baris tipografi. Judul, label, dan paragraf tetap Schibsted Grotesk. |
+| R-07 | Pola latar grid, blueprint, atau titik tanpa tujuan? | **TIDAK** | 0 pola latar; latar adalah warna permukaan padat. |
+| R-08 | Panah pada hampir setiap tombol sebagai hiasan? | **TIDAK** | Satu karakter panah di seluruh antarmuka: `→` pada baris transfer ("Bank BCA → GoPay"), yang membawa informasi asal dan tujuan. Tidak ada panah pada tombol; pemindaian sumber untuk `→ ← ↑ ↓ ▲ ▼ › »` menemukan 1 kemunculan saja, yaitu baris transfer itu. |
+| R-09 | Lencana kapsul tanpa fungsi, atau pil di atas H1? | **TIDAK** | `StatusPill` adalah kapsul 999 px yang selalu berisi kata ("Mendekati batas", "Lewat batas", "Tercapai"), jadi bentuknya membawa status nyata. Tidak ada pil di atas judul: kepala halaman hanya teks judul dan satu aksi. |
+| R-10 | Glassmorphism pada lebih dari 1-2 elemen? | **TIDAK** | 0 elemen dengan `backdrop-filter` pada 24 halaman. |
+| R-12 | Bayangan besar pada setiap komponen tanpa alasan elevasi? | **TIDAK** | Satu-satunya bayangan yang tampil saat diam adalah token `--shadow-card` pada `.card`: `0 1px 2px rgb(16 24 40 / 0.04)` di terang dan `0 1px 3px rgb(0 0 0 / 0.4), 0 0 0 1px rgb(255 255 255 / 0.02)` di gelap. Pemindaian 24 halaman: 0 elemen memakai `--shadow-lift` atau `--shadow-float` dalam keadaan diam. |
+| R-13 | Glow pada kartu, tombol, lencana, ikon, latar, dan garis sekaligus? | **TIDAK** | 0 glow. |
+| R-14 | Semua kartu fitur identik tanpa alasan hierarki? | **TIDAK BERLAKU** | Tidak ada kartu fitur; hierarki datang dari urutan blok tetap, kepala bagian, dan baris bergaris. |
+| R-19 | Semua animasi templat sekaligus, atau gerak melawan dial MOTION? | **TIDAK** | Gerak yang ada hanya hover 120 ms, tekan 90 ms, lembar 180 ms, bilah progres 240 ms, dan denyut kerangka baris. Sesuai MOTION 3. `prefers-reduced-motion` mematikan seluruh durasi. |
+| R-22 | Ilustrasi generik tanpa kaitan produk? | **TIDAK** | 0 ilustrasi. |
+
+**Blok 2: PASS.**
+
+## Blok 3 · Liveliness (semua jawaban harus YA)
+
+| Pertanyaan | Jawaban | Bukti |
+|---|---|---|
+| Dial ditetapkan dan eksplisit? | **YA** | `DESIGN.md`: ENERGY 4 / RHYTHM 4 / MOTION 3. |
+| Hasil konsisten dengan dial yang diklaim? | **YA** | ENERGY 4 lewat skala huruf berjarak jelas dan radius berbeda per peran; RHYTHM 4 lewat urutan blok tetap dan pemisah kelompok; MOTION 3 lewat daftar gerak di `DESIGN.md` bagian Motion. |
+| Ada satu titik fokus jelas per layar? | **YA** | Beranda: total saldo `Rp27.090.000`, 34 px IBM Plex Mono, satu-satunya angka sebesar itu di layar. |
+| Ruang putih struktural, bukan sisa? | **YA** | Gutter dan jarak antar bagian ditetapkan di `DESIGN.md` bagian Layout; diukur: `#konten` 284-1404 px pada jendela 1440 px, anak pertama 316-1372 px. |
+| Ada satu aksen sengaja? | **YA** | Biru `#0256ff` (`--accent`) dan `#2563eb` (`--accent-solid`) di mode terang, `#60a5fa` (`--accent`) dengan isian `#2563eb` di mode gelap, dibatasi ke titik keputusan: tombol utama, penanda navigasi dan tab aktif, cincin fokus, isian bilah progres. Kontras putih di atas `#2563eb` = 5,17:1; label aksen di atas tint aksen 14 persen = 6,23:1 di gelap (kandidat `#3b82f6` hanya 4,30:1 dan gagal AA). Angka tint dihitung dari komposit `rgba(59,130,246,0.14)` di atas `#111318`, metode yang sama dipakai pemeriksa audit, bukan cuplikan piksel. |
+| Ada motif identitas? | **YA** | Kolom tanda: Beranda punya 24 kolom tanda dan 32 simpul `.figure`. Kolom hanya diisi saat nominal punya arah (`+`/`−`); nominal netral dibiarkan kosong dengan lebar terkunci `1ch`, karena tanda apa pun pada nilai tanpa arah bisa disalahbaca sebagai minus. Terukur di 24 halaman: 1.044 kolom tanda, 0 titik netral, 0 sisa glif titik tengah, 0 nominal bernilai nol yang memakai tanda palsu. |
+| Design Read dinyatakan sebelum dibangun? | **YA** | `DESIGN.md`, bagian arah canon. |
+
+**Blok 3: PASS.**
+
+## Blok 4 · Craftsmanship & Quality Locks (semua jawaban harus TIDAK)
+
+| # | Pertanyaan | Jawaban | Bukti |
+|---|---|---|---|
+| C-1 | Ada keputusan yang hanya beralasan "bawaan AI"? | **TIDAK** | Setiap keputusan visual besar punya alasan satu baris di `DESIGN.md`. |
+| C-2 | Ada elemen interaktif yang tidak melakukan apa pun? | **TIDAK** | Sama dengan R-26. |
+| C-3 | Ada bagian yang hanya mengisi templat? | **TIDAK** | Setiap blok melayani pekerjaan nyata: mencatat, membuka rincian, menandai yang menunggu. |
+| C-4 | Antarmuka rusak pada suatu keadaan, tema, atau tanpa tetikus? | **TIDAK** | 24 halaman (6 rute x 2 viewport x 2 tema) tanpa luapan, tanpa teks `undefined`/`NaN`, `h1` tunggal di setiap halaman, font `loaded` di setiap halaman. |
+| C-5 | Ada testimoni, statistik, atau klaim yang dikarang? | **TIDAK** | Sama dengan R-17, R-18, R-36. |
+| R-05 | Tata letak mengikuti templat AI atau irama bagian melawan dial RHYTHM? | **TIDAK** | Tidak ada hero pemasaran, kisi kartu seragam, bilah logo, jendela terminal palsu, kolom harga, atau kisi bento. |
+| R-11 | Semua elemen dibuat berbentuk pil tanpa variasi radius? | **TIDAK** | Empat radius dengan empat peran, diukur di DOM: pil 999 px (chip, tombol, tab, lencana), kendali 14 px (isian, kotak ikon baris), panel 24 px (kartu), lembar 28 px. 0 nilai radius literal di komponen. |
+| R-15 | CTA masih generik? | **TIDAK** | Tombol menyebut aksinya: "Konfirmasi transaksi berulang", "Tulis draf yang belum terkirim", "Tinjau anggaran", "Simpan transaksi". 0 pemakaian "Mulai", "Lanjut", "OK". |
+| R-16 | Ada kata pemanis pemasaran AI? | **TIDAK** | 0 kemunculan "seamless", "revolusioner", "cutting edge", "AI powered", "solusi", "canggih". |
+| R-20 | Terasa generik bila logo dan nama ditukar? | **TIDAK** | Yang khas adalah perlakuan angkanya: monospace dengan kolom tanda berlebar terkunci yang kosong saat netral, baris nol tanpa tanda palsu, dan kotak kiri baris ledger yang memakai glif transfer untuk perpindahan antar dompet. |
+| R-21 | Mode gelap dipaksa tanpa alasan, atau toggle ditunda? | **TIDAK** | Toggle ada di rel desktop dan di Profil, berfungsi dua arah, pilihan disimpan; kedua mode lolos kontras penuh. |
+| R-29 | Palet melebihi 2-3 warna inti + 1 aksen tanpa sistem? | **TIDAK** | 2 inti + 1 aksen + 4 warna data semantik, tercatat di `DESIGN.md` Colors. |
+| R-30 | Meniru produk populer lain? | **TIDAK** | Arah canon justru **meniru konvensi** aplikasi keuangan besar, dan itu keputusan pemilik yang dicatat di D-18 butir 1; yang tidak ditiru adalah hiasannya (0 gradien CSS, 0 glow, 0 kaca, 0 monospace besar sebagai gaya). Satu-satunya gradien adalah isian area grafik di `/laporan`, yaitu pengkodean data. |
+| R-31 | Ada keputusan visual besar yang alasannya tidak bisa ditulis satu baris? | **TIDAK** | Alasan satu baris ada di tabel `DESIGN.md` untuk palet, rupa huruf, jarak dan radius, motif, serta gerak. |
+
+**Blok 4: PASS.**
+
+## Angka akhir
+
+| Pemeriksaan | Hasil |
+|---|---|
+| `tsc --noEmit` web / server | EXIT=0 / EXIT=0 |
+| Tes web (`node --test`) | **5/5 lulus** |
+| Tes server (`node --test`, satu concurrency) | **78/78 lulus** |
+| `node scripts/smoke.mjs` (HTTP) | **50/50 lulus** |
+| `vite build` | EXIT=0, js `index-HPQJsJuM.js` 465.002 B (gzip 136.330 B), css `index-Db3C64u0.css` 36.773 B (gzip 8.041 B) |
+| `impeccable detect` (`dist`, `index.html`, `src`) | `[]` di ketiganya |
+| Luapan horizontal, 24 halaman | 0 px |
+| Kontras di bawah AA, 24 halaman | 0 dari **3.724** pemeriksaan (terketat yang lulus 4,74:1) |
+| Simpul `.figure` non-monospace | 0 dari 1.256 |
+| Elemen `.tnum` yang memakai monospace padahal bukan nominal | 0 dari 88 |
+| Tanda nol yang berbohong (`+Rp0`, `−Rp0`) | 0 dari 500 angka bernilai nol di 24 halaman |
+| Titik netral di kolom tanda / sisa glif titik tengah | 0 / 0 dari 1.044 kolom tanda |
+| Kotak ikon baris kosong di `/transaksi` | 0 dari 17 kotak |
+| Target sentuh di bawah 44 px | 0 |
+| Gradien CSS / `backdrop-filter` / bayangan mengambang saat diam | 0 / 0 / 0 |
+| Gradien SVG isian grafik (`/laporan`) | 4 (satu per halaman, pengecualian tercatat) |
+| Mode gelap: label aksen di atas tint 14 persen | 6,23:1 (`#60a5fa`), sebelumnya 4,30:1 dan gagal AA |
+| Gerak di luar daftar `DESIGN.md` bagian Motion | 0: tidak ada scroll-reveal, parallax, atau bouncing; 0 deklarasi `@keyframes` di CSS produk (denyut kerangka dan putar tombol berasal dari Tailwind), dan `prefers-reduced-motion` memaksa seluruh durasi ke 0.01ms |
+
+## Klaim lama yang dikoreksi
+
+1. **Aksen.** Laporan D-15 menyebut aksen teal `#0f6b5c` (dan `#4fd1b5` di gelap). Sejak arah canon
+   aksennya biru: di mode terang `--accent` dan `--accent-solid` sama-sama `#0256ff` (putih di
+  atasnya 5,56:1), di mode gelap `--accent: #60a5fa` dengan isian pekat `--accent-solid: #2563eb`
+  (putih di atasnya 5,17:1). Kandidat `#3b82f6` gagal di dua peran: sebagai isian 3,68:1, dan sebagai
+  label aksen di atas tint aksen 14 persen 4,30:1; `#60a5fa` menaikkannya ke 6,23:1 pada tint dan
+  7,31:1 pada panel.
+2. **Hitungan tes.** 74/74 menjadi **78/78 tes server** ditambah **5/5 tes web** (semula 6/6; satu blok
+   tes kolom tanda dihapus bersama glif netralnya).
+3. **Bayangan.** Klaim D-15 "0 elemen berbayangan terlihat saat diam" tidak lagi berlaku: kartu kini
+   memakai token `--shadow-card` (1 px, alfa 4 persen di terang; 1 px 3 px + cincin 1 px di gelap)
+   sesuai `DESIGN.md` pada bagian elevasi. Yang tetap nol adalah bayangan mengambang
+   (`--shadow-lift`, `--shadow-float`) di luar lembar dan dialog.
+4. **Monospace untuk semua nominal.** Diperjelas, bukan dibatalkan: nominal yang **berdiri sendiri
+   sebagai angka** memakai IBM Plex Mono; nominal yang **tersemat di dalam kalimat** yang datang dari
+   server sebagai satu string (mis. badan pengingat "Piutang kepada Dimas sebesar Rp750.000 jatuh
+   tempo 6 Okt 2026.") memakai rupa teks bertabular. `DESIGN.md` bagian typography sudah disempitkan
+   ke cakupan itu pada sesi ini.
+5. **Skala jarak.** Klaim D-15 "0 nilai jarak di luar kelipatan 4 px" tidak lagi berlaku apa adanya:
+   kode memakai juga 10 px (`py-2.5` pada tombol dan isian `md`), 14 px (`px-3.5` pada pil tab), dan
+   36 px (`pr-9` pada pemilih untuk memberi ruang tanda panah 14 px). `DESIGN.md` mencatat skala yang
+   sebenarnya: langkah 2 px di ujung kecil (2/4/6/8/10/12/14) lalu melebar ke atas
+   (16/20/24/32/36/40/48/64).
+6. **Cakupan kaki lembar 52 px.** Janji "seluruh aksi di kaki lembar memakai 52 px" terlalu luas:
+   yang memakai 52 px adalah kaki sembilan lembar formulir, lembar entri cepat, dan lembar berulang;
+   kaki lembar saringan, detail transaksi, arsip tujuan, dan dialog konfirmasi tetap 44 px. `DESIGN.md`
+   baris `Button` sudah dipersempit ke cakupan itu. Yang dijaga tetap sama di semua tempat: kedua
+   tombol dalam satu kaki selalu setinggi satu sama lain.
+7. **Grafik Laporan.** `DESIGN.md` menyebut "garis arus kas, bilah kategori, dan cincin"; `charts.tsx`
+   hanya punya `LineChart` dan `DonutChart`, dan bilah kategori memang tidak pernah dipakai karena
+   kategori tampil sebagai daftar di samping cincinnya. Kalimat dokumen itu disesuaikan.
+8. **Label bagian.** `--text-2xs` (11,5 px) ternyata juga dipakai label pendek di dalam kartu dan
+   lembar, sementara label bagian memakai `--text-xs` (13 px) kapital; `DESIGN.md` baris tipografi
+   diperbaiki mengikuti kode.
+9. **Gerak.** Blok D-15 menyebut hover 120ms, tekan 90ms, lembar 180ms, dan isian bilah progres
+   240ms. Kode hari ini: transisi kendali dan warna 150ms (`duration-150`), umpan balik tekan
+   `translateY(1px)` tanpa durasi sendiri, lembar 200ms `cubic-bezier(0.2, 0.8, 0.3, 1)`, isian bilah
+   progres hanya bertransisi warna 150ms (lebarnya berubah tanpa animasi), kerangka baris
+   `animate-pulse`, dan tombol sibuk `animate-spin` 16px di dalam tombol. `DESIGN.md` kini punya
+   bagian **Motion** yang mencatat angka itu; yang tetap benar dari klaim lama: tidak ada
+   scroll-reveal, parallax, atau bouncing, dan `prefers-reduced-motion` mematikan seluruh durasi.
+10. **Rujukan bagian.** Komentar kode dan blok laporan lama menulis `DESIGN.md §N` dengan penomoran
+   yang sudah tidak ada sejak `DESIGN.md` disusun ulang. Komentar di `app/web/src` kini menyebut nama
+   bagian (`DESIGN.md "Kolom tanda"`, `DESIGN.md "Motion"`, dan seterusnya) supaya rujukannya bisa
+   dibuka; padanan lengkap untuk blok lama ada di catatan pembaruan di kepala berkas ini.
+11. **Radius.** Baris R-11 di blok D-15 menyebut empat radius 4/8/12/16 px. Token yang benar-benar
+   dipakai kode dan terukur di DOM: pil 999 px, kendali 14 px, panel 24 px, lembar 28 px, dengan 0
+   nilai radius literal di komponen. Baris R-11 di blok D-18 sudah memakai angka itu; kalimat lama di
+   blok D-15 dibiarkan sebagai jejak.
+12. **Label kapital.** Baris R-06 di blok D-15 menutup dengan "tidak ada label kapital jarak lebar",
+   padahal label bagian di dalam kartu memang kapital 11,5 px dengan `tracking-wide` (`ui.tsx:350`,
+   `Transaksi.tsx:772` dan `:791`). Baris R-06 di blok D-18 sudah menyebut pemakaian itu beserta
+   alasan dan batasnya; `DESIGN.md` baris tipografi juga sudah diperbaiki mengikuti kode.
+
+## Penyimpangan yang sengaja
+
+1. `TabPanel` memakai `tabIndex={0}` supaya panel bisa digulir dengan papan tombol.
+2. `h1` Beranda ada tetapi `sr-only`; kepala HP tidak mencetak judul halaman. Urutan informasi sudah
+   memberi konteks, dan judul besar di HP memakan tinggi layar.
+3. Tab tidak menyinkronkan URL. Keadaan tab tidak perlu dibagikan, dan URL tetap pendek.
+4. Daftar panjang memakai tombol "Muat lebih banyak", bukan paginasi bernomor; daftar transaksi
+   dipakai untuk menggulir, bukan untuk melompat ke halaman.
+5. Ada **dua** landmark `<nav aria-label="Navigasi utama">`: satu `hidden lg:flex` untuk rel desktop
+   dan satu `lg:hidden` untuk bilah bawah. Keduanya perlu ada karena tujuan navigasinya berbeda, dan
+   hanya satu yang terlihat pada satu waktu.
+6. Baris transaksi memakai glif tanda (`-`/`+`) di `.icon-tile` untuk nominal berarah, dan glif
+   transfer untuk perpindahan antar dompet yang tidak punya arah; tanda adalah penanda yang lebih
+   penting daripada ikon kategori. Kolom tanda netral dibiarkan kosong (sebelumnya `·`).
+7. Judul pengingat memakai sisa hari yang sebenarnya pada saat dibuat ("H-7", "hari ini"), bukan
+   selisih yang dihitung ulang di layar.
+8. Lembar konfirmasi berulang **tidak** menyediakan penyuntingan per-isian, padahal server menerima
+   `overrides` (`amount`, `walletId`, `categoryId`, `toWalletId`, `fee`, `effectiveDate`, `note`).
+   Alasannya dicatat di `docs/DECISIONS.md` D-19.
+9. "Lewati" tidak menghapus rencana; `next_on` hanya maju ke jadwal berikutnya.
+10. Draf lokal yang belum terkirim dihapus saat keluar, sesuai janji di layar Profil, Keamanan.
+11. Kartu "Dana belum dialokasikan" (FR04) diletakkan di dalam panel saldo, bukan sebagai blok
+    tersendiri, supaya urutan tujuh blok Beranda tidak berubah.
+12. Nominal yang tersemat di dalam kalimat yang disusun server memakai rupa teks, bukan monospace
+    (`DESIGN.md` bagian typography); angka yang berdiri sendiri sebagai angka tetap monospace.
+13. Nominal yang disembunyikan ("sembunyikan nominal") mengganti seluruh digit dengan titik dan tetap
+    memakai titik penanda di kolom tanda (`.sign-dot`); nominal netral yang terlihat **tidak** memakai
+    titik itu, karena pada ukuran 13-14,5 px pembacaan tangkapan membacanya sebagai tanda minus.
+14. Label kapital `--text-2xs` (11,5 px) dipertahankan untuk label kolom pendek di dalam kartu, dengan
+    alasan tertulis di `DESIGN.md`; teks isi dan judul tidak memakainya.
+
+## Cacat yang ditemukan dan diperbaiki pada sesi ini
+
+1. **Janji yang tidak punya jalannya (FR17).** Tombol banner "Catat transaksi berulang" membuka
+   formulir kosong, dan `api.confirmOccurrence`/`api.skipOccurrence` tidak dipanggil berkas web mana
+   pun. Dibangun lembar konfirmasi yang menampilkan label, jadwal, dan nominal bertanda, lalu
+   memanggil kedua endpoint itu.
+2. **Arah nominal kejadian berulang di-hardcode `out`.** Kejadian pendapatan akan tampil
+   "-Rp8.500.000". Diperbaiki: arah dibaca dari `ruleType` (`income`/`expense`/`transfer`), dan
+   `Occurrence` di klien diperluas dengan medan itu (server sudah mengirimnya).
+3. **Meta terpotong di 390 px** ("Jadwal 1 Okt 2026 - belum di..."). Nominal dipindah ke baris judul,
+   meta memakai lebar penuh; `scrollWidth > clientWidth` = 0.
+4. **Nol memakai tanda arah.** Baris pembanding di Laporan menampilkan "+Rp0" dan pembaca layar
+   mengucapkan "plus nol". `moneySign` sekarang mengembalikan tanda kosong untuk nilai nol, `Money`
+   memperlakukan nominal nol sebagai netral, dan kolom tandanya dibiarkan kosong, sehingga tidak ada
+   lagi tanda yang mengklaim arah pada angka yang tidak bergerak.
+5. **Kartu "Dana belum dialokasikan" (FR04) dihitung server tetapi tidak pernah tampil.** Kini
+   tampil di panel saldo dengan label dan penjelasan pencegah salah tafsir. Diperiksa silang:
+   `27.090.000 - (4.000.000 + 2.500.000 + 0) = 20.590.000`, sama dengan `unallocated` dari API dan
+   dengan teks di DOM.
+6. **Cacat sesi sebelumnya yang sudah diverifikasi:** bug bulan pada `seed.ts` (helper
+   `bookedThisMonth`, `seedDemo(db, at)`, penjaga entrypoint, tes `seed.test.ts`); bug jarak hari
+   pengingat jatuh tempo (`DEBT_REMINDER_OFFSETS`, `describeDaysLeft`, `formatDateID`); a11y `Money`
+   yang mengucapkan arah lewat kata `sr-only`; dan 16 ekspor mati yang dihapus bersama `BarChart`,
+   ikon, `loadDraft`, `DAYS_ID`, `formatDayName`, `FREQUENCY_LABEL`, `isPositive`, `useMediaQuery`.
+7. **Sisa anggaran yang belum terpakai memakai tanda `+`.** Baris "Sisa anggaran" memakai arah `in`
+   selama sisanya positif, sehingga angkanya berbunyi `+Rp952.500` untuk uang yang baru *belum*
+   dibelanjakan, bukan uang yang masuk. Arahnya sekarang dibaca dari nilainya: hanya saldo negatif
+   (lewat batas) yang bertanda minus, sisanya netral.
+8. **Titik netral di kolom tanda.** Titik tengah `·` yang diketik dibaca sebagai tanda minus pada dua
+   pembacaan tangkapan yang saling bebas; penggantinya (bulatan digambar 0.34em) juga masih terbaca
+   sebagai garis pendek pada pembesaran 8x. Hasilnya: kolom tanda netral kosong, lebarnya dikunci CSS
+   `1ch` supaya angka tetap lurus.
+9. **Kotak ikon kosong pada baris transfer.** Setelah glif netral dihapus, baris "Bank BCA -> GoPay"
+   meninggalkan kotak ikon kosong. Ditambahkan glif transfer (dua panah berlawanan) di `icons.tsx`,
+   dipakai untuk baris tanpa arah; terukur 17 kotak di `/transaksi`, 0 kosong.
+10. **Tombol kaki lembar tidak seragam.** Sembilan formulir memakai tombol Batal `md` (44 px) di
+    samping tombol Simpan `lg` (52 px), sehingga pasangannya tidak rata. Aksi di kaki sembilan lembar
+    formulir kini 52 px (`size="lg"`), sesuai janji `DESIGN.md` baris `Button`; kaki lembar lain
+    (saringan, detail transaksi, arsip tujuan, dialog konfirmasi) tetap 44 px dan tetap menyejajarkan
+    kedua tombolnya.
+11. **Titik rendah pada label aksen mode gelap.** Penanda navigasi aktif memakai `bg-accent-soft`
+    (aksen 14 persen) dengan teks `#3b82f6`: komposit terhitung 4,30:1 dan gagal AA. `--accent` gelap
+    menjadi `#60a5fa` -> 6,23:1 pada tint dan 7,31:1 pada panel.
+12. **Aksi per-baris di lembar berulang menjorok.** Tombol "Konfirmasi"/"Lewati" menjorok di bawah
+    kolom teks (`pl-[52px]`). Kini duduk di tepi konten lembar dengan dua tombol 52 px.
+
+## R-35 · Catatan telusuri klik (1 Oktober 2026)
+
+| # | Langkah | Hasil |
+|---|---|---|
+| 1 | Beranda 390x844 memuat | Blok berurutan: banner pekerjaan, Total saldo dompet, Arus bulan ini, Sisa anggaran, Kekayaan bersih, Jatuh tempo 7 hari, Progres tujuan. |
+| 2 | Kartu saldo dibaca | `Total saldo dompet Rp27.090.000`; baris "Dompet penyusun saldo 3 dompet"; `Dana belum dialokasikan Rp20.590.000` dengan penjelasan dua baris. |
+| 3 | Angka disilang ke API | `unallocated = 20590000`, `totalBalance = 27090000`, alokasi tujuan `4000000 + 2500000 + 0`; DOM cocok. |
+| 4 | Tepi kanan nominal diukur | Tepi kanan nominal baru = tepi kanan kendali di kartu yang sama (358 px di 390 px; 1352 px di 1440 px). |
+| 5 | Tombol "Konfirmasi transaksi berulang" | Lembar "Transaksi berulang menunggu" terbuka: satu baris "Gaji bulanan / Jadwal 1 Okt 2026 / +Rp8.500.000 / Konfirmasi / Lewati". |
+| 6 | Ukuran lembar | Desktop 512x209 px di tengah; HP 390x217 px menempel di dasar (bawah 844). 0 teks terpotong, 0 kendali di bawah 44 px. Tepi kanan nominal 956 px = tepi kanan tombol Tutup 956 px di desktop. |
+| 7 | Tombol "Konfirmasi" | Toast "Transaksi berulang tercatat: +Rp8.500.000 pada 1 Okt 2026."; lembar berubah menjadi `EmptyState`; saldo Beranda 27.090.000 menjadi 35.590.000. Basis data: `recurring_occurrences.status='confirmed'`, `transaction_id` terisi, `transactions` 17 menjadi 18, `SUM(debit) - SUM(credit) = 0`. |
+| 8 | Tombol "Lewati" | Toast "Kejadian 1 Okt 2026 dilewati. Rencananya tetap berjalan."; `status='skipped'`, `transactions` tetap 18, `recurring_rules.next_on` maju ke 2026-11-01. |
+| 9 | Escape di lembar | Lembar tertutup; fokus kembali ke "Konfirmasi transaksi berulang". |
+| 10 | Nol tanpa arah | `/laporan`: "Pendapatan +Rp9.750.000 / Pembanding 31 Agu 2026 sampai 30 Sep 2026 **Rp0**" dengan kolom tanda kosong; 500 angka bernilai nol di 24 halaman, 0 di antaranya bertanda. |
+| 11 | Pemulihan data demo | Basis data dikembalikan dari salinan berkas ke keadaan kanonik: 17 transaksi, 1 `recurring_occurrences` `pending`, 2 aturan berulang, saldo Beranda `Rp27.090.000`. |
+| 12 | Tab Rencana | "Utang" menampilkan "Utang (kewajiban) / Piutang (hak tagih)", "Tujuan" menampilkan "Tujuan keuangan", "Anggaran" menampilkan "Batas per kategori"; luapan 0 di ketiganya dan fokus tetap di tab yang ditekan. |
+| 13 | Rentang Laporan | "Bulan" -> "Ringkasan Oktober 2026", "Tahun" -> "Ringkasan Tahun 2026", "Tanggal khusus" -> ringkasan tanggal yang dipilih; grafik, tabel, dan unduhan CSV ikut berubah. |
+| 14 | Lembar saringan dan menu tindakan | "Filter" membuka dialog dengan 4 kelompok chip berlabel (`saring-jenis`, `saring-dompet`, `saring-kategori`, `saring-rentang`, 25 chip); Escape menutup dialog dan mengembalikan fokus ke "Filter". "Aksi lain untuk Bank BCA" membuka menu (Ubah, Rekonsiliasi, Arsipkan dompet, Hapus dompet); Escape menutup dan mengembalikan fokus ke tombolnya. |
+| 15 | Profil dan Notifikasi | Profil memuat enam bagian: Dompet, Kategori, Preferensi, Keamanan, Data, Masa simpan data. Notifikasi memuat 1 pengingat dengan "Tandai dibaca" per baris dan "Tandai semua dibaca". |
+| 16 | Baris transfer di `/transaksi` | "Bank BCA -> GoPay / Transfer - Top up dompet digital / Rp1.000.000": kotak kiri berisi glif transfer (17 kotak diperiksa, 0 kosong), kolom tanda nominal kosong, tanpa tanda palsu. |
+| 17 | Mode sembunyikan nominal | Tombol "Menyembunyikan nominal" di Beranda: seluruh digit menjadi titik, kolom tanda tetap memakai `.sign-dot` (27 simpul, 29 nominal bertopeng, 30 pengumuman `sr-only`); setelah "Menampilkan nominal", kembali 0 titik. |
+| 18 | Sisa anggaran | Beranda: `Rp952.500` tanpa tanda apa pun di depannya, dibuktikan pada pembesaran 8x (`.impeccable/review/desktop.png`, potongan `Rp952.500` tanpa penanda). |
+| 19 | Kaki lembar formulir | "Ubah dompet" di `/profil`: "Simpan perubahan" dan "Batal" keduanya 52 px, kaki lembar `padding 16px 20px`, menempel di dasar lembar. |
+
+## R-36 · Telusuri live (server dev hidup, 1 Oktober 2026)
+
+API (`node --watch server/src/main.ts`) di `http://127.0.0.1:8787` dan Vite 7.3.6 di
+`http://localhost:5173` (proksi `/api`). Chromium mengemudikan 9 halaman: 5 rute desktop 1440x900,
+4 rute mobile 390x844, ditambah 2 lembar mobile. Tangkapan tanpa pemaskan ada di
+`.impeccable/review/live/` (10 PNG; DPR 1,25 sehingga berkas 1800x1125 dan 488x1055), dengan tema
+terang dan gelap keduanya hadir.
+
+| # | Pemeriksaan | Hasil live |
+|---|---|---|
+| 1 | 5 rute desktop: `/`, `/transaksi`, `/rencana`, `/laporan`, `/profil` | `h1` benar, `scrollX` 0 di kelimanya; kolom tanda 27 / 22 / 15 / 193 / 4, titik netral 0 |
+| 2 | Kotak ikon `/transaksi` | 17 kotak, tiap kotak tepat 1 anak: 13 glif arah (`bg-out/12`, `bg-in/12`) dan 4 SVG transfer; 0 kosong. Metrik "kosong" harus menghitung anak, bukan `svg` |
+| 3 | Galat konsol | 0 pada seluruh penelusuran (`tab.errors()` → `entries: []`, `dropped: 0`) |
+| 4 | 4 rute mobile 390x844 | `scrollX` 0, titik netral 0; target < 44 px hanya tautan lompat 1x1 (`sr-only`) dan tiga `input` checkbox 16 px di `/profil`, yang sasaran ketuknya label pembungkus |
+| 5 | Lembar berulang di mobile | 1 `[role="dialog"]`; "Konfirmasi" dan "Lewati" 52 px pada `y` sama (764); tombol tutup 44 px; dasar lembar = tinggi viewport (844); `Escape` menutup (0 dialog terbuka) |
+| 6 | Lembar saringan `/transaksi` | 4 tombol kaki 44 px (Bulan ini, Pilih tanggal, Terapkan, Bersihkan), sesuai cakupan 44 px yang dinyatakan |
+| 7 | Mode gelap | `className = "dark"`, kanvas `#050508`, panel `#111318`, tint nav aktif `rgba(59,130,246,0.14)`, label `#60a5fa` → **6,23:1** dari `getComputedStyle` + komposit |
+| 8 | Sembunyikan nominal | `.sign-dot` 0 → 27 saat disembunyikan (digit menjadi `••••••`) → 0 lagi saat ditampilkan; `.sign-col` tetap 27 |
+| 9 | Teks ganda / tumpang | 27 `.figure` beranak `.sign-col` berukuran 0-9 px x 0 px (tak melukis apa pun), 0 `text-shadow`, dan geometri 6 bilah progres tidak menimpa label persen (0 tumpang) |
+
+Catatan metode: pemeriksaan 1-9 dijalankan pada DOM dan gaya terhitung di halaman hidup, bukan pada
+gambar. Klaim model penglihatan pada satu pembacaan gambar penuh ("angka terlihat ganda", "bilah
+progres menimpa label 94%") diuji ulang lewat geometri DOM dan pembesaran 2x: keduanya tidak
+terbukti.
+
+## Catatan kejujuran
+
+Penilaian di laporan ini datang dari pengukuran: DOM, gaya terhitung, geometri, dan respons API.
+Model penglihatan tetap tidak stabil pada gambar besar, jadi selera visual akhir (apakah kartu
+terasa "profesional") adalah penilaian yang harus Anda lakukan sendiri; yang bisa dibuktikan sudah
+dibuktikan dan angkanya ada di atas.
+
+Dua batas kejujuran pada bukti tangkapan layar. Pertama, `.impeccable/review/*.png` (empat berkas
+lama, 1440x900 dan 390x844) melewati alat tangkap yang memaskan gambar ke kotak 1024 px, jadi
+berkas itu hasil pengubahan ukuran Lanczos, bukan piksel asli pada ukuran tersebut, dan keempatnya
+bertema terang. Kedua, angka di tabel diukur di DOM, bukan dari gambar: selera visual akhir tetap
+penilaian Anda, dan model penglihatan terbukti tidak stabil pada gambar besar (dua klaimnya pada
+satu pembacaan gambar penuh - "angka terlihat ganda" dan "bilah progres menimpa label 94%" - tidak
+terbukti saat diuji ulang lewat geometri DOM dan pembesaran 2x). Set tangkapan R-36 di
+`.impeccable/review/live/` menutup dua batas itu: berkasnya ditulis langsung oleh browser tanpa
+pemaskan, dan tema terang maupun gelap keduanya tersedia.
+
+Dua koreksi angka yang saya lakukan setelah laporan awal. Angka kontras mode gelap dulu ditulis
+4,38:1 dan 6,34:1 dari cuplikan piksel; dihitung ulang dari komposit `rgba(59,130,246,0.14)` di atas
+`#111318` (nilai yang sama dengan cara kerja pemeriksa audit), hasilnya **4,30:1** untuk `#3b82f6`
+dan **6,23:1** untuk `#60a5fa`. Angka itu juga diukur ulang di Chromium pada server dev yang hidup
+(1 Oktober 2026) lewat `getComputedStyle` ditambah komposit, hasilnya sama: 6,23:1. Selisihnya kecil
+dan tidak mengubah keputusan (keduanya di sisi
+berbeda dari ambang AA 4,5), tetapi angka yang bisa dihitung ulang lebih baik daripada angka yang
+bergantung pada satu cuplikan. `DESIGN.md`, `STATUS.md`, dan komentar `styles/index.css` sudah
+memakai angka baru itu. Sejalan dengan itu, `.impeccable/design.json` diperbaiki di tempat pada
+1 Oktober 2026 (nilai dan redaksi) tetapi `generatedAt` di dalamnya tetap 29 September 2026 karena
+field itu mencatat kapan lembar itu dibangkitkan, bukan kapan terakhir disentuh.

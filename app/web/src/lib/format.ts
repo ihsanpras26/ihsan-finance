@@ -2,7 +2,6 @@
 
 const MONTHS_ID = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 const MONTHS_SHORT_ID = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-const DAYS_ID = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
 export function toMinor(value: string | number): number {
   if (typeof value === 'number') return Math.trunc(value);
@@ -33,25 +32,17 @@ export function formatSigned(value: string | number, direction: 'in' | 'out' | '
 }
 
 /**
- * Tanda yang ditampilkan untuk sebuah nominal.
- * Arah eksplisit ('in'/'out') selalu menang. Tanpa arah, tanda diambil dari nilainya sendiri,
- * sehingga saldo negatif tidak pernah tampil sebagai angka positif (regresi: saldo kas minus).
+ * Tanda teks untuk sebuah nominal. Arah eksplisit ('in'/'out') selalu menang. Tanpa arah, tanda
+ * diambil dari nilainya sendiri, sehingga saldo negatif tidak pernah tampil sebagai angka positif
+ * (regresi: saldo kas minus). Nilai netral mengembalikan string kosong: kolom tanda tetap terisi,
+ * tetapi isinya digambar `SignMark` (`components/ui.tsx`), bukan glif teks.
  */
 export function moneySign(value: string | number, direction: 'in' | 'out' | 'zero' = 'zero'): '' | '+' | '−' {
+  // Nol tidak punya arah: "+Rp0" mengklaim ada uang masuk, jadi nol selalu netral di sini.
+  if (toMinor(value) === 0) return '';
   if (direction === 'in') return '+';
   if (direction === 'out') return '−';
   return toMinor(value) < 0 ? '−' : '';
-}
-
-/**
- * Karakter yang menempati kolom tanda (DESIGN.md §5).
- * Kolom tanda selalu terisi, termasuk saat netral, supaya seluruh nominal lurus dalam satu kolom
- * dan arah uang terbaca tanpa membaca satu digit pun.
- */
-export const NEUTRAL_SIGN = '·';
-
-export function signGlyph(value: string | number, direction: 'in' | 'out' | 'zero' = 'zero'): '+' | '−' | '·' {
-  return moneySign(value, direction) || NEUTRAL_SIGN;
 }
 
 /** Rp25.000 menjadi "25.000" untuk isian teks. */
@@ -92,11 +83,6 @@ export function formatDateLong(date: string): string {
 export function formatDateShort(date: string): string {
   const { y, m, d } = parseIso(date);
   return `${d} ${MONTHS_SHORT_ID[m - 1] ?? ''} ${y}`;
-}
-
-export function formatDayName(date: string): string {
-  const { y, m, d } = parseIso(date);
-  return DAYS_ID[new Date(Date.UTC(y, m - 1, d)).getUTCDay()] ?? '';
 }
 
 /** Februari 2026 */
@@ -166,12 +152,6 @@ export const WALLET_TYPE_LABEL: Record<string, string> = {
   bank: 'Bank',
   ewallet: 'E-wallet',
   other: 'Lainnya',
-};
-
-export const FREQUENCY_LABEL: Record<string, string> = {
-  daily: 'Harian',
-  weekly: 'Mingguan',
-  monthly: 'Bulanan',
 };
 
 export function directionOf(type: string): 'in' | 'out' | 'zero' {

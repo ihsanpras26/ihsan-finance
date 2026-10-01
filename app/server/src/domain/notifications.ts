@@ -3,7 +3,7 @@
 import { AppError } from '../core/errors.ts';
 import { uuidv7, nowIso } from '../core/ids.ts';
 import { formatIDR } from '../core/money.ts';
-import { addDays, compareDate, localDateInTz } from '../core/dates.ts';
+import { addDays, compareDate, daysBetween, formatDateID, localDateInTz } from '../core/dates.ts';
 import { all, one, run, scalar, tx } from '../db/index.ts';
 import { accountBalance } from './ledger.ts';
 import { recordAudit } from './audit.ts';
@@ -32,21 +32,25 @@ export interface NotificationView extends NotificationRow {
   daysUntil: number | null;
 }
 
-/** Pengingat utang: H−7, H−1, dan hari jatuh tempo (FR11). */
-export const DEBT_REMINDER_OFFSETS: ReadonlyArray<{ days: number; key: string; title: string }> = [
-  { days: 7, key: 'h7', title: 'Jatuh tempo 7 hari lagi' },
-  { days: 1, key: 'h1', title: 'Jatuh tempo besok' },
-  { days: 0, key: 'h0', title: 'Jatuh tempo hari ini' },
+/** Pengingat utang: H−7, H−1, dan hari jatuh tempo (FR11). Judulnya menyebut sisa hari sebenarnya. */
+export const DEBT_REMINDER_OFFSETS: ReadonlyArray<{ days: number; key: string }> = [
+  { days: 7, key: 'h7' },
+  { days: 1, key: 'h1' },
+  { days: 0, key: 'h0' },
 ];
 
-function buildView(row: NotificationRow, today: string): NotificationView {
-  return { ...row, daysUntil: row.due_date ? daysBetweenSafe(today, row.due_date) : null };
+/**
+ * Sisa hari dalam kata. Pengingat H−7 bisa dibuat terlambat (utang dicatat saat jatuh tempo sudah
+ * dekat), jadi judul tidak boleh menyebut "7 hari lagi" ketika sisa harinya sudah berbeda.
+ */
+function describeDaysLeft(days: number): string {
+  if (days <= 0) return 'hari ini';
+  if (days === 1) return 'besok';
+  return `${days} hari lagi`;
 }
 
-function daysBetweenSafe(from: string, to: string): number {
-  const [fy, fm, fd] = from.split('-').map(Number) as [number, number, number];
-  const [ty, tm, td] = to.split('-').map(Number) as [number, number, number];
-  return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / 86_400_000);
+function buildView(row: NotificationRow, today: string): NotificationView {
+  return { ...row, daysUntil: row.due_date ? daysBetween(today, row.due_date) : null };
 }
 
 export function listNotifications(ctx: TxContext, options: { status?: NotificationStatus; kind?: NotificationKind } = {}): NotificationView[] {
@@ -146,8 +150,8 @@ export function ensureDueNotifications(ctx: TxContext, today?: string): { create
           `INSERT OR IGNORE INTO notifications (id, workspace_id, kind, ref_type, ref_id, title, body, due_date, status, dedupe_key, created_at, read_at)
            VALUES (?, ?, 'debt_due', 'debt', ?, ?, ?, ?, 'unread', ?, ?, NULL)`,
           uuidv7(), workspaceId, debt.id,
-          `${reminder.title}: ${what.toLowerCase()} ${party}`,
-          `${what} kepada ${party} sebesar ${formatIDR(remaining)} ${reminder.days === 0 ? 'jatuh tempo hari ini' : `jatuh tempo ${debt.due_date}`}. ${action}.`,
+          `Jatuh tempo ${describeDaysLeft(daysBetween(day, debt.due_date))}: ${what.toLowerCase()} ${party}`,
+          `${what} kepada ${party} sebesar ${formatIDR(remaining)} jatuh tempo ${formatDateID(debt.due_date)}. ${action}.`,
           debt.due_date, dedupeKey, nowIso(),
         );
         created += Number(result.changes);

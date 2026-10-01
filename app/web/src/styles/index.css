@@ -3,7 +3,7 @@
 /* Class-based dark mode so the in-app toggle works in both directions (R-21, R-34). */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ── Palette and scales (DESIGN.md §2, §3, §4). Light first, dark overrides on .dark. ───── */
+/* ── Palette and scales (DESIGN.md "Colors", "Typography", "Layout"). Light first, dark overrides on .dark. ───── */
 :root {
   --surface: #f4f4f5;
   --surface-raised: #ffffff;
@@ -12,10 +12,12 @@
   --fg-muted: #59616d;
   --hairline: #e4e7ea;
   --accent: #0256ff;
+  /* Filled accent surfaces that carry white text: white needs 4.5:1, so the fill is
+     a step deeper than the accent text colour (DESIGN.md "Typography"). */
+  --accent-solid: #0256ff;
   --accent-fg: #ffffff;
   --accent-soft: #0256ff14;
-  --accent-2: #ffb700;
-  --accent-2-soft: #ffb7001f;
+  --accent-2: #946000;
   --in: #07714e;
   --out: #c81a1a;
   --warn: #96450a;
@@ -26,24 +28,28 @@
 }
 
 .dark {
-  --surface: #0b0f14;
-  --surface-raised: #141a21;
-  --surface-sunken: #090c10;
-  --fg: #e9edf1;
-  --fg-muted: #98a2b3;
-  --hairline: #242c36;
-  --accent: #4d8bff;
-  --accent-fg: #06132b;
-  --accent-soft: #4d8bff24;
+  --surface: #050508;
+  --surface-raised: #111318;
+  --surface-sunken: #090b0f;
+  --fg: #f4f6f8;
+  --fg-muted: #8b96a5;
+  --hairline: #1c222b;
+  /* Accent as text sits on tinted rows (`bg-accent-soft`), so it needs headroom the deeper
+     blue-500 did not have: composed `rgba(59,130,246,0.14)` on `#111318` gives 4.30:1 (AA needs
+     4.5), and 5.05:1 on the plain panel. Filled surfaces that carry white text still use
+     --accent-solid. */
+  --accent: #60a5fa;
+  --accent-solid: #2563eb;
+  --accent-fg: #ffffff;
+  --accent-soft: #3b82f624;
   --accent-2: #ffc93c;
-  --accent-2-soft: #ffc93c24;
   --in: #3ddc97;
   --out: #ff6b6b;
   --warn: #f0b45c;
-  --overlay: rgb(0 0 0 / 0.62);
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.32);
-  --shadow-lift: 0 8px 24px -12px rgb(0 0 0 / 0.5);
-  --shadow-float: 0 24px 48px -20px rgb(0 0 0 / 0.66);
+  --overlay: rgb(0 0 0 / 0.75);
+  --shadow-card: 0 1px 3px rgb(0 0 0 / 0.4), 0 0 0 1px rgb(255 255 255 / 0.02);
+  --shadow-lift: 0 8px 24px -12px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.04);
+  --shadow-float: 0 24px 48px -20px rgb(0 0 0 / 0.8), 0 0 0 1px rgb(255 255 255 / 0.05);
 }
 
 @theme inline {
@@ -54,6 +60,7 @@
   --color-muted: var(--fg-muted);
   --color-hairline: var(--hairline);
   --color-accent: var(--accent);
+  --color-accent-solid: var(--accent-solid);
   --color-accent-fg: var(--accent-fg);
   --color-accent-soft: var(--accent-soft);
   --color-accent-2: var(--accent-2);
@@ -64,7 +71,7 @@
   --font-sans: 'Schibsted Grotesk Variable', ui-sans-serif, system-ui, sans-serif;
   --font-figure: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
 
-  /* Type scale (DESIGN.md §3): eight clear jumps, nothing below 11.5px. */
+  /* Type scale (DESIGN.md "Typography"): eight clear jumps, nothing below 11.5px. */
   --text-2xs: 11.5px;
   --text-2xs--line-height: 1.35;
   --text-xs: 13px;
@@ -83,9 +90,9 @@
   --text-3xl--line-height: 1.05;
 
   --radius-chip: 999px;
-  --radius-control: 12px;
-  --radius-panel: 18px;
-  --radius-sheet: 26px;
+  --radius-control: 14px;
+  --radius-panel: 24px;
+  --radius-sheet: 28px;
 
   --shadow-card: var(--shadow-card);
   --shadow-lift: var(--shadow-lift);
@@ -187,7 +194,7 @@
 @layer components {
   /*
    * Money is the product, so it gets its own face: a monospace figure that never changes width
-   * as digits change (DESIGN.md §3, §5). Right-aligned so a column of amounts reads as one edge.
+   * as digits change (DESIGN.md "Typography", "Kolom tanda"). Right-aligned so a column of amounts reads as one edge.
    */
   .figure {
     font-family: var(--font-figure);
@@ -199,7 +206,7 @@
   }
 
   /*
-   * The sign column (DESIGN.md §5): one character position before every amount, always present
+   * The sign column (DESIGN.md "Kolom tanda"): one character position before every amount, always present
    * even when empty, so amounts align down the page and direction is never colour-only (NFR06).
    */
   .sign-col {
@@ -209,7 +216,23 @@
     flex: none;
   }
 
-  /* The card: white surface on the grey canvas, the unit every screen is built from (DESIGN.md §6). */
+  /*
+   * The hidden-amount placeholder: hiding money replaces every digit with a dot, and this is the dot
+   * in the sign column above them. Neutral amounts deliberately get no mark at all: a typed middle
+   * dot reads as a minus, a drawn dot reads as a short dash at 13-14.5px, and the column width is
+   * already fixed at 1ch, so emptiness keeps the column aligned without risking a false sign.
+   */
+  .sign-dot {
+    display: inline-block;
+    width: 0.34em;
+    height: 0.34em;
+    border-radius: 999px;
+    background: currentColor;
+    opacity: 0.55;
+    vertical-align: 0.13em;
+  }
+
+  /* The card: white surface on the grey canvas, the unit every screen is built from (DESIGN.md "Components"). */
   .card {
     background: var(--surface-raised);
     border-radius: var(--radius-panel);
@@ -234,7 +257,7 @@
     border-bottom: 0;
   }
 
-  /* Header band inside a card, one step darker than the card surface (DESIGN.md §6). */
+  /* Header band inside a card, one step darker than the card surface (DESIGN.md "Components"). */
   .head-band {
     background: var(--surface-sunken);
     border-bottom: 1px solid var(--hairline);
@@ -244,22 +267,39 @@
     transition:
       transform 200ms cubic-bezier(0.2, 0.8, 0.3, 1),
       opacity 200ms cubic-bezier(0.2, 0.8, 0.3, 1);
-    /* Only floating layers carry elevation; cards stay flat (DESIGN.md §4, R-12). */
+    /* Only floating layers carry elevation; cards stay flat (DESIGN.md "Layout", R-12). */
     box-shadow: var(--shadow-float);
   }
 
-  /* Press feedback: a 1px settle, so the control feels physical (DESIGN.md §8). */
+  /* Press feedback: a 1px settle, so the control feels physical (DESIGN.md "Motion"). */
   .press:active {
     transform: translateY(1px);
   }
 
-  /* Icon tile: the soft square that gives every list row a scannable anchor (DESIGN.md §6). */
+
+  /* Icon tile: the soft square that gives every list row a scannable anchor (DESIGN.md "Components"). */
   .icon-tile {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex: none;
     border-radius: var(--radius-control);
+  }
+
+  /*
+   * Pinned search: sits directly under the sticky phone header (56px) and directly at the top of
+   * the scroll container on desktop, where the header is gone. Lists depend on this being one
+   * shared rule, not a per-screen guess.
+   */
+  .pin-under-head {
+    position: sticky;
+    top: calc(56px + env(safe-area-inset-top));
+    z-index: 20;
+  }
+  @media (min-width: 1024px) {
+    .pin-under-head {
+      top: 0;
+    }
   }
 }
 

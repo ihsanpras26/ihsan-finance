@@ -1,19 +1,27 @@
 // components/ui.tsx: primitif antarmuka. Semua layar memakai ini supaya arah DESIGN.md konsisten.
 // Aturan: target sentuh >= 44px, fokus terlihat, tanpa em dash di teks, angka uang memakai
-// kolom tanda (DESIGN.md §5) sehingga arah uang tidak pernah ditandai warna saja (NFR06).
+// kolom tanda (DESIGN.md "Kolom tanda") sehingga arah uang tidak pernah ditandai warna saja (NFR06).
 import {
-  createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState,
-  type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes,
+  cloneElement, createContext, isValidElement, useCallback, useContext, useEffect, useId, useMemo, useRef, useState,
+  type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactElement, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes,
 } from 'react';
-import { formatIDR, formatAmountInput, parseAmountInput, signGlyph, toMinor } from '../lib/format.ts';
-import { IconAlert, IconArrowDownRight, IconArrowUpRight, IconCheck, IconClose } from './icons.tsx';
+import { formatIDR, formatAmountInput, moneySign, parseAmountInput, toMinor } from '../lib/format.ts';
+import { IconAlert, IconArrowDownRight, IconArrowUpRight, IconCheck, IconChevronDown, IconClose, IconSearch } from './icons.tsx';
 
 // ── visibilitas nominal (PRD §03: pengguna dapat menyembunyikan nominal) ─────
 const VisibilityContext = createContext<{ hidden: boolean; toggle: () => void }>({ hidden: false, toggle: () => {} });
 
 export function MoneyVisibilityProvider({ hidden, onToggle, children }: { hidden: boolean; onToggle: () => void; children: ReactNode }) {
   const value = useMemo(() => ({ hidden, toggle: onToggle }), [hidden, onToggle]);
-  return <VisibilityContext.Provider value={value}>{children}</VisibilityContext.Provider>;
+  return (
+    <VisibilityContext.Provider value={value}>
+      {children}
+      {/* One polite announcement for the whole app, so hiding every figure is never a silent change. */}
+      <span className="sr-only" aria-live="polite">
+        {hidden ? 'Nominal disembunyikan' : 'Nominal ditampilkan'}
+      </span>
+    </VisibilityContext.Provider>
+  );
 }
 
 export function useMoneyVisibility() {
@@ -74,7 +82,7 @@ export function useToast() {
   return useContext(ToastContext);
 }
 
-// ── kartu (DESIGN.md §6): unit susunan setiap layar ──────────────────────────
+// ── kartu (DESIGN.md "Components"): unit susunan setiap layar ──────────────────────────
 export function Card({ className = '', children, as = 'section' }: { className?: string; children: ReactNode; as?: 'section' | 'div' | 'li' | 'article' }) {
   const Tag = as;
   return <Tag className={`card ${className}`}>{children}</Tag>;
@@ -96,7 +104,7 @@ export function CardHead({ title, subtitle, action, className = '' }: { title: s
   );
 }
 
-/** IconTile: kotak lembut di kiri baris daftar, memberi jangkar yang bisa dipindai (DESIGN.md §6). */
+/** IconTile: kotak lembut di kiri baris daftar, memberi jangkar yang bisa dipindai (DESIGN.md "Components"). */
 export function IconTile({ tone = 'neutral', children, size = 'md' }: { tone?: 'neutral' | 'in' | 'out' | 'warn' | 'accent' | 'accent-2'; children: ReactNode; size?: 'sm' | 'md' }) {
   const tones: Record<string, string> = {
     neutral: 'bg-sunken text-muted',
@@ -104,7 +112,7 @@ export function IconTile({ tone = 'neutral', children, size = 'md' }: { tone?: '
     out: 'bg-out/12 text-out',
     warn: 'bg-warn/14 text-warn',
     accent: 'bg-accent-soft text-accent',
-    'accent-2': 'bg-accent-2/18 text-accent-2',
+    'accent-2': 'bg-accent-2/20 text-warn',
   };
   const sizes = { sm: 'size-8', md: 'size-10' };
   return <span className={`icon-tile ${sizes[size]} ${tones[tone]}`} aria-hidden="true">{children}</span>;
@@ -114,13 +122,13 @@ export function IconTile({ tone = 'neutral', children, size = 'md' }: { tone?: '
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
 const BUTTON_BASE =
-  'press inline-flex items-center justify-center gap-2 rounded-control font-semibold transition-[background-color,border-color,color,transform,box-shadow] duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50';
+  'press inline-flex items-center justify-center gap-2 font-semibold transition-[background-color,border-color,color,transform,box-shadow] duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50';
 
 const BUTTON_VARIANT: Record<ButtonVariant, string> = {
-  primary: 'bg-accent text-accent-fg shadow-[0_1px_2px_rgb(16_24_40/0.12)] hover:brightness-110',
-  secondary: 'border border-hairline bg-raised text-fg hover:border-fg/20 hover:bg-sunken',
-  ghost: 'text-fg hover:bg-fg/6',
-  danger: 'border border-out/40 bg-raised text-out hover:bg-out/8',
+  primary: 'bg-accent-solid text-accent-fg hover:brightness-110 rounded-chip',
+  secondary: 'border border-hairline bg-raised text-fg hover:border-fg/20 hover:bg-sunken rounded-control',
+  ghost: 'text-fg hover:bg-fg/6 rounded-control',
+  danger: 'border border-out/40 bg-raised text-out hover:bg-out/8 rounded-control',
 };
 
 // Every size keeps a >= 44px hit area; `sm` differs in padding and type size only.
@@ -159,7 +167,7 @@ export function IconButton({ label, className = '', children, ...rest }: ButtonH
       type="button"
       aria-label={label}
       title={label}
-      className={`press inline-flex size-11 items-center justify-center rounded-control text-muted transition-colors duration-150 hover:bg-fg/6 hover:text-fg disabled:opacity-50 ${className}`}
+      className={`press inline-flex size-11 shrink-0 items-center justify-center rounded-control text-muted transition-colors duration-150 hover:bg-fg/6 hover:text-fg disabled:opacity-50 ${className}`}
       {...rest}
     >
       {children}
@@ -171,20 +179,29 @@ export function IconButton({ label, className = '', children, ...rest }: ButtonH
 export function Field({
   label, hint, error, htmlFor, children, required = false,
 }: { label: string; hint?: string; error?: string; htmlFor?: string; children: ReactNode; required?: boolean }) {
+  // The hint or the error is wired to the control so a screen reader reads it again on focus,
+  // not only once when it appears (NFR06).
+  const describedById = `${useId()}-description`;
+  const child = isValidElement(children) ? (children as ReactElement<{ 'aria-describedby'?: string }>) : null;
+  const control = child
+    ? cloneElement(child, {
+        'aria-describedby': [child.props['aria-describedby'], describedById].filter(Boolean).join(' '),
+      })
+    : children;
   return (
     <div className="flex flex-col gap-2">
       <label htmlFor={htmlFor} className="text-xs font-medium text-muted">
         {label}
         {required ? <span className="ml-1 text-out" aria-hidden="true">*</span> : null}
       </label>
-      {children}
+      {control}
       {error ? (
-        <p className="flex items-start gap-2 text-xs text-out" role="alert">
+        <p id={describedById} className="flex items-start gap-2 text-xs text-out" role="alert">
           <IconAlert size={15} className="mt-0.5 shrink-0" />
           <span>{error}</span>
         </p>
       ) : hint ? (
-        <p className="text-xs text-muted">{hint}</p>
+        <p id={describedById} className="text-xs text-muted">{hint}</p>
       ) : null}
     </div>
   );
@@ -262,7 +279,7 @@ export function AmountInput({
   );
 }
 
-// ── angka uang: kolom tanda (DESIGN.md §5) ──────────────────────────────────
+// ── angka uang: kolom tanda (DESIGN.md "Kolom tanda") ──────────────────────────────────
 const MONEY_SIZE = {
   sm: 'text-xs',
   md: 'text-sm',
@@ -271,32 +288,55 @@ const MONEY_SIZE = {
   '2xl': 'text-2xl',
   hero: 'text-3xl',
 } as const;
+/**
+ * SignMark: isi kolom tanda (DESIGN.md "Kolom tanda"). Nilai netral tidak memakai glif apa pun: titik tengah `·`
+ * terbaca sebagai minus, dan bentuk apa pun yang lebih tebal darinya (bulatan kecil sekalipun) masih
+ * terbaca sebagai garis pendek pada pembacaan cepat. Kolomnya tetap ada dan lebarnya dikunci CSS
+ * (`.sign-col` = 1ch), jadi angka tetap lurus tanpa perlu penanda yang bisa disalahbaca.
+ */
+export function SignMark({ value, direction }: { value: string | number; direction: 'in' | 'out' | 'zero' }) {
+  const glyph = moneySign(value, direction);
+  return glyph ? <>{glyph}</> : null;
+}
 
 /**
  * Money: satu-satunya cara menampilkan nominal.
- * Tanda arah selalu menempati kolom tanda, termasuk saat netral, sehingga seluruh angka di
- * seluruh layar lurus dalam satu kolom dan arah uang terbaca tanpa membaca satu digit pun.
+ * Tanda arah selalu menempati kolom tanda pada angka yang tersusun vertikal, termasuk saat netral,
+ * sehingga seluruh angka di seluruh layar lurus dalam satu kolom dan arah uang terbaca tanpa
+ * membaca satu digit pun. Angka fokus tunggal sebuah layar memakai `sign={false}`: ia tidak
+ * dibandingkan dengan angka lain, jadi kolom tandanya hanya menambah satu karakter kosong
+ * (DESIGN.md "Kolom tanda").
  */
 export function Money({
-  value, direction = 'zero', size = 'md', className = '', forceVisible = false,
-}: { value: string | number; direction?: 'in' | 'out' | 'zero'; size?: keyof typeof MONEY_SIZE; className?: string; forceVisible?: boolean }) {
+  value, direction = 'zero', size = 'md', className = '', forceVisible = false, sign = true,
+}: { value: string | number; direction?: 'in' | 'out' | 'zero'; size?: keyof typeof MONEY_SIZE; className?: string; forceVisible?: boolean; sign?: boolean }) {
   const { hidden } = useMoneyVisibility();
   const minor = toMinor(value);
+  // Nominal nol tidak punya arah: tanpa ini baris "Pembanding" menampilkan "+Rp0" dan pembaca
+  // layar mengucapkan "plus nol" untuk nilai yang tidak bergerak.
+  const dir = minor === 0 ? 'zero' : direction;
   const sizeClass = MONEY_SIZE[size];
-  const tone = direction === 'in' ? 'text-in' : direction === 'out' ? 'text-out' : 'text-fg';
+  const tone = dir === 'in' ? 'text-in' : dir === 'out' ? 'text-out' : 'text-fg';
   const weight = size === 'xl' || size === '2xl' || size === 'hero' ? 'font-medium' : 'font-normal';
 
   if (hidden && !forceVisible) {
     return (
-      <span className={`figure ${sizeClass} ${weight} ${tone} ${className}`} aria-label="Nominal disembunyikan">
-        <span className="sign-col" aria-hidden="true">·</span>••••••
+      <span className={`figure ${sizeClass} ${weight} ${tone} ${className}`}>
+        {sign ? <span className="sign-col" aria-hidden="true"><span className="sign-dot" role="presentation" /></span> : null}
+        <span aria-hidden="true">••••••</span>
+        <span className="sr-only">Nominal disembunyikan</span>
       </span>
     );
   }
 
   return (
     <span className={`figure ${sizeClass} ${weight} ${tone} ${className}`} data-money={minor}>
-      <span className="sign-col" aria-hidden="true">{signGlyph(minor, direction)}</span>
+      {sign ? <span className="sign-col" aria-hidden="true"><SignMark value={minor} direction={dir} /></span> : null}
+      {/* Kolom tanda tidak dibaca pembaca layar; arahnya diucapkan sebagai kata yang sama dengan
+          glifnya, bukan sebagai "pemasukan"/"pengeluaran", supaya angka yang bukan arus kas
+          (sisa anggaran, total teralokasi) tidak salah disebut pendapatan. */}
+      {dir === 'out' ? <span className="sr-only">minus </span> : null}
+      {dir === 'in' ? <span className="sr-only">plus </span> : null}
       {formatIDR(Math.abs(minor))}
     </span>
   );
@@ -357,7 +397,7 @@ export function StatusPill({ tone, children }: { tone: 'neutral' | 'in' | 'out' 
     out: 'bg-out/12 text-out',
     warn: 'bg-warn/14 text-warn',
     accent: 'bg-accent-soft text-accent',
-    'accent-2': 'bg-accent-2/18 text-warn',
+    'accent-2': 'bg-accent-2/20 text-warn',
   };
   return (
     <span className={`inline-flex items-center rounded-chip px-2 py-0.5 text-2xs font-semibold whitespace-nowrap ${tones[tone]}`}>
@@ -366,7 +406,7 @@ export function StatusPill({ tone, children }: { tone: 'neutral' | 'in' | 'out' 
   );
 }
 
-/** DeltaPill: lencana arah perubahan dengan panah, gaya fintech (DESIGN.md §10). */
+/** DeltaPill: lencana arah perubahan dengan panah, gaya fintech (DESIGN.md "Components"). */
 export function DeltaPill({ value, tone, label }: { value: string; tone: 'in' | 'out' | 'neutral'; label?: string }) {
   const tones: Record<string, string> = {
     in: 'bg-in/12 text-in',
@@ -382,24 +422,32 @@ export function DeltaPill({ value, tone, label }: { value: string; tone: 'in' | 
   );
 }
 
+/**
+ * ProgressBar: trek sunken dengan isian semantik. Persentase duduk di luar isian karena teks putih
+ * di atas aksen gelap gagal AA dan angka di dalam isian sempit jadi tebakan.
+ */
 export function ProgressBar({ ratio, tone = 'accent', label, showPercent = false }: { ratio: number; tone?: 'accent' | 'in' | 'out' | 'warn' | 'accent-2'; label: string; showPercent?: boolean }) {
   const clamped = Math.max(0, Math.min(1, Number.isFinite(ratio) ? ratio : 0));
   const colors: Record<string, string> = { accent: 'bg-accent', in: 'bg-in', out: 'bg-out', warn: 'bg-warn', 'accent-2': 'bg-accent-2' };
   const percent = Math.round(clamped * 100);
-  // The label rides inside the fill only when the fill is wide enough to hold it. Below that it
-  // sits on the track, where white text would be invisible against the pale track (R-32 contrast).
-  const insideFill = clamped >= 0.22;
+  const bar = (
+    <div
+      className="relative h-3 w-full overflow-hidden rounded-chip bg-sunken"
+      role="progressbar"
+      aria-valuenow={percent}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuetext={`${percent} persen`}
+      aria-label={label}
+    >
+      <div className={`h-full ${colors[tone]} transition-colors duration-150`} style={{ width: `${clamped * 100}%` }} />
+    </div>
+  );
+  if (!showPercent) return bar;
   return (
-    <div className="relative h-6 w-full overflow-hidden rounded-chip bg-sunken" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
-      <div className={`h-full ${colors[tone]} transition-[width] duration-240 ease-out`} style={{ width: `${clamped * 100}%` }} />
-      {showPercent ? (
-        <span
-          className={`figure absolute inset-y-0 flex items-center text-2xs font-semibold ${insideFill ? 'left-2 text-white' : 'right-2 text-muted'}`}
-          aria-hidden="true"
-        >
-          {percent}%
-        </span>
-      ) : null}
+    <div className="flex items-center gap-3">
+      <div className="min-w-0 flex-1">{bar}</div>
+      <span className="figure w-10 shrink-0 text-2xs text-muted">{percent}%</span>
     </div>
   );
 }
@@ -471,9 +519,11 @@ export function Sheet({
     if (!open) return;
     const previous = document.activeElement as HTMLElement | null;
     const node = ref.current;
+    // Backdrop bertabIndex -1 supaya ia tidak pernah jadi tujuan fokus pertama; fokus awal harus
+    // jatuh pada kontrol nyata di dalam lembar (tombol Tutup di kepala), bukan pada latar gelap.
     const focusable = () =>
-      Array.from(node?.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') ?? []).filter(
-        (el) => !el.hasAttribute('disabled') && el.offsetParent !== null,
+      Array.from(node?.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]') ?? []).filter(
+        (el) => !el.hasAttribute('disabled') && el.tabIndex >= 0 && el.offsetParent !== null,
       );
 
     window.setTimeout(() => {
@@ -568,10 +618,10 @@ export function ConfirmDialog({
 }
 
 // ── tab ─────────────────────────────────────────────────────────────────────
-/** Tabs: pil tersegmentasi di dalam kartu (DESIGN.md §6). */
+/** Tabs: pil tersegmentasi di dalam kartu (DESIGN.md "Components"). */
 export function Tabs<T extends string>({
-  tabs, active, onChange, label, variant = 'pill',
-}: { tabs: { id: T; label: string; count?: number }[]; active: T; onChange: (id: T) => void; label: string; variant?: 'pill' | 'underline' }) {
+  tabs, active, onChange, label, variant = 'pill', idBase,
+}: { tabs: { id: T; label: string; count?: number }[]; active: T; onChange: (id: T) => void; label: string; variant?: 'pill' | 'underline'; idBase?: string }) {
   const refs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   if (variant === 'pill') {
@@ -579,7 +629,7 @@ export function Tabs<T extends string>({
       <div
         role="tablist"
         aria-label={label}
-        className="flex gap-1 overflow-x-auto rounded-control bg-sunken p-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        className="flex gap-1 overflow-x-auto rounded-chip bg-sunken p-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
       >
         {tabs.map((tab) => {
           const selected = tab.id === active;
@@ -589,12 +639,14 @@ export function Tabs<T extends string>({
               ref={(node) => {
                 refs.current[tab.id] = node;
               }}
+              id={idBase ? `${idBase}-tab-${tab.id}` : undefined}
+              aria-controls={idBase && selected ? `${idBase}-panel-${tab.id}` : undefined}
               role="tab"
               type="button"
               aria-selected={selected}
               tabIndex={selected ? 0 : -1}
-              className={`press flex min-h-[44px] shrink-0 items-center justify-center rounded-[9px] px-3 text-sm font-semibold whitespace-nowrap transition-colors duration-150 ${
-                selected ? 'bg-raised text-fg shadow-[0_1px_2px_rgb(16_24_40/0.08)]' : 'text-muted hover:text-fg'
+              className={`press flex min-h-[44px] shrink-0 items-center justify-center rounded-chip px-3 text-sm font-semibold whitespace-nowrap transition-colors duration-150 ${
+                selected ? 'bg-raised text-fg shadow-card' : 'text-muted hover:text-fg'
               }`}
               onClick={() => onChange(tab.id)}
               onKeyDown={(event) => {
@@ -628,6 +680,8 @@ export function Tabs<T extends string>({
             ref={(node) => {
               refs.current[tab.id] = node;
             }}
+            id={idBase ? `${idBase}-tab-${tab.id}` : undefined}
+            aria-controls={idBase && selected ? `${idBase}-panel-${tab.id}` : undefined}
             role="tab"
             type="button"
             aria-selected={selected}
@@ -656,6 +710,18 @@ export function Tabs<T extends string>({
   );
 }
 
+/**
+ * TabPanel: the region a tab owns. Screens render one for the active tab only, so an inactive tab
+ * never mounts its data loader. Tabs hands out the matching ids.
+ */
+export function TabPanel({ idBase, id, children, className = '' }: { idBase: string; id: string; children: ReactNode; className?: string }) {
+  return (
+    <div role="tabpanel" id={`${idBase}-panel-${id}`} aria-labelledby={`${idBase}-tab-${id}`} tabIndex={0} className={`focus-visible:outline-2 focus-visible:outline-accent ${className}`}>
+      {children}
+    </div>
+  );
+}
+
 // ── header halaman ──────────────────────────────────────────────────────────
 export function PageHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
   return (
@@ -669,7 +735,7 @@ export function PageHeader({ title, subtitle, action }: { title: string; subtitl
   );
 }
 
-/** Avatar: lingkaran inisial, pengganti foto yang belum ada (DESIGN.md §12). */
+/** Avatar: lingkaran inisial, pengganti foto yang belum ada (DESIGN.md "Components"). */
 export function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' | 'lg' }) {
   const initials = name
     .split(/\s+/)
@@ -682,6 +748,99 @@ export function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md'
     <span className={`inline-flex shrink-0 items-center justify-center rounded-chip bg-accent-soft font-semibold text-accent ${sizes[size]}`} aria-hidden="true">
       {initials || '?'}
     </span>
+  );
+}
+
+// ── komposisi yang dipakai berulang di layar ringkasan ──────────────────────
+
+/**
+ * MoneyStat: satu angka ringkasan dengan labelnya. Primitif, bukan susunan per layar, supaya kolom
+ * angka di Beranda, Rencana, dan Laporan punya jarak dan ukuran yang sama persis.
+ */
+export function MoneyStat({
+  label, value, direction = 'zero', size = 'lg', note, align = 'start',
+}: { label: string; value: string | number; direction?: 'in' | 'out' | 'zero'; size?: keyof typeof MONEY_SIZE; note?: string; align?: 'start' | 'end' }) {
+  return (
+    <div className={`flex min-w-0 flex-col gap-0.5 ${align === 'end' ? 'items-end' : 'items-start'}`}>
+      <span className="text-2xs font-medium text-muted">{label}</span>
+      <Money value={value} direction={direction} size={size} className={align === 'start' ? 'text-left' : ''} />
+      {note ? <span className="text-2xs text-muted">{note}</span> : null}
+    </div>
+  );
+}
+
+/**
+ * DisclosureRow: satu angka ringkasan yang membuka baris penyusunnya di tempat (PRD FR04).
+ * Tombol nyata dengan aria-expanded dan aria-controls; isinya tidak dimuat sampai dibuka.
+ */
+export function DisclosureRow({
+  label, value, direction = 'zero', meta, open, onToggle, children,
+}: { label: string; value: string | number; direction?: 'in' | 'out' | 'zero'; meta?: string; open: boolean; onToggle: () => void; children: ReactNode }) {
+  const id = useId();
+  return (
+    <div className="row-divide">
+      <button type="button" onClick={onToggle} aria-expanded={open} aria-controls={id} className="press flex min-h-[60px] w-full items-center gap-3 py-3 text-left">
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium text-fg">{label}</span>
+          {meta ? <span className="mt-0.5 block truncate text-xs text-muted">{meta}</span> : null}
+        </span>
+        <Money value={value} direction={direction} />
+        <span aria-hidden="true" className={`shrink-0 text-muted transition-transform duration-150 ${open ? 'rotate-180' : ''}`}>
+          <IconChevronDown size={18} />
+        </span>
+      </button>
+      <div id={id} hidden={!open} className="pb-3">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** Chip: kendali pilihan yang bisa ditekan (saringan, jenis, tanggal cepat). Bukan tab: tanpa panel. */
+export function Chip({ selected = false, className = '', children, ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { selected?: boolean }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      className={`press inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-chip border px-3 text-sm font-medium transition-colors duration-150 ${
+        selected ? 'border-accent bg-accent-soft text-accent' : 'border-hairline bg-raised text-fg hover:bg-sunken'
+      } ${className}`}
+      {...rest}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** SearchField: isian pencarian dengan ikon dan tombol bersihkan; dipin di puncak daftar. */
+export function SearchField({
+  value, onValueChange, label, placeholder = 'Cari', className = '',
+}: { value: string; onValueChange: (next: string) => void; label: string; placeholder?: string; className?: string }) {
+  return (
+    <div className={`relative ${className}`}>
+      <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted">
+        <IconSearch size={18} />
+      </span>
+      <input
+        type="search"
+        value={value}
+        aria-label={label}
+        placeholder={placeholder}
+        enterKeyHint="search"
+        onChange={(event) => onValueChange(event.target.value)}
+        className={`${INPUT_BASE} border-hairline pl-10 [&::-webkit-search-cancel-button]:hidden ${value ? 'pr-12' : ''}`}
+      />
+      {value ? (
+        <button
+          type="button"
+          aria-label="Hapus pencarian"
+          onClick={() => onValueChange('')}
+          className="press absolute right-0.5 top-1/2 inline-flex size-11 -translate-y-1/2 items-center justify-center rounded-control text-muted transition-colors duration-150 hover:bg-fg/6 hover:text-fg"
+        >
+          <IconClose size={16} />
+        </button>
+      ) : null}
+    </div>
   );
 }
 

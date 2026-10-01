@@ -58,10 +58,10 @@ export function WriteOffForm({
       title="Hapuskan (non-kas)"
       footer={
         <div className="flex flex-col gap-2 sm:flex-row-reverse">
-          <Button type="submit" form={formId} loading={busy} variant="danger" block>
+          <Button type="submit" form={formId} loading={busy} variant="danger" size="lg" block>
             Simpan penghapusan
           </Button>
-          <Button variant="ghost" onClick={onClose} block>
+          <Button variant="ghost" onClick={onClose} size="lg" block>
             Batal
           </Button>
         </div>

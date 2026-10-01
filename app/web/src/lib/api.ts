@@ -178,6 +178,8 @@ export interface Occurrence {
   transactionId: string | null;
   label: string;
   amount: Money;
+  /** Bentuk rencananya menentukan arah nominal di lembar konfirmasi (FR17). */
+  ruleType: 'income' | 'expense' | 'transfer';
 }
 
 export interface DashboardData {

@@ -16,7 +16,7 @@ export function App() {
   const { user, loading, error, refresh } = useSession();
   const location = useLocation();
 
-  // Memuat sesi: kerangka baris, bukan lingkaran berputar di tengah (DESIGN.md §8).
+  // Memuat sesi: kerangka baris, bukan lingkaran berputar di tengah (DESIGN.md "Motion").
   if (loading) return <BootScreen />;
 
   // Server tidak terjangkau saat memeriksa sesi: sebutkan sebab dan tindakannya.

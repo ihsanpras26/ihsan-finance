@@ -1,7 +1,7 @@
-// components/icons.tsx: glyphs drawn for this product's own content (DESIGN.md §10, R-04).
+// components/icons.tsx: glyphs drawn for this product's own content (DESIGN.md "Components", R-04).
 // 20x20 grid, 1.75 stroke, currentColor. No icon library: every glyph names a real object here.
 // Stroke weight is set to match Schibsted Grotesk at UI sizes; a thinner stroke goes grey next to
-// the heavier grotesk and reads as a different, lighter system (DESIGN.md §3).
+// the heavier grotesk and reads as a different, lighter system (DESIGN.md "Typography").
 import type { SVGProps } from 'react';
 
 type IconProps = SVGProps<SVGSVGElement> & { size?: number };
@@ -50,16 +50,6 @@ export const IconOut = (p: IconProps) => (
     <path d="M10 17V7" />
     <path d="M6.2 10.6 10 6.8l3.8 3.8" />
     <path d="M4 3.5h12" />
-  </Base>
-);
-
-/** Transfer: dua panah berlawanan antar dua kolom. */
-export const IconTransfer = (p: IconProps) => (
-  <Base {...p}>
-    <path d="M4 7h9" />
-    <path d="M10.5 4.2 13.3 7l-2.8 2.8" />
-    <path d="M16 13H7" />
-    <path d="M9.5 10.2 6.7 13l2.8 2.8" />
   </Base>
 );
 
@@ -114,6 +104,16 @@ export const IconRepeat = (p: IconProps) => (
     <path d="M14.4 3.2v3.4h-3.4" />
     <path d="M15.6 11.4a5.6 5.6 0 0 1-9.5 3.2" />
     <path d="M5.6 16.8v-3.4h3.4" />
+  </Base>
+);
+
+/** Transfer: dua panah berlawanan arah, uang pindah dompet tanpa masuk atau keluar. */
+export const IconTransfer = (p: IconProps) => (
+  <Base {...p}>
+    <path d="M3.4 6.8h11.2" />
+    <path d="M11.9 4.6 14.2 6.8l-2.3 2.2" />
+    <path d="M16.6 13.2H5.4" />
+    <path d="M8.1 11 5.8 13.2l2.3 2.2" />
   </Base>
 );
 
@@ -185,12 +185,6 @@ export const IconCalendar = (p: IconProps) => (
   </Base>
 );
 
-export const IconChevronRight = (p: IconProps) => (
-  <Base {...p}>
-    <path d="M8 5.4 12.6 10 8 14.6" />
-  </Base>
-);
-
 export const IconChevronLeft = (p: IconProps) => (
   <Base {...p}>
     <path d="M12 5.4 7.4 10 12 14.6" />
@@ -231,22 +225,7 @@ export const IconDownload = (p: IconProps) => (
   </Base>
 );
 
-export const IconTrash = (p: IconProps) => (
-  <Base {...p}>
-    <path d="M4.6 6.2h10.8" />
-    <path d="M8 6.2V4.6h4v1.6" />
-    <path d="M6.2 6.2 6.9 16h6.2l.7-9.8" />
-  </Base>
-);
-
-export const IconEdit = (p: IconProps) => (
-  <Base {...p}>
-    <path d="M4.2 15.8h3l8-8-3-3-8 8v3Z" />
-    <path d="M12.2 4.8l3 3" />
-  </Base>
-);
-
-/** Panah naik ke kanan: arah perubahan positif pada lencana (DESIGN.md §10). */
+/** Panah naik ke kanan: arah perubahan positif pada lencana (DESIGN.md "Components"). */
 export const IconArrowUpRight = (p: IconProps) => (
   <Base {...p}>
     <path d="M6 14 14 6" />
@@ -254,7 +233,7 @@ export const IconArrowUpRight = (p: IconProps) => (
   </Base>
 );
 
-/** Panah turun ke kanan: arah perubahan negatif pada lencana (DESIGN.md §10). */
+/** Panah turun ke kanan: arah perubahan negatif pada lencana (DESIGN.md "Components"). */
 export const IconArrowDownRight = (p: IconProps) => (
   <Base {...p}>
     <path d="M6 6l8 8" />
@@ -267,15 +246,6 @@ export const IconBell = (p: IconProps) => (
   <Base {...p}>
     <path d="M5.6 8.4a4.4 4.4 0 0 1 8.8 0c0 3 .9 4.4 1.4 5.1H4.2c.5-.7 1.4-2.1 1.4-5.1Z" />
     <path d="M8.4 16a1.8 1.8 0 0 0 3.2 0" />
-  </Base>
-);
-
-/** Tiga titik: menu tindakan per baris. */
-export const IconMoreVertical = (p: IconProps) => (
-  <Base {...p}>
-    <circle cx="10" cy="4.8" r="1.1" fill="currentColor" stroke="none" />
-    <circle cx="10" cy="10" r="1.1" fill="currentColor" stroke="none" />
-    <circle cx="10" cy="15.2" r="1.1" fill="currentColor" stroke="none" />
   </Base>
 );
 
@@ -307,9 +277,3 @@ export const IconSavings = (p: IconProps) => (
   </Base>
 );
 
-/** Urut: tiga garis mengecil dengan panah. */
-export const IconSort = (p: IconProps) => (
-  <Base {...p}>
-    <path d="M4.4 5.6h11.2M6.4 10h7.2M8.4 14.4h3.2" />
-  </Base>
-);

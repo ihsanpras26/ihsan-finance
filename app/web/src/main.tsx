@@ -2,7 +2,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-// Rupa huruf self-host (DESIGN.md §3): Schibsted Grotesk untuk antarmuka,
+// Rupa huruf self-host (DESIGN.md "Typography"): Schibsted Grotesk untuk antarmuka,
 // IBM Plex Mono untuk seluruh nominal uang.
 import '@fontsource-variable/schibsted-grotesk';
 import '@fontsource/ibm-plex-mono/400.css';

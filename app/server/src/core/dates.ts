@@ -107,3 +107,11 @@ export function isoUtc(at: Date = new Date()): string {
 export function startOfUtcDayIso(date: string): string {
   return `${date}T00:00:00.000Z`;
 }
+
+const MONTHS_ID = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'] as const;
+
+/** "2026-10-06" menjadi "6 Okt 2026" untuk teks yang dibaca pengguna, bukan tanggal mesin. */
+export function formatDateID(date: string): string {
+  const [year, month, day] = date.split('-').map(Number) as [number, number, number];
+  return `${day} ${MONTHS_ID[month - 1]} ${year}`;
+}

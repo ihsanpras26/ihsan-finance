@@ -84,10 +84,10 @@ export function AllocationForm({
       title={releasing ? 'Lepas alokasi' : 'Alokasikan dana'}
       footer={
         <div className="flex flex-col gap-2 sm:flex-row-reverse">
-          <Button type="submit" form={formId} loading={busy} block>
+          <Button type="submit" form={formId} loading={busy} size="lg" block>
             {releasing ? 'Lepas alokasi' : 'Alokasikan dana'}
           </Button>
-          <Button variant="ghost" onClick={onClose} block>
+          <Button variant="ghost" onClick={onClose} size="lg" block>
             Batal
           </Button>
         </div>

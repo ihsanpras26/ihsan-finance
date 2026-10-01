@@ -1,13 +1,13 @@
-// routes/rencana/parts/BudgetTab.tsx : monthly limits per expense category (PRD FR15).
-// Spending stays allowed past the limit; the warning is information, not a block.
-// Each budget is one card: category, the bar with its percentage, then Terpakai, Batas, and Sisa
-// stacked in the sign column so every amount lands on the same right edge.
+// routes/rencana/parts/BudgetTab.tsx : batas bulanan per kategori pengeluaran (PRD FR15).
+// Pengeluaran tetap boleh dicatat setelah batas terlewati; peringatannya informasi, bukan larangan.
+// Bulan dipilih lewat deret chip, dan tiap kartu menaruh Terpakai, Plafon, serta Sisa pada kolom
+// angka yang lurus ke tepi kanan, dengan keadaan batas yang selalu disertai kata.
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, type Budget } from '../../../lib/api.ts';
 import { useAsync } from '../../../lib/hooks.ts';
 import {
-  Button, Card, EmptyState, ErrorState, Field, LoadingRows, Money, ProgressBar, SectionHead, Select, StatusPill, useToast,
+  Button, Card, Chip, EmptyState, ErrorState, LoadingRows, Money, ProgressBar, SectionHead, StatusPill, useToast,
 } from '../../../components/ui.tsx';
 import { BudgetForm } from '../../../components/forms/BudgetForm.tsx';
 import { currentPeriod, formatPercent, formatPeriod, periodOptions, toMinor } from '../../../lib/format.ts';
@@ -46,44 +46,40 @@ export function BudgetTab() {
         <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
           <div>
             <p className="text-xs text-muted">Sisa anggaran {formatPeriod(period)}</p>
-            <p className="mt-1">
+            <p className="mt-1" aria-live="polite">
               <Money value={totalRemaining} direction={totalRemaining < 0 ? 'out' : 'in'} size="lg" />
             </p>
           </div>
-          <div className="text-right">
-            <p className="text-xs text-muted">Terpakai dari limit</p>
-            <dl className="mt-1 grid grid-cols-[auto_1fr] items-baseline gap-x-3">
-              <dt className="text-xs text-muted">Terpakai</dt>
-              <dd className="text-right">
-                <Money value={totalSpent} direction="out" />
-              </dd>
-              <dt className="text-xs text-muted">Limit</dt>
-              <dd className="text-right">
-                <Money value={totalLimit} />
-              </dd>
-            </dl>
-          </div>
+          <dl className="grid grid-cols-[auto_1fr] items-baseline gap-x-3 gap-y-1 text-xs text-muted">
+            <dt>Total plafon</dt>
+            <dd className="text-right">
+              <Money value={totalLimit} />
+            </dd>
+            <dt>Total terpakai</dt>
+            <dd className="text-right">
+              <Money value={totalSpent} direction="out" />
+            </dd>
+          </dl>
         </div>
         <p className="mt-3 text-xs text-muted">
-          Pengeluaran tetap boleh dicatat setelah limit terlampaui. Transfer, pokok utang, dan alokasi tujuan tidak mengonsumsi anggaran.
+          Pengeluaran tetap boleh dicatat setelah batas terlampaui. Transfer, pokok utang, dan alokasi tujuan tidak mengonsumsi anggaran.
         </p>
       </Card>
 
       <Card className="px-4 py-4 lg:px-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="w-full sm:max-w-[240px]">
-            <Field label="Bulan anggaran" htmlFor="anggaran-bulan">
-              <Select id="anggaran-bulan" value={period} onChange={(event) => setPeriod(event.target.value)}>
-                {periodOptions(12).map((option) => (
-                  <option key={option} value={option}>
-                    {formatPeriod(option)}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+          <div role="group" aria-label="Bulan anggaran" className="flex min-w-0 flex-col gap-2">
+            <span className="text-2xs font-semibold text-muted">Bulan anggaran</span>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {periodOptions(12).map((option) => (
+                <Chip key={option} selected={option === period} onClick={() => setPeriod(option)}>
+                  {formatPeriod(option)}
+                </Chip>
+              ))}
+            </div>
           </div>
           {available.length > 0 ? (
-            <Button onClick={() => setCreating(true)}>Tetapkan anggaran</Button>
+            <Button className="sm:shrink-0" onClick={() => setCreating(true)}>Tetapkan anggaran</Button>
           ) : (
             <p className="text-xs text-muted sm:max-w-[60%] sm:text-right">
               {categories.loading
@@ -103,7 +99,7 @@ export function BudgetTab() {
       {list.length === 0 ? (
         <EmptyState
           title={`Belum ada anggaran untuk ${formatPeriod(period)}`}
-          body="Anggaran memberi batas bulanan per kategori pengeluaran, lengkap dengan peringatan saat mendekati dan melewati limit."
+          body="Anggaran memberi batas bulanan per kategori pengeluaran, lengkap dengan peringatan saat mendekati dan melewati batas."
           action={
             available.length > 0 ? (
               <Button variant="secondary" onClick={() => setCreating(true)}>
@@ -163,19 +159,19 @@ function BudgetCard({ budget, onEdit }: { budget: Budget; onEdit: () => void }) 
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-fg">{budget.categoryName}</p>
-          <p className="text-xs text-muted">
-            Limit {formatPercent(ratio)} terpakai · {formatPeriod(budget.periodStart.slice(0, 7))}
-          </p>
+          <p className="text-xs text-muted">Anggaran {formatPeriod(budget.periodStart.slice(0, 7))}</p>
         </div>
         <Button variant="ghost" onClick={onEdit}>
           Ubah limit
         </Button>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        {over ? <StatusPill tone="out">Limit terlampaui {formatPercent(ratio)}</StatusPill> : null}
-        {near ? <StatusPill tone="warn">Mendekati limit {formatPercent(ratio)}</StatusPill> : null}
-      </div>
+      {over || near ? (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {over ? <StatusPill tone="out">Lewat batas {formatPercent(ratio)}</StatusPill> : null}
+          {near ? <StatusPill tone="warn">Mendekati batas {formatPercent(ratio)}</StatusPill> : null}
+        </div>
+      ) : null}
 
       <div className="mt-3">
         <ProgressBar ratio={ratio} tone={tone} showPercent label={`Pemakaian anggaran ${budget.categoryName}`} />
@@ -186,11 +182,11 @@ function BudgetCard({ budget, onEdit }: { budget: Budget; onEdit: () => void }) 
         <dd className="text-right">
           <Money value={budget.spent} direction="out" />
         </dd>
-        <dt>Batas</dt>
+        <dt>Plafon</dt>
         <dd className="text-right">
           <Money value={budget.limit} />
         </dd>
-        <dt>{remaining < 0 ? 'Kelebihan' : 'Sisa'}</dt>
+        <dt>{remaining < 0 ? 'Lewat plafon' : 'Sisa'}</dt>
         <dd className="text-right">
           <Money value={Math.abs(remaining)} direction={remaining < 0 ? 'out' : 'in'} />
         </dd>

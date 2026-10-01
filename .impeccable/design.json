@@ -1,0 +1,672 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-29T13:46:51.884Z",
+  "title": "Design System: Ihsan Finance",
+  "extensions": {
+    "colorMeta": {
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Kanvas Abu Netral",
+        "canonical": "#f4f4f5",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616162",
+          "#828283",
+          "#a5a5a6",
+          "#c9c9ca",
+          "#eeeeef"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Putih Kartu",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "sunken": {
+        "role": "neutral",
+        "displayName": "Sumur Abu",
+        "canonical": "#eceef0",
+        "tonalRamp": [
+          "#0a0b0c",
+          "#242526",
+          "#414243",
+          "#606163",
+          "#818284",
+          "#a3a5a7",
+          "#c8c9cb",
+          "#edeff0"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Tinta Nyaris Hitam",
+        "canonical": "#0f1720",
+        "tonalRamp": [
+          "#070c11",
+          "#1f262d",
+          "#3b434c",
+          "#59626d",
+          "#7a838f",
+          "#9da6b1",
+          "#c2cad4",
+          "#e8eff8"
+        ]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Tinta Kelabu",
+        "canonical": "#59616d",
+        "tonalRamp": [
+          "#080b11",
+          "#20252d",
+          "#3c424c",
+          "#5a626d",
+          "#7b838f",
+          "#9ea6b1",
+          "#c3cad4",
+          "#e9eff9"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Garis Rambut",
+        "canonical": "#e4e7ea",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#242527",
+          "#404244",
+          "#5f6164",
+          "#808385",
+          "#a3a5a8",
+          "#c7c9cc",
+          "#edeff1"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Biru Struktural",
+        "canonical": "#0256ff",
+        "tonalRamp": [
+          "#00062a",
+          "#031e5c",
+          "#02349f",
+          "#0e50dc",
+          "#3d79f8",
+          "#78a4f7",
+          "#afcafc",
+          "#e6efff"
+        ]
+      },
+      "accent-fg": {
+        "role": "neutral",
+        "displayName": "Putih di Atas Aksen",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "accent-soft": {
+        "role": "primary",
+        "displayName": "Kabut Biru Aksen",
+        "canonical": "#0256ff",
+        "tonalRamp": [
+          "#00062a",
+          "#031e5c",
+          "#02349f",
+          "#0e50dc",
+          "#3d79f8",
+          "#78a4f7",
+          "#afcafc",
+          "#e6efff"
+        ]
+      },
+      "data-gold": {
+        "role": "secondary",
+        "displayName": "Kuning Data",
+        "canonical": "#946000",
+        "tonalRamp": [
+          "#130901",
+          "#342004",
+          "#5b3a03",
+          "#835712",
+          "#aa772e",
+          "#cb9b5d",
+          "#ecc189",
+          "#feebd4"
+        ]
+      },
+      "money-in": {
+        "role": "tertiary",
+        "displayName": "Hijau Uang Masuk",
+        "canonical": "#07714e",
+        "tonalRamp": [
+          "#010f08",
+          "#052d1e",
+          "#044f35",
+          "#187251",
+          "#429571",
+          "#6eb795",
+          "#99daba",
+          "#c5fee1"
+        ]
+      },
+      "money-out": {
+        "role": "tertiary",
+        "displayName": "Merah Uang Keluar",
+        "canonical": "#c81a1a",
+        "tonalRamp": [
+          "#1e0001",
+          "#4c0304",
+          "#7d0f0e",
+          "#b60e12",
+          "#df4239",
+          "#f8796b",
+          "#fbb5ab",
+          "#fee9e6"
+        ]
+      },
+      "warning": {
+        "role": "tertiary",
+        "displayName": "Jingga Peringatan",
+        "canonical": "#96450a",
+        "tonalRamp": [
+          "#180500",
+          "#3f1800",
+          "#692f05",
+          "#964816",
+          "#bb6a3c",
+          "#dc9067",
+          "#fdb791",
+          "#feeadf"
+        ]
+      },
+      "overlay": {
+        "role": "neutral",
+        "displayName": "Selubung Gelap",
+        "canonical": "#8f9aa8",
+        "tonalRamp": [
+          "#070c12",
+          "#1f262e",
+          "#3b434d",
+          "#58626e",
+          "#798390",
+          "#9ca6b2",
+          "#c1cad5",
+          "#e7effa"
+        ]
+      },
+      "dark-canvas": {
+        "role": "neutral",
+        "displayName": "Kanvas Gelap",
+        "canonical": "#050508",
+        "tonalRamp": [
+          "#0b0b0e",
+          "#252528",
+          "#414146",
+          "#606166",
+          "#828287",
+          "#a4a4aa",
+          "#c8c9cd",
+          "#eeeef2"
+        ]
+      },
+      "dark-surface": {
+        "role": "neutral",
+        "displayName": "Kartu Gelap",
+        "canonical": "#111318",
+        "tonalRamp": [
+          "#0a0b0e",
+          "#232529",
+          "#404247",
+          "#5f6167",
+          "#808289",
+          "#a2a5ab",
+          "#c7c9cf",
+          "#eceef3"
+        ]
+      },
+      "dark-sunken": {
+        "role": "neutral",
+        "displayName": "Sumur Gelap",
+        "canonical": "#090b0f",
+        "tonalRamp": [
+          "#0a0b0e",
+          "#232529",
+          "#404246",
+          "#5f6166",
+          "#808288",
+          "#a2a5aa",
+          "#c7c9ce",
+          "#eceef3"
+        ]
+      },
+      "dark-ink": {
+        "role": "neutral",
+        "displayName": "Tinta Terang",
+        "canonical": "#f4f6f8",
+        "tonalRamp": [
+          "#0a0b0c",
+          "#242526",
+          "#414243",
+          "#606163",
+          "#818284",
+          "#a4a5a7",
+          "#c8c9cb",
+          "#edeff0"
+        ]
+      },
+      "dark-ink-muted": {
+        "role": "neutral",
+        "displayName": "Tinta Kelabu Gelap",
+        "canonical": "#8b96a5",
+        "tonalRamp": [
+          "#070b12",
+          "#1f262f",
+          "#3a434e",
+          "#58626f",
+          "#798391",
+          "#9ca6b3",
+          "#c1cad6",
+          "#e7effa"
+        ]
+      },
+      "dark-hairline": {
+        "role": "neutral",
+        "displayName": "Garis Rambut Gelap",
+        "canonical": "#1c222b",
+        "tonalRamp": [
+          "#080b11",
+          "#21252c",
+          "#3d424b",
+          "#5b626c",
+          "#7c838e",
+          "#9fa6b0",
+          "#c3cad3",
+          "#e9eff7"
+        ]
+      },
+      "dark-accent": {
+        "role": "primary",
+        "displayName": "Biru Struktural Gelap",
+        "canonical": "#60a5fa",
+        "tonalRamp": [
+          "#011023",
+          "#032754",
+          "#04438f",
+          "#0763d5",
+          "#2f8af9",
+          "#70aefb",
+          "#abd0fc",
+          "#e6f1fe"
+        ]
+      },
+      "dark-accent-fg": {
+        "role": "neutral",
+        "displayName": "Putih di Atas Aksen Gelap",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "dark-accent-soft": {
+        "role": "primary",
+        "displayName": "Kabut Biru Gelap",
+        "canonical": "#3b82f6",
+        "tonalRamp": [
+          "#000924",
+          "#012157",
+          "#053c8d",
+          "#165ac4",
+          "#3b7eeb",
+          "#73a5f7",
+          "#accbfc",
+          "#e5efff"
+        ]
+      },
+      "dark-data-gold": {
+        "role": "secondary",
+        "displayName": "Kuning Data Gelap",
+        "canonical": "#ffc93c",
+        "tonalRamp": [
+          "#110a00",
+          "#302301",
+          "#533f08",
+          "#7a5c04",
+          "#a27c06",
+          "#ca9e27",
+          "#ecc465",
+          "#feedc8"
+        ]
+      },
+      "dark-money-in": {
+        "role": "tertiary",
+        "displayName": "Hijau Uang Masuk Gelap",
+        "canonical": "#3ddc97",
+        "tonalRamp": [
+          "#010f07",
+          "#002e1a",
+          "#064f32",
+          "#19734c",
+          "#249967",
+          "#40bf86",
+          "#79e2ac",
+          "#c5fede"
+        ]
+      },
+      "dark-money-out": {
+        "role": "tertiary",
+        "displayName": "Merah Uang Keluar Gelap",
+        "canonical": "#ff6b6b",
+        "tonalRamp": [
+          "#1e0002",
+          "#4b040b",
+          "#7c101b",
+          "#ae242f",
+          "#d64d4f",
+          "#f77976",
+          "#fab5b0",
+          "#fee9e7"
+        ]
+      },
+      "dark-warning": {
+        "role": "tertiary",
+        "displayName": "Jingga Peringatan Gelap",
+        "canonical": "#f0b45c",
+        "tonalRamp": [
+          "#120901",
+          "#332104",
+          "#5a3b02",
+          "#815811",
+          "#ac761a",
+          "#cd9b52",
+          "#eec081",
+          "#ffebd1"
+        ]
+      },
+      "dark-overlay": {
+        "role": "neutral",
+        "displayName": "Selubung Gelap Mode Gelap",
+        "canonical": "#000000",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "accent-solid": {
+        "role": "accent-fill",
+        "displayName": "Aksen Isian",
+        "canonical": "#0256ff",
+        "tonalRamp": [
+          "#00062a",
+          "#031e5c",
+          "#02349f",
+          "#0e50dc",
+          "#3d79f8",
+          "#78a4f7",
+          "#afcafc",
+          "#e6efff"
+        ],
+        "note": "Isian aksen di bawah teks putih; di mode gelap #2563eb supaya putih mencapai 5.17:1."
+      },
+      "dark-accent-solid": {
+        "role": "accent-fill",
+        "displayName": "Aksen Isian (gelap)",
+        "canonical": "#2563eb",
+        "tonalRamp": [
+          "#000728",
+          "#021d5e",
+          "#0132a2",
+          "#1a53d3",
+          "#3b78fb",
+          "#77a3f9",
+          "#aecafd",
+          "#e7effe"
+        ],
+        "note": "Menggantikan #3b82f6 pada isian berteks putih di mode gelap."
+      }
+    },
+    "typographyMeta": {
+      "figure": {
+        "displayName": "Nominal (IBM Plex Mono)",
+        "purpose": "Semua angka uang: lurus dalam kolom, lebar tidak bergeser saat digit berubah."
+      },
+      "label": {
+        "displayName": "Label 11.5px",
+        "purpose": "Label kolom, satuan, dan meta terkecil; tidak pernah di bawah 11.5px."
+      },
+      "body": {
+        "displayName": "Isi 16px",
+        "purpose": "Teks isi dan semua isian; batas bawah agar iOS tidak mengezoom."
+      },
+      "title": {
+        "displayName": "Judul 20px",
+        "purpose": "Judul kartu dan judul bagian."
+      },
+      "headline": {
+        "displayName": "Judul halaman 26px",
+        "purpose": "Judul halaman dan angka kartu utama."
+      },
+      "display": {
+        "displayName": "Nominal fokus 34px",
+        "purpose": "Angka tunggal di layar fokus; paling banyak satu per layar."
+      }
+    },
+    "shadows": [
+      {
+        "name": "shadow-card",
+        "value": "0 1px 2px rgb(16 24 40 / 0.04)",
+        "purpose": "Kartu diam dan kendali bersudut. Mode gelap menambah garis 1px agar tepi kartu tetap terbaca di kanvas nyaris hitam."
+      },
+      {
+        "name": "shadow-lift",
+        "value": "0 8px 24px -12px rgb(16 24 40 / 0.18)",
+        "purpose": "Kartu yang mengangkat saat hover karena kartunya sendiri sebuah tautan."
+      },
+      {
+        "name": "shadow-float",
+        "value": "0 24px 48px -20px rgb(16 24 40 / 0.32)",
+        "purpose": "Lembar, dialog, dan menu yang benar-benar mengambang di atas halaman."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "150ms ease-out",
+        "purpose": "Transisi warna, latar, dan tepi pada kendali; pembukaan lembar memakai 200ms cubic-bezier(0.2, 0.8, 0.3, 1)."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "0.01ms !important",
+        "purpose": "prefers-reduced-motion mematikan seluruh durasi animasi dan transisi."
+      },
+      {
+        "name": "no-layout-animation",
+        "value": "transform/opacity only",
+        "purpose": "Tidak ada transisi pada width, height, padding, atau margin; isian bilah progres tampil pada lebarnya tanpa animasi tata letak."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px",
+        "purpose": "Gutter kartu naik, isian berdampingan."
+      },
+      {
+        "name": "lg",
+        "value": "1024px",
+        "purpose": "Rel kiri 248px muncul; bilah bawah dan kepala HP digantikan rel."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Satu aksi utama per layar; bentuk pil penuh tanpa glow.",
+      "html": "<button class=\"ds-btn\" type=\"button\">Simpan transaksi</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;font-family:'Schibsted Grotesk Variable',ui-sans-serif,system-ui,sans-serif;font-size:14.5px;font-weight:600;cursor:pointer;transition:background 150ms ease-out,color 150ms ease-out,transform 150ms ease-out;padding:0 20px;border:0;border-radius:999px;background:var(--accent-solid);color:var(--accent-fg)}.ds-btn:hover{background:color-mix(in srgb,var(--accent-solid) 88%,var(--fg))}.ds-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.ds-btn:active{transform:translateY(1px)}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Aksi kedua yang tenang: garis rambut dan latar kartu.",
+      "html": "<button class=\"ds-btn-2\" type=\"button\">Alokasikan dana</button>",
+      "css": ".ds-btn-2{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;font-family:'Schibsted Grotesk Variable',ui-sans-serif,system-ui,sans-serif;font-size:14.5px;font-weight:600;cursor:pointer;transition:background 150ms ease-out,color 150ms ease-out,transform 150ms ease-out;padding:0 16px;border:1px solid var(--hairline);border-radius:14px;background:var(--surface-raised);color:var(--fg)}.ds-btn-2:hover{border-color:color-mix(in srgb,var(--fg) 20%,var(--hairline));background:var(--surface-sunken)}.ds-btn-2:focus-visible{outline:2px solid var(--accent);outline-offset:2px}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Label di atas, petunjuk di bawah; isian 16px agar iOS tidak mengezoom.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Catatan</span><input class=\"ds-input\" type=\"text\" placeholder=\"Makan siang di kantor\"><span class=\"ds-field-hint\">Opsional, ikut tersimpan bersama transaksi.</span></label>",
+      "css": ".ds-field{display:grid;gap:6px;font-family:'Schibsted Grotesk Variable',ui-sans-serif,system-ui,sans-serif}.ds-field-label{font-size:13px;font-weight:500;color:var(--fg-muted)}.ds-input{min-height:44px;padding:0 12px;border:1px solid var(--hairline);border-radius:14px;background:var(--surface-raised);color:var(--fg);font-size:16px}.ds-input::placeholder{color:color-mix(in srgb,var(--fg-muted) 60%,transparent)}.ds-input:focus{outline:none}.ds-input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.ds-field-hint{font-size:13px;color:var(--fg-muted)}"
+    },
+    {
+      "name": "Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Pilihan pil setinggi 44px dengan aria-pressed; terpilih memakai tepi dan tint aksen.",
+      "html": "<div class=\"ds-chips\"><button class=\"ds-chip\" type=\"button\" aria-pressed=\"false\">Semua dompet</button><button class=\"ds-chip ds-chip-on\" type=\"button\" aria-pressed=\"true\">BCA</button></div>",
+      "css": ".ds-chips{display:flex;gap:8px;flex-wrap:wrap}.ds-chip{display:inline-flex;align-items:center;min-height:44px;padding:0 12px;border:1px solid var(--hairline);border-radius:999px;background:var(--surface-raised);color:var(--fg);font-family:'Schibsted Grotesk Variable',ui-sans-serif,system-ui,sans-serif;font-size:14.5px;font-weight:500;cursor:pointer;transition:background 150ms ease-out,border-color 150ms ease-out}.ds-chip:hover{background:var(--surface-sunken)}.ds-chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.ds-chip-on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Unit susunan tunggal: tidak pernah bersarang di dalam kartu lain.",
+      "html": "<section class=\"ds-card\"><header class=\"ds-card-head\"><h2 class=\"ds-card-title\">Anggaran September</h2><button class=\"ds-card-action\" type=\"button\">Kelola</button></header><p class=\"ds-card-body\">Makan dan minum: 492.000 dari 900.000</p></section>",
+      "css": ".ds-card{padding:16px;border-radius:24px;background:var(--surface-raised);box-shadow:var(--shadow-card);color:var(--fg);font-family:'Schibsted Grotesk Variable',ui-sans-serif,system-ui,sans-serif}.ds-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.ds-card-title{margin:0;font-size:20px;font-weight:600;letter-spacing:-0.01em}.ds-card-action{border:0;background:transparent;color:var(--accent);font:inherit;font-size:13px;font-weight:600;cursor:pointer}.ds-card-action:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.ds-card-body{margin:12px 0 0;font-size:14.5px;color:var(--fg-muted)}"
+    },
+    {
+      "name": "Ledger Row",
+      "kind": "custom",
+      "description": "Baris daftar 60px, bentuk bersama semua daftar; nominal duduk di kolom tanda.",
+      "html": "<div class=\"ds-row\"><span class=\"ds-row-icon\" aria-hidden=\"true\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 20 20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" focusable=\"false\"><path d=\"M3 4.2c2.4-.9 4.6-.9 7 0v11.6c-2.4-.9-4.6-.9-7 0V4.2Z\"/><path d=\"M17 4.2c-2.4-.9-4.6-.9-7 0v11.6c2.4-.9 4.6-.9 7 0V4.2Z\"/><path d=\"M6 7.4h1.8M6 10h1.8M12.2 7.4H14M12.2 10H14\"/></svg></span><span class=\"ds-row-text\"><span class=\"ds-row-title\">Makan dan minum</span><span class=\"ds-row-meta\">18 Sep 2026 · BCA</span></span><span class=\"ds-money ds-money-out\"><span class=\"ds-sign\">−</span>Rp210.000</span></div>",
+      "css": ".ds-row{display:flex;align-items:center;gap:12px;min-height:60px;padding:12px 0;border-bottom:1px solid var(--hairline);font-family:'Schibsted Grotesk Variable',ui-sans-serif,system-ui,sans-serif}.ds-row:last-child{border-bottom:0}.ds-row-icon{display:grid;place-items:center;width:40px;height:40px;flex:0 0 auto;border-radius:14px;background:var(--surface-sunken);color:var(--fg-muted)}.ds-row-text{display:grid;flex:1 1 auto;min-width:0;gap:2px}.ds-row-title{font-size:14.5px;font-weight:500;color:var(--fg)}.ds-row-meta{font-size:11.5px;font-weight:600;color:var(--fg-muted)}.ds-money{font-family:'IBM Plex Mono',ui-monospace,SFMono-Regular,monospace;font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap}.ds-money .ds-sign{display:inline-block;width:1ch}.ds-money-out{color:var(--out)}.ds-money-in{color:var(--in)}.ds-money-zero{color:var(--fg)}"
+    },
+    {
+      "name": "Money",
+      "kind": "custom",
+      "description": "Satu-satunya jalan menampilkan nominal: monospace, kolom tanda selalu ada dan tetap selebar 1ch meski isinya kosong saat netral.",
+      "html": "<div class=\"ds-moneys\"><p class=\"ds-money ds-money-in\"><span class=\"ds-sign\">+</span>Rp1.500.000</p><p class=\"ds-money ds-money-zero\"><span class=\"ds-sign\"></span>Rp750.000</p></div>",
+      "css": ".ds-moneys{display:grid;gap:6px}.ds-money{margin:0;font-family:'IBM Plex Mono',ui-monospace,SFMono-Regular,monospace;font-size:20px;font-variant-numeric:tabular-nums;white-space:nowrap}.ds-money .ds-sign{display:inline-block;width:1ch}.ds-money-in{color:var(--in)}.ds-money-out{color:var(--out)}.ds-money-zero{color:var(--fg)}"
+    },
+    {
+      "name": "Progress Bar",
+      "kind": "custom",
+      "description": "Trek 12px; persentase selalu di luar isian karena teks di dalam isian gagal AA.",
+      "html": "<div class=\"ds-prog\"><div class=\"ds-prog-head\"><span class=\"ds-prog-label\">Tagihan</span><span class=\"ds-prog-num\">425.000 / 450.000 · 94%</span></div><div class=\"ds-prog-track\" role=\"progressbar\" aria-valuenow=\"94\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-label=\"Tagihan 94 persen terpakai\"><span class=\"ds-prog-fill ds-prog-warn\"></span></div><p class=\"ds-prog-note\">Mendekati batas</p></div>",
+      "css": ".ds-prog{font-family:'Schibsted Grotesk Variable',ui-sans-serif,system-ui,sans-serif}.ds-prog-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}.ds-prog-label{font-size:14.5px;font-weight:500}.ds-prog-num{font-family:'IBM Plex Mono',ui-monospace,SFMono-Regular,monospace;font-size:11.5px;font-variant-numeric:tabular-nums;color:var(--fg-muted)}.ds-prog-track{display:block;height:12px;margin-top:8px;border-radius:999px;background:var(--surface-sunken);overflow:hidden}.ds-prog-fill{display:block;height:100%;width:94%;border-radius:999px;background:var(--accent)}.ds-prog-warn{background:var(--out)}.ds-prog-note{margin:6px 0 0;font-size:11.5px;font-weight:600;color:var(--warn)}"
+    },
+    {
+      "name": "Bottom Navigation",
+      "kind": "nav",
+      "description": "Empat tujuan dengan satu tombol Tambah di tengah sebagai bentuk utama aplikasi.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Navigasi utama\"><a class=\"ds-nav-item ds-nav-on\" href=\"#\" aria-current=\"page\">Beranda</a><a class=\"ds-nav-item\" href=\"#\">Transaksi</a><a class=\"ds-nav-add\" href=\"#\" aria-label=\"Tambah transaksi\"><svg width=\"26\" height=\"26\" viewBox=\"0 0 20 20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M10 4.4v11.2M4.4 10h11.2\"/></svg></a><a class=\"ds-nav-item\" href=\"#\">Rencana</a><a class=\"ds-nav-item\" href=\"#\">Laporan</a></nav>",
+      "css": ".ds-nav{display:grid;grid-template-columns:repeat(5,1fr);align-items:center;gap:2px;padding:6px 6px calc(6px + env(safe-area-inset-bottom));border-top:1px solid var(--hairline);background:var(--surface-raised);font-family:'Schibsted Grotesk Variable',ui-sans-serif,system-ui,sans-serif}.ds-nav-item{display:grid;place-items:center;min-height:58px;border-radius:14px;color:var(--fg-muted);font-size:11.5px;font-weight:600;text-decoration:none}.ds-nav-item:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.ds-nav-on{color:var(--accent)}.ds-nav-add{display:grid;place-items:center;width:56px;height:56px;margin:-20px 4px 0;border-radius:999px;background:var(--accent-solid);color:var(--accent-fg);text-decoration:none;box-shadow:var(--shadow-lift)}"
+    },
+    {
+      "name": "Sheet",
+      "kind": "custom",
+      "description": "Lembar bawah untuk detail dan entri; pegangan, sudut atas 28px, badan yang menggulir.",
+      "html": "<div class=\"ds-sheet\"><span class=\"ds-sheet-grip\" aria-hidden=\"true\"></span><h2 class=\"ds-sheet-title\">Transaksi</h2><p class=\"ds-sheet-body\">Makan dan minum · BCA · 18 Sep 2026</p></div>",
+      "css": ".ds-sheet{display:grid;gap:12px;padding:20px;border-radius:28px 28px 0 0;background:var(--surface-raised);box-shadow:var(--shadow-float);color:var(--fg);font-family:'Schibsted Grotesk Variable',ui-sans-serif,system-ui,sans-serif}.ds-sheet-grip{justify-self:center;width:40px;height:4px;border-radius:999px;background:var(--hairline)}.ds-sheet-title{margin:0;font-size:20px;font-weight:600}.ds-sheet-body{margin:0;font-size:14.5px;color:var(--fg-muted)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Buku besar yang tenang",
+    "overview": "Aplikasi keuangan harian untuk satu orang yang membuka HP sambil berdiri. Bahasa visual fintech modern yang bersih: kanvas abu terang, kartu putih dengan sudut membulat dan bayangan halus, satu biru struktural, satu kuning sebagai warna data kedua, dan angka yang selalu terbaca sebagai angka. Arahnya canon: konvensi aplikasi keuangan bermerek besar dieksekusi penuh, tanpa keunikan yang diselundupkan. Kualitas datang dari eksekusi dan alur yang bersumber dari data nyata, bukan dari efek visual.",
+    "keyCharacteristics": [
+      "Kanvas tenang, kartu putih beradius 24px, dan satu biru struktural; tidak ada gradien atau glow.",
+      "Nominal selalu monospace, rata kanan, dengan kolom tanda yang selalu ada.",
+      "Satu aksi utama per layar; semua aksi lain menjadi aksi kedua yang lebih tenang.",
+      "Keempat keadaan data (memuat, kosong, galat, berisi) hadir di setiap tampilan."
+    ],
+    "rules": [
+      {
+        "name": "Aturan kolom tanda",
+        "body": "Setiap nominal yang tersusun vertikal menempati satu posisi karakter untuk tanda arah, dan posisi itu selalu ada meski isinya kosong. Angka fokus tunggal dikecualikan karena ia tidak dibandingkan dengan angka lain.",
+        "section": "typography"
+      },
+      {
+        "name": "Aturan aksen",
+        "body": "Aksen hanya di tombol utama, penanda navigasi dan tab aktif, cincin fokus, seri data utama grafik, isian bilah progres, dan tautan teks.",
+        "section": "colors"
+      },
+      {
+        "name": "Aturan warna data",
+        "body": "Warna semantik hanya pada nominal, lencana status, dan grafik, dan selalu disertai tanda arah serta kata sehingga tetap terbaca tanpa warna.",
+        "section": "colors"
+      },
+      {
+        "name": "Aturan satu tingkat kartu",
+        "body": "Kartu tidak pernah bersarang. Kelompok di dalam kartu memakai garis pemisah atau kepala kelompok, bukan kartu lain.",
+        "section": "elevation"
+      },
+      {
+        "name": "Aturan persentase di luar isian",
+        "body": "Persentase bilah progres selalu ditulis di luar isian, karena teks putih di atas aksen gelap gagal AA dan angka di dalam isian sempit menjadi tebakan.",
+        "section": "components"
+      },
+      {
+        "name": "Aturan token tunggal",
+        "body": "Tidak ada nilai jarak atau radius literal di dalam komponen; semua lewat token pada skala jarak 2px sampai 64px.",
+        "section": "layout"
+      }
+    ],
+    "dos": [
+      "Format semua nominal lewat lib/format.ts dan kirim ke API sebagai string desimal; uang adalah bilangan bulat rupiah.",
+      "Beri setiap nominal kolom tanda, dan biarkan garis pemisah berhenti sebelum kolom itu.",
+      "Tulis persentase progres di luar isian bilah.",
+      "Hormati safe-area di kepala, bilah bawah, dan kaki lembar; pakai min-h-dvh, bukan 100vh.",
+      "Jaga target sentuh minimal 44x44px, isian minimal 16px, focus-visible selalu terlihat, dan prefers-reduced-motion mematikan seluruh durasi.",
+      "Sediakan keempat keadaan (memuat, kosong, galat, berisi) di setiap tampilan data.",
+      "Pakai kata dari TYPE_LABEL, STATUS_LABEL, dan WALLET_TYPE_LABEL supaya istilah tidak bercabang.",
+      "Tulis teks antarmuka dalam bahasa Indonesia, konkret, menyebut tindakan berikutnya."
+    ],
+    "donts": [
+      "Tidak ada em dash, tanda seru, emoji, atau kata pemanis.",
+      "Tidak ada gradien, glow, backdrop-filter, atau pola latar.",
+      "Tidak ada kartu bersarang, dan tidak ada label kecil gaya kicker di atas judul.",
+      "Tidak ada nilai jarak atau radius literal di dalam komponen.",
+      "Tidak ada monospace untuk judul, label, atau paragraf.",
+      "Tidak ada makna yang disampaikan warna saja.",
+      "Tidak ada angka finansial yang dikarang.",
+      "Tidak ada ilustrasi, testimoni, statistik pengguna, atau klaim keamanan yang belum diverifikasi."
+    ]
+  }
+}

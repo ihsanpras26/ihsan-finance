@@ -38,18 +38,6 @@ export function saveDraft<T>(workspaceId: string, kind: Draft['kind'], payload: 
   return draft;
 }
 
-export function loadDraft<T>(workspaceId: string, kind: Draft['kind'], id?: string): Draft<T> | null {
-  const store = storage();
-  if (!store) return null;
-  const raw = store.getItem(draftKey(workspaceId, kind, id));
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as Draft<T>;
-  } catch {
-    return null;
-  }
-}
-
 export function clearDraft(workspaceId: string, kind: Draft['kind'], id?: string): void {
   storage()?.removeItem(draftKey(workspaceId, kind, id));
 }

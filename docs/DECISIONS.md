@@ -239,3 +239,109 @@ safe-area memang sudah terkirim ke CSS terkompilasi) dan dicatat apa adanya supa
 "diperbaiki" lagi di kemudian hari.
 **Status:** Selesai dan terverifikasi; bukti ada di `docs/DELIVERY_GATE.md` bagian D-16.
 
+
+## D-17 · Setel halus (Refine v2) ke gaya Fintech Aurora
+
+**Tanggal:** 28 September 2026
+**Konteks:** Pemilik membawa 3 gambar referensi baru berestetika dark mode ekstrim dengan gradien jala (aurora mesh), radius kartu sangat bulat (kapsul/squircle), latar nyaris hitam murni, dan pendaran neon (glow). OMP vision memverifikasi elemen-elemen ini. Pemilik meminta "setel halus" (refine v2) alih-alih merombak total, untuk menyeimbangkan estetika baru dengan prinsip anti-slop yang ada.
+**Keputusan:**
+1. Palet mode gelap ditajamkan: kanvas `--surface` menjadi `#050508` (nyaris hitam), kartu menjadi `#111318`.
+2. Radius dilengkungkan: panel naik dari 18px ke 24px, lembar dari 26px ke 28px. Kontrol naik dari 12px ke 14px.
+3. Tombol aksi utama (CTA) dipisahkan dari kontrol umum dan memakai radius pil penuh (`--radius-chip`).
+4. Ditambahkan utilitas `.bg-aurora` (gradien jala biru-ungu) dan efek glow, namun penggunaannya dibatasi mutlak HANYA untuk satu kartu "Premium" atau "AI Insight" per layar, mengikuti R-01 (gradien punya tujuan, bukan bawaan).
+**Alasan:** "Setel halus" berarti menjaga arsitektur (huruf Schibsted/Plex, kolom tanda, tanpa pustaka grafik) tetapi mengadopsi bahasa visual referensi. Gradien aurora dan glow diizinkan asalkan dilokalisir ke fitur premium/AI, sehingga tidak melanggar R-01.
+**Status:** Dikerjakan di seluruh permukaan (fase token, primitif, layar, PWA). Butir 4 (utilitas
+aurora dan glow) dibatalkan oleh D-18.
+
+## D-18 · Arah canon: konvensi aplikasi keuangan besar, sebagian D-17 dibatalkan
+
+**Tanggal:** 29 September 2026
+**Konteks:** Pemilik menilai antarmuka belum terasa profesional dan meminta perbaikan menyeluruh:
+profesional, tata letak modern, aksesibel, dan alurnya meniru aplikasi keuangan bermerek besar.
+Dari empat arah yang disodorkan, pemilik memilih yang keempat: "aplikasi keuangan besar apa adanya".
+Artinya konvensi pasar yang sudah matang dieksekusi habis-habisan, tanpa keunikan yang diselundupkan
+ke dalamnya.
+**Keputusan:**
+1. Arah yang berlaku adalah canon. Patokan mutu yang disepakati dan dipakai sebagai ujian: YNAB
+   (pekerjaan yang menunggu pengguna diletakkan di banner paling atas), Copilot Money (urutan blok
+   dasbor tetap, nominal selalu bertanda), Monzo (detail transaksi sebagai lembar bawah), Jenius
+   (satu tombol aksi di tengah bilah bawah). Kualitas datang dari eksekusi dan alur yang bersumber
+   dari data nyata, bukan dari efek visual.
+2. Butir 4 D-17 dibatalkan. Utilitas `.bg-aurora` dan token `--glow-accent` beserta pemetaan
+   `@theme inline`-nya dihapus dari `styles/index.css`; tidak ada lagi rujukan glow atau aurora di
+   repositori. Butir 1 sampai 3 D-17 tetap berlaku: kanvas gelap `#050508`, radius panel 24px,
+   lembar 28px, kontrol 14px, dan CTA beradius pil penuh.
+3. Persentase bilah progres duduk di luar isian, bukan di dalamnya. Alasan: aksen mode gelap
+   `#3b82f6` dengan teks putih hanya sekitar 3.7:1 dan gagal AA untuk teks 11.5px; label di luar
+   isian menghapus cabang `insideFill`/`text-white` sekaligus memastikan persentase tidak pernah
+   bergantung pada warna atau pada lebar isian.
+4. Nominal diisi lewat papan angka di dalam lembar, bukan lewat isian teks. Papan fisik tetap
+   bekerja (angka menambah, Backspace mengurangi). Batas P0 Rp999.999.999.999 ditegakkan di papan:
+   angka di atas batas tidak diterima, bukan dibulatkan.
+5. Kontrol tema di kepala HP dihapus. Tema tetap ada di rel desktop dan di Profil, bagian
+   Preferensi, karena canon menaruh tema di pengaturan, bukan di setiap layar.
+6. Kepala HP dibuat opaque; blur dihapus karena di sana blur tidak memberi fungsi, sementara
+   glassmorphism yang tidak berfungsi dilarang R-10.
+**Alasan:** Rujukan pasar adalah bahasa yang sudah matang untuk aplikasi uang, dan pemilik memilihnya
+secara eksplisit. Menghapus butir 4 D-17 menutup satu-satunya pelanggaran R-01 dan R-13 yang masih
+tersisa di sistem, sekaligus memangkas dua token yang tidak punya pemakai.
+**Konsekuensi:** `docs/DESIGN.md` ditulis ulang mengikuti arah ini: bagian glow dan aurora hilang,
+radius kartu disebut sesuai token panel 24px (bukan 18px), skala huruf disebut delapan langkah,
+dan aturan persentase progres diperbarui. D-13 tetap berlaku apa adanya; bahasa dokumen dan
+komentar tidak berubah pada sesi ini.
+**Status:** Selesai dan terverifikasi; laporan gerbangnya ada di `docs/DELIVERY_GATE.md` bagian D-18.
+Putaran tinjauan sesudahnya menutup tujuh cacat tampilan tanpa mengubah perilaku finansial: kolom tanda
+netral dibiarkan kosong (tanda apa pun pada nilai tanpa arah dibaca sebagai minus pada pembacaan
+tangkapan), kotak kiri baris transfer memakai glif transfer, aksi kaki lembar diseragamkan 52 px,
+aksen gelap dinaikkan ke `#60a5fa`, sisa anggaran tidak lagi bertanda `+`, aksi per-baris lembar
+berulang dipindah ke tepi konten, dan satu blok tes kolom tanda yang sudah tidak berlaku dihapus.
+
+## D-19 · Celah PRD dan aturan tampilan yang diperjelas saat redesain canon
+
+**Tanggal:** 1 Oktober 2026
+**Konteks:** Redesain arah canon menyentuh setiap layar, dan di situ tiga celah antara PRD dan kode
+terbuka: janji di antarmuka yang tidak punya jalannya, janji privasi yang tidak dijalankan, dan satu
+kartu P0 yang dihitung server tetapi tidak pernah muncul. Selain itu dua aturan tampilan ternyata
+lebih luas daripada kenyataan.
+**Keputusan:**
+1. **Alur konfirmasi rencana berulang dibangun, bukan sekadar dicatat (FR17/FR09).** Label tombol
+   di banner Beranda menjanjikan "Catat transaksi berulang", tetapi `openQuickEntry()` membuka
+   formulir kosong dan `api.confirmOccurrence`/`api.skipOccurrence` tidak dipanggil berkas web mana
+   pun. Sekarang banner membuka lembar "Transaksi berulang menunggu" yang memuat label, jadwal, dan
+   nominal bertanda, lalu memanggil kedua endpoint itu dan menyegarkan ringkasan.
+2. **Penyuntingan per-isian sengaja tidak dibuat.** Server menerima `overrides` (`amount`,
+   `walletId`, `categoryId`, `toWalletId`, `fee`, `effectiveDate`, `note`) pada
+   `POST /occurrences/:id/confirm`. Lembar hanya mengonfirmasi apa adanya atau melewati kejadian.
+   Alasan: satu nilai yang salah lebih baik dikoreksi setelah tercatat lewat transaksi pembalikan
+   dan pengganti, daripada dibuatkan formulir kedua di dalam dasbor yang harus diuji sendiri.
+3. **"Lewati" tidak menghapus rencana.** Kejadian ditandai `skipped` dan `next_on` maju ke jadwal
+   berikutnya; rencana berulangnya tetap berjalan, dan itu diucapkan di toast.
+4. **Draf lokal dihapus saat keluar.** Layar Profil, bagian Keamanan, menjanjikan draf yang belum
+   terkirim ikut terhapus, dan draf bisa memuat nominal serta catatan. `signOut` di
+   `app/web/src/lib/session.tsx` sekarang memanggil `clearAllDrafts(user.workspaceId)` sebelum sesi
+   lokal dibersihkan.
+5. **Kartu "Dana belum dialokasikan" (FR04) ditampilkan di dalam panel saldo.** Angkanya sudah
+   dihitung server (`unallocatedFunds` = kas dikurangi alokasi tujuan aktif) dan sudah dikirim API,
+   tetapi tidak punya tempat di antarmuka. Ia diletakkan di panel saldo, bukan sebagai blok
+   tersendiri, supaya urutan blok Beranda yang tetap tidak berubah; label dan penjelasannya mengikuti
+   kalimat PRD yang melarang angka ini dibaca sebagai rekomendasi belanja.
+6. **Nol tidak punya arah.** Aturan kolom tanda diperjelas: `+` dan `-` hanya untuk nominal yang
+   benar-benar bergerak, nol selalu netral (`·`). Sebelumnya baris pembanding di Laporan menampilkan
+   "+Rp0" karena arah baris diturunkan ke nilai nol, dan pembaca layar mengucapkan "plus nol".
+7. **Monospace untuk nominal yang berdiri sendiri.** `DESIGN.md` disempitkan: nominal yang tersemat
+   di dalam satu kalimat yang datang dari server sebagai string utuh (mis. badan pengingat
+   "Piutang kepada Dimas sebesar Rp750.000 jatuh tempo 6 Okt 2026.") memakai rupa teks, karena satu
+   kalimat tidak boleh berganti rupa di tengahnya dan angkanya tetap tabular.
+**Alasan:** PRD adalah sumber kebenaran produk, jadi janji di antarmuka tidak boleh dibiarkan tanpa
+jalannya dan kartu P0 tidak boleh hanya hidup di respons API. Aturan tampilan sebaliknya harus
+disempitkan sampai sesuai kenyataan, bukan dibiarkan sebagai klaim yang tidak terverifikasi.
+**Konsekuensi:** Cacat yang ikut ditemukan dan diperbaiki pada sesi yang sama: bug bulan pada
+`server/src/tools/seed.ts`, bug jarak hari pengingat jatuh tempo di
+`server/src/domain/notifications.ts`, pengucapan arah uang yang hilang pada `Money`, dan 16 ekspor
+mati yang dihapus. Rinciannya ada di `docs/DELIVERY_GATE.md` bagian D-18 dan ringkasannya di
+`docs/STATUS.md`. Lembar konfirmasi berulang tetap bisa berkembang ke penyuntingan nilai bila
+PRD menuntutnya.
+**Status:** Selesai dan terverifikasi; laporan gerbangnya ada di `docs/DELIVERY_GATE.md` bagian D-18.
+Aturan "nol selalu netral" dipertegas pada putaran tinjauan: nominal netral tidak memakai glif apa pun
+di kolom tanda, dan `DESIGN.md` mencatat dua penanda yang sudah dicoba dan gagal (titik tengah `·`
+yang diketik dan bulatan yang digambar).

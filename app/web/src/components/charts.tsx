@@ -1,4 +1,4 @@
-// components/charts.tsx: grafik SVG yang digambar sendiri (DESIGN.md §10).
+// components/charts.tsx: grafik SVG yang digambar sendiri (DESIGN.md "Components").
 // Tanpa pustaka pihak ketiga. Setiap grafik membawa aria-label yang menyebut isinya,
 // dan nilai persisnya selalu tersedia sebagai teks di dekatnya, bukan hanya sebagai bentuk.
 import { useId, useMemo, useState } from 'react';
@@ -186,7 +186,7 @@ export function LineChart({
         ))}
       </svg>
 
-      {/* Nilai persis: grafik bukan satu-satunya sumber angka (DESIGN.md §10). */}
+      {/* Nilai persis: grafik bukan satu-satunya sumber angka (DESIGN.md "Components"). */}
       <ul className="flex flex-col">
         {labels.map((label, index) => (
           <li key={label} className="row-divide flex items-center justify-between gap-3 py-1.5">
@@ -277,72 +277,5 @@ export function DonutChart({ slices, total, label }: { slices: Slice[]; total: n
         ))}
       </ul>
     </div>
-  );
-}
-
-/**
- * BarChart: perbandingan beberapa nilai diskret (misalnya pemasukan dan pengeluaran per bulan).
- * Setiap batang membawa nilai persis di bawahnya, jadi tinggi batang hanya alat bantu pandang.
- */
-export function BarChart({
-  labels, series, height = 180,
-}: { labels: string[]; series: Series[]; height?: number }) {
-  const W = 320;
-  const H = height;
-  const padTop = 10;
-  const padBottom = 30;
-  const plotH = H - padTop - padBottom;
-  const all = series.flatMap((entry) => entry.values);
-  const max = Math.max(1, ...all);
-  const groupW = W / Math.max(1, labels.length);
-  const barW = Math.max(4, (groupW * 0.62) / Math.max(1, series.length));
-
-  return (
-    <svg
-      viewBox={`0 0 ${W} ${H}`}
-      className="h-auto w-full"
-      role="img"
-      aria-label={`Grafik batang ${series.map((entry) => entry.name).join(' dan ')} untuk ${labels.join(', ')}.`}
-    >
-      {[0, 0.5, 1].map((ratio) => {
-        const y = padTop + plotH - ratio * plotH;
-        return (
-          <g key={ratio}>
-            <line x1="0" x2={W} y1={y} y2={y} stroke="var(--hairline)" strokeWidth="1" strokeDasharray="2 4" />
-            <text x="0" y={y - 4} className="fill-muted" fontSize="9">
-              {compactIDR(max * ratio)}
-            </text>
-          </g>
-        );
-      })}
-
-      {labels.map((label, index) => {
-        const groupX = index * groupW + groupW / 2;
-        const seriesW = barW * series.length + 2 * (series.length - 1);
-        return (
-          <g key={label}>
-            {series.map((entry, seriesIndex) => {
-              const value = entry.values[index] ?? 0;
-              const barH = Math.max(2, (value / max) * plotH);
-              const x = groupX - seriesW / 2 + seriesIndex * (barW + 2);
-              return (
-                <rect
-                  key={entry.name}
-                  x={x}
-                  y={padTop + plotH - barH}
-                  width={barW}
-                  height={barH}
-                  rx={Math.min(3, barW / 2)}
-                  fill={SERIES_COLOR[entry.tone]}
-                />
-              );
-            })}
-            <text x={groupX} y={H - 14} textAnchor="middle" fontSize="9" className="fill-muted">
-              {label}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
   );
 }

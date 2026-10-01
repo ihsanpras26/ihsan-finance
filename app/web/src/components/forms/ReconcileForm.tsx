@@ -63,10 +63,10 @@ export function ReconcileForm({
       title="Rekonsiliasi saldo"
       footer={
         <div className="flex flex-col gap-2 sm:flex-row-reverse">
-          <Button type="submit" form={formId} loading={busy} disabled={noDifference} block>
+          <Button type="submit" form={formId} loading={busy} disabled={noDifference} size="lg" block>
             Simpan penyesuaian
           </Button>
-          <Button variant="ghost" onClick={onClose} block>
+          <Button variant="ghost" onClick={onClose} size="lg" block>
             Batal
           </Button>
         </div>

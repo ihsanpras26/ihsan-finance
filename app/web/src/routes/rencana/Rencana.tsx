@@ -1,34 +1,34 @@
-// routes/rencana/Rencana.tsx : Utang & Piutang, Goals, and Anggaran as three tabs (PRD §03).
-// The tab strip is a segmented pill row inside its own card, so the switch between sections reads
-// as one control sitting on the card canvas instead of a row of links floating above the content.
+// routes/rencana/Rencana.tsx : Anggaran, utang dan piutang, serta tujuan sebagai tiga tab (PRD §03).
+// Hanya tab yang sedang terbuka yang dirender, jadi tab yang belum dibuka tidak memanggil
+// endpoint-nya sendiri dan berpindah tab tidak memuat ulang tab lain.
 import { useState } from 'react';
-import { Card, PageHeader, Tabs } from '../../components/ui.tsx';
+import { Card, PageHeader, TabPanel, Tabs } from '../../components/ui.tsx';
+import { BudgetTab } from './parts/BudgetTab.tsx';
 import { DebtTab } from './parts/DebtTab.tsx';
 import { GoalTab } from './parts/GoalTab.tsx';
-import { BudgetTab } from './parts/BudgetTab.tsx';
 
-type RencanaTab = 'utang' | 'goals' | 'anggaran';
+type RencanaTab = 'anggaran' | 'utang' | 'tujuan';
 
 const TABS: { id: RencanaTab; label: string }[] = [
-  { id: 'utang', label: 'Utang & Piutang' },
-  { id: 'goals', label: 'Goals' },
   { id: 'anggaran', label: 'Anggaran' },
+  { id: 'utang', label: 'Utang' },
+  { id: 'tujuan', label: 'Tujuan' },
 ];
 
 export function RencanaPage() {
-  const [tab, setTab] = useState<RencanaTab>('utang');
+  const [tab, setTab] = useState<RencanaTab>('anggaran');
 
   return (
     <div className="flex flex-col">
-      <PageHeader title="Rencana" subtitle="Utang dan piutang, tujuan dana, dan batas anggaran bulan ini." />
+      <PageHeader title="Rencana" subtitle="Batas anggaran bulan ini, utang dan piutang, dan tujuan dana." />
       <Card as="div" className="mt-4 px-4 py-3 lg:px-5">
-        <Tabs label="Bagian rencana" tabs={TABS} active={tab} onChange={setTab} />
+        <Tabs label="Bagian rencana" tabs={TABS} active={tab} onChange={setTab} idBase="rencana" />
       </Card>
-      <div className="mt-3 lg:mt-4">
-        {tab === 'utang' ? <DebtTab /> : null}
-        {tab === 'goals' ? <GoalTab /> : null}
+      <TabPanel idBase="rencana" id={tab} className="mt-3 lg:mt-4">
         {tab === 'anggaran' ? <BudgetTab /> : null}
-      </div>
+        {tab === 'utang' ? <DebtTab /> : null}
+        {tab === 'tujuan' ? <GoalTab /> : null}
+      </TabPanel>
     </div>
   );
 }

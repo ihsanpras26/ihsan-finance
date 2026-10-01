@@ -2,7 +2,7 @@
 // Berkas ini sengaja .ts (bukan .tsx) supaya Node 24 dapat menjalankannya lewat type stripping.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatIDR, formatSigned, moneySign, signGlyph, NEUTRAL_SIGN, parseAmountInput, toMinor } from '../src/lib/format.ts';
+import { formatIDR, formatSigned, moneySign, parseAmountInput, toMinor } from '../src/lib/format.ts';
 
 test('saldo negatif tanpa arah tetap menampilkan tanda minus', () => {
   // Regresi: daftar dompet di Profil pernah menampilkan Rp572.000 untuk saldo -Rp572.000.
@@ -25,19 +25,6 @@ test('formatSigned menempelkan tanda pada badan angka', () => {
   assert.equal(formatSigned(25_000, 'out'), '−Rp25.000');
   assert.equal(formatSigned(-572_000, 'zero'), '−Rp572.000');
   assert.equal(formatSigned(0, 'zero'), 'Rp0');
-});
-
-test('kolom tanda selalu terisi supaya nominal lurus dalam satu kolom', () => {
-  // DESIGN.md §5: posisi tanda tidak pernah kosong, jadi seluruh angka rata kanan pada satu kolom.
-  assert.equal(signGlyph(25_000, 'in'), '+');
-  assert.equal(signGlyph(25_000, 'out'), '−');
-  assert.equal(signGlyph(25_000, 'zero'), NEUTRAL_SIGN);
-  assert.equal(signGlyph(-572_000, 'zero'), '−');
-  assert.equal(signGlyph(0, 'zero'), NEUTRAL_SIGN);
-  // Setiap hasilnya tepat satu karakter, karena kolomnya selebar satu karakter.
-  for (const glyph of [signGlyph(1, 'in'), signGlyph(1, 'out'), signGlyph(1, 'zero')]) {
-    assert.equal([...glyph].length, 1);
-  }
 });
 
 test('formatIDR memakai pemisah ribuan dan tidak pernah kehilangan tiga nol', () => {

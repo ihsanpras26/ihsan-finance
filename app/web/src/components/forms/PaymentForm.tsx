@@ -83,10 +83,10 @@ export function PaymentForm({
       title={payable ? 'Catat cicilan' : 'Catat penerimaan piutang'}
       footer={
         <div className="flex flex-col gap-2 sm:flex-row-reverse">
-          <Button type="submit" form={formId} loading={busy} block>
+          <Button type="submit" form={formId} loading={busy} size="lg" block>
             {payable ? 'Catat cicilan' : 'Catat penerimaan'}
           </Button>
-          <Button variant="ghost" onClick={onClose} block>
+          <Button variant="ghost" onClick={onClose} size="lg" block>
             Batal
           </Button>
         </div>

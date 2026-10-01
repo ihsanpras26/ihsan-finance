@@ -14,7 +14,7 @@ import {
   ensureDueNotifications, listNotifications, markAllRead, markRead, unreadCount,
 } from '../src/domain/notifications.ts';
 import { runScheduler } from '../src/workers/scheduler.ts';
-import { addDays, localDateInTz } from '../src/core/dates.ts';
+import { addDays, formatDateID, localDateInTz } from '../src/core/dates.ts';
 
 function setup(openingBalance = 1_000_000) {
   const ws = makeWorkspace(makeDb());
@@ -230,6 +230,36 @@ test('pengingat H−7, H−1, dan H−0 muncul sekali saja', () => {
   assert.equal(markAllRead(ctx).updated, 2, 'tandai semua dibaca');
   assert.equal(unreadCount(ctx), 0);
   assert.equal(markAllRead(ctx).updated, 0);
+});
+
+test('pengingat yang dibuat terlambat menyebut sisa hari sebenarnya, bukan nama slotnya', () => {
+  const { ctx, wallet, today } = setup();
+  const due = addDays(today, 3);
+  createDebt(ctx, {
+    direction: 'receivable', counterpartyName: 'Rani', principal: 250_000,
+    startDate: today, dueDate: due, openingMode: 'cash', walletId: wallet.id,
+  });
+
+  assert.equal(ensureDueNotifications(ctx, today).created, 1, 'slot H−7 dibuat karena jatuh tempo sudah dekat');
+
+  const [pengingat] = listNotifications(ctx);
+  assert.equal(pengingat!.title, 'Jatuh tempo 3 hari lagi: piutang Rani', 'judul mengikuti sisa hari nyata');
+  assert.equal(pengingat!.daysUntil, 3, 'sisa hari dihitung untuk hari ini');
+  assert.equal(
+    pengingat!.body,
+    `Piutang kepada Rani sebesar Rp250.000 jatuh tempo ${formatDateID(due)}. Tagih sebelum jatuh tempo.`,
+    'badan pengingat memakai tanggal yang dibaca orang, bukan tanggal mesin',
+  );
+  assert.doesNotMatch(pengingat!.body, /\d{4}-\d{2}-\d{2}/, 'tidak ada tanggal ISO di teks pengguna');
+
+  const tepatWaktu = addDays(today, 7);
+  createDebt(ctx, {
+    direction: 'payable', counterpartyName: 'Bayu', principal: 100_000,
+    startDate: today, dueDate: tepatWaktu, openingMode: 'cash', walletId: wallet.id,
+  });
+  assert.equal(ensureDueNotifications(ctx, today).created, 1, 'slot H−7 tepat waktu');
+  const bayu = listNotifications(ctx).find((item) => item.title.includes('Bayu'));
+  assert.equal(bayu!.title, 'Jatuh tempo 7 hari lagi: utang Bayu', 'slot tepat waktu tetap menyebut tujuh hari');
 });
 
 test('pengingat dilewati bila jatuh tempo masih jauh atau pengingat dimatikan', () => {

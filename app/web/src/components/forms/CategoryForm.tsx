@@ -59,10 +59,10 @@ export function CategoryForm({
       title={isEdit ? 'Ubah nama kategori' : 'Kategori baru'}
       footer={
         <div className="flex flex-col gap-2 sm:flex-row-reverse">
-          <Button type="submit" form={formId} loading={busy} block>
+          <Button type="submit" form={formId} loading={busy} size="lg" block>
             {isEdit ? 'Simpan perubahan' : 'Simpan kategori'}
           </Button>
-          <Button variant="ghost" onClick={onClose} block>
+          <Button variant="ghost" onClick={onClose} size="lg" block>
             Batal
           </Button>
         </div>

@@ -1,6 +1,6 @@
-// routes/rencana/parts/DebtTab.tsx : debts (payable) and receivables (receivable) as two groups of cards.
-// Each card states the counterparty, the due date in plain words, the remaining principal at the
-// card's right edge, and how much of the principal has already been paid down.
+// routes/rencana/parts/DebtTab.tsx : utang (kewajiban) dan piutang (hak tagih) sebagai dua kelompok kartu.
+// Tiap kartu menyatakan arahnya berkata ("Saya berutang" atau "Orang berutang kepada saya"), tanggal
+// jatuh tempo berikut jarak harinya, sisa pokok di tepi kanan kartu, dan bagian pokok yang sudah turun.
 import { useState, type ReactNode } from 'react';
 import { api, type Debt, type Wallet } from '../../../lib/api.ts';
 import { useAsync } from '../../../lib/hooks.ts';
@@ -13,7 +13,7 @@ import { DebtForm } from '../../../components/forms/DebtForm.tsx';
 import { PaymentForm } from '../../../components/forms/PaymentForm.tsx';
 import { WriteOffForm } from '../../../components/forms/WriteOffForm.tsx';
 import { SwitchRow } from '../../../components/forms/support.tsx';
-import { relativeDay, toMinor } from '../../../lib/format.ts';
+import { formatDateShort, relativeDay, toMinor } from '../../../lib/format.ts';
 import { sumMinor } from './money.ts';
 
 type FormState =
@@ -190,23 +190,29 @@ function sortDebts(list: Debt[]): Debt[] {
   });
 }
 
-/**
- * Lencana status pada kartu, sama seperti sebelumnya: lunas, dihapuskan, diarsipkan, lewat jatuh
- * tempo, belum ada jatuh tempo, atau jatuh tempo dalam hitungan hari.
- */
+/** Lencana keadaan catatan: lunas, dihapuskan, diarsipkan, lewat jatuh tempo, atau jatuh tempo dekat. */
 function debtPill(debt: Debt): ReactNode {
   if (debt.status === 'paid') return <StatusPill tone="in">Lunas</StatusPill>;
   if (debt.status === 'written_off') return <StatusPill tone="neutral">Dihapuskan (non-kas)</StatusPill>;
   if (debt.status === 'archived') return <StatusPill tone="neutral">Diarsipkan</StatusPill>;
   if (debt.overdue) return <StatusPill tone="out">Lewat jatuh tempo</StatusPill>;
   if (!debt.dueDate) return <StatusPill tone="neutral">Belum ada jatuh tempo</StatusPill>;
-  return <StatusPill tone="accent">Jatuh tempo {relativeDay(debt.dueDate)}</StatusPill>;
+  const days = debt.daysToDue;
+  if (days !== null && days >= 0 && days <= 7) return <StatusPill tone="warn">Jatuh tempo dekat</StatusPill>;
+  return null;
 }
 
+/** Baris tanggal jatuh tempo sebagai tanggal, dengan jarak hari bila memang dekat. */
 function dueText(debt: Debt): string {
-  if (!debt.dueDate) return 'Tanpa jatuh tempo';
-  if (debt.overdue) return `Lewat jatuh tempo ${relativeDay(debt.dueDate)}`;
-  return `Jatuh tempo ${relativeDay(debt.dueDate)}`;
+  // Tanpa tanggal jatuh tempo, keadaan itu sudah dibawa lencana, jadi baris meta dikosongkan.
+  if (!debt.dueDate) return '';
+  const short = formatDateShort(debt.dueDate);
+  const rel = relativeDay(debt.dueDate);
+  const when = rel === short ? short : `${short}, ${rel.toLowerCase()}`;
+  // Catatan yang sudah selesai atau sudah lewat jatuh tempo cukup memuat tanggalnya; keadaan
+  // dibawa oleh lencana di baris pil, jadi satu baris tidak mengulang kata yang sama dua kali.
+  if (debt.status !== 'active' || debt.overdue) return when;
+  return `Jatuh tempo ${when}`;
 }
 
 function DebtGroup({
@@ -270,7 +276,10 @@ function DebtCard({
         </div>
       </div>
 
-      {pill ? <div className="mt-2 flex flex-wrap items-center gap-2">{pill}</div> : null}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <StatusPill tone={payable ? 'out' : 'in'}>{payable ? 'Saya berutang' : 'Orang berutang kepada saya'}</StatusPill>
+        {pill}
+      </div>
 
       <div className="mt-3">
         <ProgressBar
