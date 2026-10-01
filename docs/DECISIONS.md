@@ -345,3 +345,46 @@ PRD menuntutnya.
 Aturan "nol selalu netral" dipertegas pada putaran tinjauan: nominal netral tidak memakai glif apa pun
 di kolom tanda, dan `DESIGN.md` mencatat dua penanda yang sudah dicoba dan gagal (titik tengah `·`
 yang diketik dan bulatan yang digambar).
+
+## D-20 · Kontrak penyalaan produksi: satu proses, satu volume, cadangan harian
+
+**Tanggal:** 1 Oktober 2026
+**Konteks:** PRD §13 memilih satu layanan aplikasi untuk P0 dan menyerahkan pemilihan hosting ke
+desain teknis; NFR05 menuntut cadangan harian otomatis dengan RPO maksimal 24 jam, RTO maksimal 8
+jam, dan uji restore sebelum rilis; NFR07 meminta cadangan ikut meluruh. Aplikasi memakai
+`node:sqlite` dalam mode WAL, jadi basis datanya adalah **berkas**, bukan layanan jaringan. Pemilik
+belum memilih penyedia hosting karena akun, biaya, dan domain hanya bisa diputuskan oleh dia.
+**Keputusan:**
+1. **Satu proses, satu penulis.** API, penyajian `web/dist`, dan penjadwal internal hidup di satu
+   proses Node 24; basis data SQLite tidak boleh dibagi ke beberapa replika. Menambah replika
+   berarti pindah ke Postgres/libSQL dan itu pekerjaan tersendiri, bukan setelan penyebaran.
+2. **Kontrak lingkungan, bukan setelan tersembunyi.** `HOST`, `PORT`, `APP_ORIGIN`,
+   `IHSAN_DATA_DIR`, `IHSAN_DB_PATH`, `IHSAN_BACKUP_DIR`, `IHSAN_BACKUP_KEEP`,
+   `IHSAN_TRUST_PROXY`, `IHSAN_ALLOW_REGISTRATION`, `SESSION_DAYS`, `NODE_ENV`, `LOG_LEVEL`
+   dicatat di `app/.env.example` dan `docs/DEPLOY.md`.
+3. **TLS di proksi, keamanan cookie dari `APP_ORIGIN`.** `APP_ORIGIN=https://…` menyalakan atribut
+   `Secure` pada cookie sesi dan header `Strict-Transport-Security`; tanpa itu keduanya tetap mati
+   supaya pengembangan lewat http tidak terkunci. `IHSAN_TRUST_PROXY=1` membuat daftar perangkat
+   mencatat IP klien asli di balik proksi, bukan IP proksi.
+4. **Pendaftaran ditutup setelah akun pertama.** `IHSAN_ALLOW_REGISTRATION=0` menolak pendaftaran
+   baru dengan 403, tetapi akun pertama tetap boleh lahir supaya penyalaan pertama bisa
+   di-bootstrap. Bawaannya tetap terbuka agar mesin pengembangan dan tes tidak terkunci.
+5. **Cadangan memakai `VACUUM INTO`, bukan penyalinan berkas.** `app/scripts/backup.mjs` membuat
+   snapshot konsisten walau server sedang menulis, memeriksa integritas, pelanggaran relasi, dan
+   keseimbangan jurnal sebelum berkas diakui sah, lalu memangkas retensi (`IHSAN_BACKUP_KEEP`,
+   bawaan 14). `--restore` menyimpan basis data lama lebih dulu sebagai snapshot keamanan dan
+   membuang `-wal`/`-shm` yang tertinggal. Jadwal harian disediakan lewat
+   `deploy/systemd/ihsan-backup.timer`, dan kegagalan apa pun keluar dengan kode ≠ 0 sebagai alarm.
+6. **Titik kesehatan bebas sesi.** `GET /api/v1/health` tidak menuntut sesi dan dipakai
+   `HEALTHCHECK` di `Dockerfile` serta pemeriksaan platform.
+**Alasan:** NFR05 dan NFR07 hanya bisa dijanjikan kalau snapshot dibuat otomatis dan diperiksa,
+bukan disalin manual; sedangkan batas "satu penulis" harus diucapkan karena SQLite berkas akan
+rusak kalau dipakai dua mesin sekaligus. Menyalakan `Secure`/HSTS dari `APP_ORIGIN` menempatkan
+satu sumber kebenaran untuk kedua hal itu, sehingga tidak ada setelan kedua yang bisa lupa diisi.
+**Konsekuensi:** Pemilihan penyedia, domain, dan penyimpanan cadangan luar mesin masih menunggu
+keputusan pemilik (`docs/DEPLOY.md` bagian 6 dan 7). Uji restore terjadwal tiga bulanan (NFR05)
+belum ada berkasnya; pembuktian saat ini manual dan tercatat di `docs/DEPLOY.md` bagian 5.
+Kewajiban lingkungan yang belum tertutup tetap dicatat di `docs/STATUS.md` (batas heap hook
+`pre-commit`).
+**Status:** Kontrak dan perangkat penyalaan selesai dan terverifikasi di mesin pengembangan; deploy
+pertama menunggu kredensial, domain, dan pilihan penyedia dari pemilik.

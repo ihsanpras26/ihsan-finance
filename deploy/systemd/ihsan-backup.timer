@@ -1,0 +1,12 @@
+# deploy/systemd/ihsan-backup.timer: 03:10 setiap hari (waktu server). Aktifkan dengan:
+#   systemctl enable --now ihsan-backup.timer
+[Unit]
+Description=Ihsan Finance: jadwal snapshot harian
+
+[Timer]
+OnCalendar=*-*-* 03:10:00
+Persistent=true
+RandomizedDelaySec=15m
+
+[Install]
+WantedBy=timers.target

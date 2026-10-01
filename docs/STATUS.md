@@ -17,7 +17,7 @@ pnpm smoke            # jalankan server uji dan telusuri seluruh permukaan HTTP
 pnpm dev              # jalankan API + antarmuka web untuk dipakai
 ```
 
-`pnpm verify` menjalankan pemeriksaan tipe di kedua paket, **78 tes server**, **6 tes antarmuka**,
+`pnpm verify` menjalankan pemeriksaan tipe di kedua paket, **83 tes server**, **5 tes antarmuka**,
 dan build produksi. `pnpm smoke` membuka server di dalam prosesnya sendiri dan menjalankan
 **50 pemeriksaan HTTP nyata** terhadap permukaan yang dipakai antarmuka, termasuk seluruh
 skenario penerimaan.
@@ -130,6 +130,21 @@ dompet, kategori, transaksi, baris jurnal, tautan transaksi, pihak lawan, utang,
 tujuan, alokasi tujuan, anggaran, aturan berulang, kejadian berulang, pengingat, log audit,
 catatan idempotensi, pekerjaan data.
 
+### Penyalaan produksi (persiapan, D-20)
+
+| Bagian | Berkas | Keadaan |
+|---|---|---|
+| Kontrak lingkungan | `app/.env.example`, `docs/DEPLOY.md` | Selesai · dipakai tes smoke |
+| Titik kesehatan bebas sesi + HSTS + cookie `Secure` | `server/src/http/server.ts`, `routes/auth.ts`, `config.ts` | Selesai · teruji |
+| Gerbang pendaftaran (`IHSAN_ALLOW_REGISTRATION`) | `routes/auth.ts` | Selesai · teruji |
+| Cadangan + pemulihan + retensi | `scripts/backup.mjs` | Selesai · teruji pada basis data yang sedang dipakai |
+| Wadah | `Dockerfile`, `.dockerignore`, `compose.yaml` | Selesai · **belum dibangun** (Docker tidak ada di mesin ini) |
+| VPS tanpa wadah | `deploy/systemd/ihsan.service`, `ihsan-backup.service`, `ihsan-backup.timer` | Selesai · dicoba di server pertama |
+| Runbook | `docs/DEPLOY.md` | Selesai |
+
+Belum tertutup: pilihan penyedia + domain + kredensial (menunggu pemilik), salinan cadangan luar
+mesin, alarm di luar proses, uji restore terjadwal tiga bulanan, dan pipeline.
+
 ---
 
 ## Bukti verifikasi
@@ -139,7 +154,7 @@ Perintah dan hasil nyata, bukan klaim:
 | Perintah | Hasil |
 |---|---|
 | `tsc --noEmit` server dan web | EXIT=0 keduanya |
-| Tes server (`node --test`, satu concurrency) | **78/78 lulus** |
+| Tes server (`node --test`, satu concurrency) | **83/83 lulus** |
 | Tes web (`node --test`) | **5/5 lulus** |
 | `vite build` | EXIT=0; `index-HPQJsJuM.js` 465.002 B (gzip 136.330 B), `index-Db3C64u0.css` 36.773 B (gzip 8.041 B) |
 | `pnpm smoke` | **50 lulus, 0 gagal** |
@@ -153,12 +168,15 @@ Perintah dan hasil nyata, bukan klaim:
 | Kotak ikon baris kosong di `/transaksi` | 0 dari 17 kotak |
 | Gradien CSS / gradien SVG pengkodean data grafik | 0 / 4 (satu per halaman `/laporan`, pengecualian tercatat) |
 | Telusuri live (server dev hidup, 1 Oktober 2026) | 9 halaman (5 rute desktop 1440x900, 4 rute mobile 390x844) + 2 lembar: **0 galat konsol**, 0 luapan, 0 titik netral; lembar berulang 52 px / tutup 44 px, lembar saringan 4 tombol 44 px; mode gelap `--accent` `#60a5fa` di atas tint 14% = **6,23:1**; sembunyikan nominal 0 → 27 `.sign-dot` → 0. Tangkapan tanpa pemaskan di `.impeccable/review/live/` (10 PNG, tema terang + gelap) |
+| Tes penyalaan produksi (`deploy.test.ts`, `deploy-local.test.ts`) | **5/5**: cookie `Secure` + HSTS saat `APP_ORIGIN` https, keduanya mati saat http, pendaftaran akun kedua dijawab 403 `forbidden`, titik kesehatan bebas sesi |
+| Skrip cadangan (`scripts/backup.mjs`, server sedang menulis) | snapshot 408 KB: integritas ok, 0 pelanggaran relasi, jurnal seimbang; retensi memangkas yang tertua; berkas rusak/hilang keluar 1; `--restore` menghasilkan 17 transaksi, 3 dompet, selisih jurnal **0** |
+| Smoke produksi satu proses (`NODE_ENV=production`, `APP_ORIGIN` https) | `/api/v1/health` 200 + HSTS, `/` 200 (982 B index), `/transaksi` 200 lewat fallback SPA, aset `immutable`, login demo 200 dengan cookie `Secure`, API tanpa sesi 401 |
 
-Catatan lingkungan: `pnpm --dir app verify` di mesin ini (8 GB, memori bebas ~1 GB saat dijalankan)
-perlu batas heap, yaitu `NODE_OPTIONS=--max-old-space-size=2560 pnpm --dir app verify`; tanpa batas
-hook `pre-commit` yang menjalankan perintah yang sama abort dengan "Zone Allocation failed" dan
-keluar 134. Perintah yang terbukti dijalankan terpisah: `tsc --noEmit` (server dan web) EXIT=0, tes
-server **78/78**, tes web **5/5**, `vite build` EXIT=0.
+Catatan lingkungan: mesin pengembangan ini 8 GB dengan memori bebas ~1 GB saat gerbang berjalan,
+jadi `.githooks/pre-commit` memasang `NODE_OPTIONS=--max-old-space-size=2560` sendiri bila
+pemanggil belum menyetelnya. Tanpa batas itu Node abort dengan "Zone Allocation failed" dan keluar
+134. Perintah yang terbukti: hook keluar 0, `tsc --noEmit` (server dan web) EXIT=0, tes server
+**83/83**, tes web **5/5**, `vite build` EXIT=0.
 
 Cakupan skenario penerimaan yang diuji otomatis, memakai penomoran PRD §15:
 

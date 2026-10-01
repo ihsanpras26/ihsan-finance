@@ -1,0 +1,26 @@
+# deploy/systemd/ihsan.service: unit aplikasi untuk VPS (satu proses, tanpa wadah).
+# Salin ke /etc/systemd/system/, sesuaikan User/WorkingDirectory, lalu:
+#   systemctl daemon-reload && systemctl enable --now ihsan
+[Unit]
+Description=Ihsan Finance (API + PWA + penjadwal)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ihsan
+WorkingDirectory=/opt/ihsan/app
+EnvironmentFile=/etc/ihsan/ihsan.env
+ExecStart=/usr/bin/node server/src/main.ts
+Restart=always
+RestartSec=3
+# Batas sederhana supaya masalah memori muncul sebagai restart, bukan sebagai mesin yang membeku.
+MemoryMax=768M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/data
+
+[Install]
+WantedBy=multi-user.target

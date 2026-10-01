@@ -13,7 +13,9 @@
     "test": "pnpm --dir server test",
     "typecheck": "pnpm --dir server typecheck && pnpm --dir web typecheck",
     "build": "pnpm --dir web build",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "start": "node server/src/main.ts",
+    "backup": "node scripts/backup.mjs"
   },
   "engines": {
     "node": ">=24.0.0"

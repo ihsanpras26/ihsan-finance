@@ -96,7 +96,7 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
       },
     },
     bodyLimit: 1_048_576,
-    trustProxy: false,
+    trustProxy: config.trustProxy,
   });
 
   app.addHook('onRequest', async (request, reply) => {
@@ -104,6 +104,8 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
     reply.header('X-Content-Type-Options', 'nosniff');
     reply.header('Referrer-Policy', 'same-origin');
     reply.header('X-Frame-Options', 'DENY');
+    // Only meaningful over TLS; local http development must not pin a browser to https.
+    if (config.secureOrigin) reply.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   });
 
   app.addHook('preHandler', async (request, reply) => {

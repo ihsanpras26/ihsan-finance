@@ -119,6 +119,7 @@ Seluruh keputusan lain beserta alasannya ada di `docs/DECISIONS.md`.
 | `docs/DESIGN.md` | Arah visual: palet, rupa huruf, jarak, motif, gerak |
 | `docs/DECISIONS.md` | Keputusan teknis dan penyimpangan yang dicatat terbuka |
 | `docs/STATUS.md` | Keadaan tiap fitur, cakupan tes, dan yang belum selesai |
+| `docs/DEPLOY.md` | Menjalankan di server: lingkungan, wadah, TLS, cadangan/restore, pilihan hosting |
 | `docs/DELIVERY_GATE.md` | Laporan gerbang anti-slop sebelum penyerahan |
 | `docs/SKILLS.md` | Skill agen yang dipakai, sumber, dan lisensinya |
 | `docs/UX_RESEARCH.md` | Riset pola UX aplikasi keuangan sejenis, dengan sumber |

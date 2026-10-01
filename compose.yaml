@@ -1,0 +1,19 @@
+# compose.yaml: paritas lokal untuk wadah produksi (bukan untuk pengembangan harian; pakai `pnpm dev`).
+# Pemakaian: docker compose up --build, lalu cadangan manual dengan
+#   docker compose exec ihsan node scripts/backup.mjs
+services:
+  ihsan:
+    build: .
+    image: ihsan-finance:local
+    ports:
+      - "8787:8787"
+    environment:
+      APP_ORIGIN: http://localhost:8787
+      IHSAN_TRUST_PROXY: "1"
+      IHSAN_ALLOW_REGISTRATION: "1"
+    volumes:
+      - ihsan-data:/data
+    restart: unless-stopped
+
+volumes:
+  ihsan-data:

@@ -13,8 +13,16 @@ function envInt(name: string, fallback: number): number {
   return Number.isFinite(value) ? value : fallback;
 }
 
+function envFlag(name: string, fallback: boolean): boolean {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === '') return fallback;
+  return !['0', 'false', 'no', 'off'].includes(raw.trim().toLowerCase());
+}
+
 const dataDir = process.env.IHSAN_DATA_DIR ? resolve(process.env.IHSAN_DATA_DIR) : join(APP_ROOT, 'data');
 mkdirSync(dataDir, { recursive: true });
+
+const appOrigin = process.env.APP_ORIGIN ?? '';
 
 export const config = {
   port: envInt('PORT', 8787),
@@ -27,7 +35,16 @@ export const config = {
   sessionDays: envInt('SESSION_DAYS', 30),
   /** Serve the built web app from the same origin when it exists (single-process demo). */
   webDist: join(APP_ROOT, 'web', 'dist'),
-  appOrigin: process.env.APP_ORIGIN ?? '',
+  appOrigin,
+  /** True when APP_ORIGIN is https; turns on Secure cookies and HSTS. */
+  secureOrigin: appOrigin.startsWith('https://'),
+  /** Behind a platform TLS terminator or reverse proxy, trust forwarded headers for client IP. */
+  trustProxy: envFlag('IHSAN_TRUST_PROXY', false),
+  /**
+   * FR01: set to 0 in production once the owner account exists. The first account is always
+   * allowed so a fresh deployment can be bootstrapped.
+   */
+  allowRegistration: envFlag('IHSAN_ALLOW_REGISTRATION', true),
 };
 
 mkdirSync(config.exportDir, { recursive: true });

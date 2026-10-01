@@ -1,0 +1,11 @@
+# deploy/systemd/ihsan-backup.service: snapshot harian basis data (NFR05, RPO 24 jam).
+# Pasangan waktu ada di ihsan-backup.timer. Kegagalan unit ini = alarm (lihat jurnal systemd).
+[Unit]
+Description=Ihsan Finance: snapshot basis data
+
+[Service]
+Type=oneshot
+User=ihsan
+WorkingDirectory=/opt/ihsan/app
+EnvironmentFile=/etc/ihsan/ihsan.env
+ExecStart=/usr/bin/node scripts/backup.mjs

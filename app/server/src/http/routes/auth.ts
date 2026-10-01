@@ -2,6 +2,7 @@
 import type { FastifyInstance } from 'fastify';
 import { AppError } from '../../core/errors.ts';
 import { config } from '../../config.ts';
+import { scalar } from '../../db/index.ts';
 import type { Db } from '../../db/index.ts';
 import {
   listSessions, loginUser, recoverAccess, registerUser, resolveSession, revokeOtherSessions, revokeSession,
@@ -15,12 +16,17 @@ import { sessionTokenOf } from '../server.ts';
 export interface RouteDeps { db: Db }
 
 function cookieHeader(token: string, maxAgeSeconds: number): string {
-  const secure = config.appOrigin.startsWith('https://') ? '; Secure' : '';
+  const secure = config.secureOrigin ? '; Secure' : '';
   return `${config.cookieName}=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAgeSeconds}${secure}`;
 }
 
 function clearCookieHeader(): string {
   return `${config.cookieName}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`;
+}
+
+/** FR01: registration is closed once the owner account exists, unless the env reopens it. */
+function userCount(db: Db): number {
+  return scalar(db, `SELECT COUNT(*) FROM users`);
 }
 
 function clientIp(request: { ip?: string; headers: Record<string, unknown> }): string | null {
@@ -49,6 +55,9 @@ export async function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps):
   const { db } = deps;
 
   app.post('/auth/register', async (request, reply) => {
+    if (!config.allowRegistration && userCount(db) > 0) {
+      throw new AppError('forbidden', 'Pendaftaran akun baru ditutup di server ini. Minta pemilik ruang menambahkan Anda.');
+    }
     const body = (request.body ?? {}) as Record<string, unknown>;
     const result = registerUser(db, {
       email: String(body.email ?? ''),

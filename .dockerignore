@@ -1,0 +1,20 @@
+# .dockerignore: konteks build hanya memuat yang dibutuhkan image.
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+**/*.log
+app/data
+app/.env
+.env
+.env.*
+!.env.example
+.git
+.githooks
+.impeccable
+.github
+backup
+coverage
+tmp
+docs
+skills
+*.md
