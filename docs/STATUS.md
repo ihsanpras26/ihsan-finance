@@ -152,8 +152,10 @@ catatan idempotensi, pekerjaan data.
 | Dump lintas mode + unggah S3/R2/B2 | `server/src/tools/offsite.ts`, `core/s3.ts`, `core/sigv4.ts` | Selesai · SigV4 cocok vektor resmi AWS; unggahan ke ember sungguhan **belum dicoba** (ember belum ada) |
 | Perintah cadangan offsite | `app/package.json` (`offsite`, `offsite:dump`) | Selesai · dump 24 tabel/193 baris/408 KB dengan pemeriksaan jurnal; sumber Turso atau berkas lokal, hasilnya di `<IHSAN_DATA_DIR>/offsite` |
 
-Belum tertutup: pilihan penyedia + domain + kredensial (menunggu pemilik), koneksi Turso sungguhan,
-ember cadangan, alarm di luar proses, uji restore terjadwal tiga bulanan, dan pipeline.
+Pemilik sudah memilih **Vercel Hobby + Turso Free + Cloudflare R2** dengan batas biaya gratis
+(D-22), dan sudah punya domain. Belum tertutup: nama domain + penyedia DNS, kredensial
+(`C:\Users\HP\.ihsan-prod.env` masih berisi penanda `ISI_DI_SINI`), koneksi Turso sungguhan, ember
+cadangan, alarm di luar proses, uji restore terjadwal tiga bulanan, dan pipeline.
 
 ---
 

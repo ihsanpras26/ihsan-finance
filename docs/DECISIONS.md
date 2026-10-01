@@ -445,3 +445,34 @@ belum ada (`docs/STATUS.md` mencatatnya sebagai kewajiban terbuka); yang terbukt
 klien HTTP untuk URL `libsql://` dan seluruh perilaku port pada basis data berkas.
 **Status:** Kode dan verifikasi selesai di mesin pengembangan; penyalaan mode B menunggu
 kredensial Turso/Vercel, nama domain, dan ember cadangan dari pemilik.
+
+---
+
+## D-22 · Penyedia produksi: Vercel Hobby + Turso Free + Cloudflare R2; kredensial di luar repo
+
+**Keputusan:** Produksi berjalan di **Vercel Hobby** (fungsi Node, cron harian) dengan basis data
+**Turso Free**, dan cadangan offsite ke **Cloudflare R2 Free**. Batas biaya yang diizinkan pemilik:
+**gratis**. Domain sudah dimiliki pemilik; DNS dikelola pemilik, jadi penyalaannya menunggu nama
+domain.
+
+**Alasan:** ketiga lapisan punya paket gratis yang cukup untuk satu pengguna P0 (satu basis data,
+puluhan ribu baris, satu cron harian, ember 10 GB). Turso menjaga dialek SQLite sehingga
+`schema.sql` tetap dipakai, Vercel menjalankan Fastify tanpa menulis ulang lapisan HTTP, dan R2
+tidak mengenakan biaya egress untuk pemulihan.
+
+**Penyerahan rahasia:** pemilik mengisi `C:\Users\HP\.ihsan-prod.env` (di luar repositori, tidak
+pernah masuk git) berisi `DOMAIN`, `DNS_PROVIDER`, `VERCEL_TOKEN`, `TURSO_API_TOKEN`, `TURSO_ORG`,
+`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, dan kredensial S3 R2. Agen membaca berkas itu lewat
+path absolut, tidak menyalin isinya ke repositori, dan tidak memasukkannya ke log atau keluaran
+perintah. Nilai yang belum diisi memakai penanda `ISI_DI_SINI`; selama penanda itu ada, penyalaan
+belum dijalankan.
+
+**Konsekuensi:** kredensial R2 S3 dibuat di dashboard Cloudflare (tidak ada API untuk membuat
+pasangan kunci S3), jadi langkah itu tetap milik pemilik walau token Cloudflare diberikan. Paket
+gratis Vercel membatasi cron ke sekali sehari dan fungsi 30 detik; dump cadangan karena itu selalu
+dijalankan dari mesin tetap, bukan dari fungsi. Bila kuota gratis tidak lagi cukup, peta pilihan
+berbayar ada di `docs/DEPLOY.md` bagian 8, dan seluruh kode tetap sama karena hanya variabel
+lingkungan yang berubah.
+
+**Status:** menunggu berkas kredensial terisi; seluruh pekerjaan yang tidak butuh kredensial sudah
+selesai dan terverifikasi.
