@@ -153,9 +153,18 @@ catatan idempotensi, pekerjaan data.
 | Perintah cadangan offsite | `app/package.json` (`offsite`, `offsite:dump`) | Selesai · dump 24 tabel/193 baris/408 KB dengan pemeriksaan jurnal; sumber Turso atau berkas lokal, hasilnya di `<IHSAN_DATA_DIR>/offsite` |
 
 Pemilik sudah memilih **Vercel Hobby + Turso Free + Cloudflare R2** dengan batas biaya gratis
-(D-22), dan sudah punya domain. Belum tertutup: nama domain + penyedia DNS, kredensial
-(`C:\Users\HP\.ihsan-prod.env` masih berisi penanda `ISI_DI_SINI`), koneksi Turso sungguhan, ember
-cadangan, alarm di luar proses, uji restore terjadwal tiga bulanan, dan pipeline.
+(D-22), domain **ihsanpras.my.id** dikelola di IDWebhost (`ns1.idwebhost.id`,
+`ns2.idwebhost.id`). Keadaan penghalang saat dicoba (2 Oktober 2026):
+
+| Penghalang | Bukti nyata |
+|---|---|
+| Token Vercel hanya bisa baca | `GET /v2/user` 200 (`pras.ihsan@gmail.com`), tetapi `POST /v11/projects` 403 `you don't have permission to create the project` dan `GET /v2/user/tokens` 403 — token `vck_…` tanpa izin penuh, jadi proyek, env, domain, dan penyebaran belum bisa dibuat |
+| R2 belum aktif di akun Cloudflare | token `cfat_…` aktif (`tokens/verify` → `active`), tetapi `GET …/r2/buckets` menjawab 10042 `Please enable R2 through the Cloudflare Dashboard` |
+| Turso belum ada kredensial | `TURSO_API_TOKEN` masih `ISI_DI_SINI`; basis data produksi belum dibuat |
+| DNS belum terdelegasi | `NS/SOA/A ihsanpras.my.id` → SERVFAIL di resolver Cloudflare dan Google, jadi zona di IDWebhost belum melayani jawaban |
+
+Belum tertutup: koneksi Turso sungguhan, ember cadangan, alarm di luar proses, uji restore terjadwal
+tiga bulanan, dan pipeline.
 
 ---
 

@@ -201,8 +201,9 @@ untuk cadangan harus dijalankan dari mesin tetap (`pnpm --dir app offsite`), buk
 ## 8. Pilihan tempat, dan yang dibutuhkan untuk masing-masing
 
 Keputusan pemilik (1 Oktober 2026): **Vercel Hobby + Turso Free + Cloudflare R2**, batas biaya
-**gratis**. Domain sudah dimiliki; DNS dikelola pemilik. Peta pilihan lain disimpan sebagai
-cadangan bila kuota gratis tidak lagi cukup:
+**gratis**. Domain **ihsanpras.my.id**, DNS dikelola di **IDWebhost** (`ns1.idwebhost.id`,
+`ns2.idwebhost.id`) — bukan Cloudflare, jadi catatan DNS dipasang di panel IDWebhost. Peta pilihan
+lain disimpan sebagai cadangan bila kuota gratis tidak lagi cukup:
 
 | Pilihan | Bentuk | Biaya kasar | Yang agen butuhkan dari pemilik |
 |---|---|---|---|
@@ -220,12 +221,16 @@ Untuk semua pilihan di atas, yang tetap sama: `APP_ORIGIN` https, penjadwal yang
 
 - Uji restore terjadwal tiga bulanan (NFR05): belum ada berkasnya; pembuktian saat ini manual dan
   tercatat di bagian 6.
-- Domain: pemilik sudah punya; nama dan penyedia DNS-nya dikumpulkan lewat berkas kredensial
-  (lihat di bawah), lalu `APP_ORIGIN` disamakan dengan domain itu.
-- Kredensial: pemilik mengisi `C:\Users\HP\.ihsan-prod.env` (di luar repo, tidak pernah masuk git)
-  berisi `DOMAIN`, `DNS_PROVIDER`, `VERCEL_TOKEN`, `TURSO_API_TOKEN`/`TURSO_ORG`, dan
-  `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` + kredensial S3 R2. Selama berkas itu masih berisi
-  penanda `ISI_DI_SINI`, penyalaan belum bisa dijalankan.
+- Domain: `ihsanpras.my.id` belum terdelegasi (kueri `NS`/`SOA`/`A` menjawab SERVFAIL di resolver
+  Cloudflare dan Google), jadi zona di panel IDWebhost harus dibuat dan diarahkan ke Vercel lebih
+  dulu. Catatan yang perlu ditambahkan menyusul dari tanggapan API Vercel saat domain dipasang.
+- Kredensial: berkas `C:\Users\HP\.ihsan-prod.env` (di luar repo, tidak pernah masuk git) sudah
+  terisi domain dan token; yang masih kosong hanya `TURSO_API_TOKEN`, `TURSO_ORG`, dan pasangan
+  kunci S3 R2.
+- Izin token: token Vercel yang ada lolos `GET /v2/user` tetapi ditolak saat membuat proyek
+  (`POST /v11/projects` → 403), jadi perlu token dengan akses penuh. Token Cloudflare aktif, tetapi
+  R2 belum dinyalakan pada akun itu (`GET …/r2/buckets` → 10042), sehingga bucket dan kredensial S3
+  belum bisa dibuat lewat API.
 - Unggahan offsite belum pernah dijalankan terhadap ember sungguhan; ember R2 akan dibuat begitu
   token Cloudflare tersedia. Yang sudah terbukti: format permintaan SigV4 cocok dengan vektor resmi
   AWS, dan round-trip dump diperiksa di `app/server/test/offsite.test.ts`.
