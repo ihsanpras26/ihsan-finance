@@ -151,6 +151,7 @@ catatan idempotensi, pekerjaan data.
 | Titik penjadwal ber-token | `server/src/http/routes/internal.ts` | Selesai · teruji: tanpa token 404/403, bertoken menjalankan penjadwal |
 | Dump lintas mode + unggah S3/R2/B2 | `server/src/tools/offsite.ts`, `core/s3.ts`, `core/sigv4.ts` | Selesai · SigV4 cocok vektor resmi AWS; unggahan ke ember sungguhan **belum dicoba** (ember belum ada) |
 | Perintah cadangan offsite | `app/package.json` (`offsite`, `offsite:dump`) | Selesai · dump 24 tabel/193 baris/408 KB dengan pemeriksaan jurnal; sumber Turso atau berkas lokal, hasilnya di `<IHSAN_DATA_DIR>/offsite` |
+| Jadwal dump harian dari Windows | `deploy/windows/offsite.ps1` | Selesai · diuji di PowerShell 5.1: dump `PASS … jurnal seimbang, integritas ok` ke direktori sendiri, log UTF-8 di `%LOCALAPPDATA%\ihsan-offsite`, kode keluar diteruskan (`EXIT=2` saat `IHSAN_S3_*` kosong) |
 
 Pemilik sudah memilih **Vercel Hobby + Turso Free + Cloudflare R2** dengan batas biaya gratis
 (D-22), domain **ihsanpras.my.id** dikelola di IDWebhost (`ns1.idwebhost.id`,
@@ -163,8 +164,15 @@ Pemilik sudah memilih **Vercel Hobby + Turso Free + Cloudflare R2** dengan batas
 | Turso belum ada kredensial | `TURSO_API_TOKEN` masih `ISI_DI_SINI`; basis data produksi belum dibuat |
 | DNS belum terdelegasi | `NS/SOA/A ihsanpras.my.id` → SERVFAIL di resolver Cloudflare dan Google, jadi zona di IDWebhost belum melayani jawaban |
 
-Belum tertutup: koneksi Turso sungguhan, ember cadangan, alarm di luar proses, uji restore terjadwal
-tiga bulanan, dan pipeline.
+Pemilik memutuskan menyalakan sendiri dari dashboard, jadi penyalaan tidak lewat REST API penyedia.
+Langkah lengkapnya ada di `docs/PANDUAN_PENYALAAN.md`: Turso → proyek dan variabel Vercel → DNS di
+IDWebhost → akun pemilik → lima pemeriksaan → ember R2 dan jadwal cadangan → pemulihan dan rotasi
+token. Panduan itu memuat perintah verifikasi yang bisa disalin (`/api/v1/health`, tick tanpa dan
+dengan token, fallback SPA, header cookie) beserta tabel gejala–penyebab–tindakan.
+
+Belum tertutup setelah panduan dijalankan: koneksi Turso sungguhan, unggahan ke ember sungguhan,
+alarm ketidakseimbangan jurnal di luar proses (NFR08), uji restore terjadwal tiga bulanan (NFR05),
+dan pipeline CI.
 
 ---
 

@@ -148,8 +148,9 @@ IHSAN_DB_URL="libsql://…turso.io" IHSAN_DB_TOKEN="…" pnpm --dir app offsite
 
 Jadwal: `deploy/systemd/ihsan-backup.timer` memanggil `backup.mjs`; untuk dump offsite, tambahkan
 unit kedua dengan jadwal sama yang menjalankan `pnpm --dir app offsite` dari direktori `app`.
-Kalau `IHSAN_S3_*` belum diisi, perintah `upload`/`all` berhenti dengan kode 2 dan tidak mengunggah
-apa pun.
+Mesin Windows memakai `deploy/windows/offsite.ps1` (membaca berkas env di luar repositori, menulis
+log, meneruskan kode keluar) yang cocok dipasang lewat Task Scheduler. Kalau `IHSAN_S3_*` belum
+diisi, perintah `upload`/`all` berhenti dengan kode 2 dan tidak mengunggah apa pun.
 
 ### 6.3 Pemulihan
 
@@ -157,9 +158,10 @@ apa pun.
   basis data lama sebagai snapshot keamanan dan membuang `-wal`/`-shm` yang tertinggal).
 - Mode berkas dari dump offsite: hentikan server, salin berkas dump menimpa `IHSAN_DB_PATH` (dump
   adalah basis data SQLite utuh), buang `-wal`/`-shm` yang tertinggal, lalu jalankan server.
-- Mode Turso: unduh berkas dump dari ember, periksa `<berkas>.json`, lalu pulihkan dengan
-  `turso db shell <basis> < <berkas>` atau `turso db import`. Uji restore wajib dilakukan di basis
-  data sementara dulu, bukan pada basis data produksi.
+- Mode Turso: unduh berkas dump dari ember, periksa `<berkas>.json`, lalu pulihkan. Berkas dump
+  adalah basis data SQLite biner, jadi ia harus diubah menjadi teks SQL lebih dulu:
+  `sqlite3 <berkas> .dump > dump.sql` lalu `turso db shell <basis> < dump.sql`. Uji restore wajib
+  dilakukan di basis data sementara dulu, bukan pada basis data produksi.
 
 Bukti uji pada basis data pengembangan (server sedang hidup, mode WAL), termasuk dump lintas mode:
 
@@ -175,7 +177,9 @@ PASS  ihsan-20261001-141209321.db — 24 tabel, 193 baris, 408 KB, jurnal seimba
 
 ## 7. Menyebarkan mode B (Vercel + Turso)
 
-Pemilik perlu melakukan sendiri bagian akun; agen tidak memegang kredensial.
+Pemilik perlu melakukan sendiri bagian akun; agen tidak memegang kredensial. Panduan langkah demi
+langkah dari dashboard — Turso, Vercel, DNS IDWebhost, akun pemilik, verifikasi, ember R2, jadwal
+cadangan — ada di `docs/PANDUAN_PENYALAAN.md`; ringkasannya di bawah ini.
 
 1. **Basis data.** Buat basis data Turso (`turso db create ihsan-finance`), ambil
    `turso db show --url ihsan-finance` dan `turso db tokens create ihsan-finance`. URL masuk
@@ -184,8 +188,9 @@ Pemilik perlu melakukan sendiri bagian akun; agen tidak memegang kredensial.
    perintah build sudah ada di `app/vercel.json` (`pnpm install --frozen-lockfile`,
    `pnpm --dir web build`, keluaran `web/dist`).
 3. **Variabel.** Isi `IHSAN_DB_URL`, `IHSAN_DB_TOKEN`, `APP_ORIGIN=https://<domain>`,
-   `IHSAN_ALLOW_REGISTRATION=0` (setelah akun pemilik dibuat), `CRON_SECRET` (acak, panjang), dan
-   `IHSAN_TRUST_PROXY=1`.
+   `IHSAN_ALLOW_REGISTRATION=0`, `CRON_SECRET` (acak, panjang), dan `IHSAN_TRUST_PROXY=1`.
+   Menyetel `0` sejak awal tetap aman: akun pertama boleh lahir sebagai pengecualian bootstrap,
+   sesudah itu pendaftaran ditolak.
 4. **Skema.** Dijalankan otomatis: setiap penyalaan fungsi memanggil `migrate(db)`, yang idempoten
    (`schema.sql` + `PRAGMA user_version`).
 5. **Cron.** `vercel.json` sudah memasang `/api/v1/internal/tick` harian; pastikan `CRON_SECRET`

@@ -92,7 +92,9 @@ Dump membaca basis data Turso bila `IHSAN_DB_URL` terisi, kalau tidak berkas lok
 Berkasnya ditaruh di `<IHSAN_DATA_DIR>/offsite` (`IHSAN_OFFSITE_DIR` bila perlu tempat lain), bukan
 di direktori snapshot `backup.mjs`, supaya retensi keduanya tidak saling menghapus.
 
-Kontrak penyalaan, penjadwal, dan pemulihan ada di `docs/DEPLOY.md`.
+Kontrak penyalaan, penjadwal, dan pemulihan ada di `docs/DEPLOY.md`; langkah dari dashboard untuk
+menyalakan produksi ada di `docs/PANDUAN_PENYALAAN.md`. Di Windows, jadwal dump harian memakai
+`deploy/windows/offsite.ps1`.
 
 ## Susunan
 
@@ -114,6 +116,9 @@ Ihsan Finance/
     api/                                fungsi Vercel pembungkus Fastify (mode serverless, D-21)
     vercel.json                         build, rewrite SPA, dan cron penjadwal harian
     web/                                React 19 + Vite 7 + Tailwind v4, PWA
+  deploy/
+    systemd/                            unit server, snapshot, dan timer cadangan
+    windows/offsite.ps1                 dump + unggah offsite terjadwal dari Task Scheduler
 ```
 
 ## Keputusan yang mengikat
@@ -140,6 +145,7 @@ Seluruh keputusan lain beserta alasannya ada di `docs/DECISIONS.md`.
 | `docs/DECISIONS.md` | Keputusan teknis dan penyimpangan yang dicatat terbuka |
 | `docs/STATUS.md` | Keadaan tiap fitur, cakupan tes, dan yang belum selesai |
 | `docs/DEPLOY.md` | Menjalankan di server: lingkungan, wadah, TLS, cadangan/restore, pilihan hosting |
+| `docs/PANDUAN_PENYALAAN.md` | Panduan langkah demi langkah penyalaan produksi (Turso, Vercel, DNS, R2) |
 | `docs/DELIVERY_GATE.md` | Laporan gerbang anti-slop sebelum penyerahan |
 | `docs/SKILLS.md` | Skill agen yang dipakai, sumber, dan lisensinya |
 | `docs/UX_RESEARCH.md` | Riset pola UX aplikasi keuangan sejenis, dengan sumber |
