@@ -142,6 +142,7 @@ catatan idempotensi, pekerjaan data.
 | VPS tanpa wadah | `deploy/systemd/ihsan.service`, `ihsan-backup.service`, `ihsan-backup.timer` | Selesai · dicoba di server pertama |
 | Runbook | `docs/DEPLOY.md` | Selesai (dua bentuk penyalaan: satu proses, serverless) |
 | Runbook mode A (VPS/mesin sendiri) | `docs/PANDUAN_PENYALAAN_VPS.md`, `deploy/caddy/Caddyfile.example`, `deploy/systemd/ihsan-offsite.service` + `.timer` | Selesai · belum dicoba di server sungguhan |
+| Mode B hidup (Vercel Hobby + Turso + DNS) | `app/vercel.json`, `app/api/index.js`, `scripts/build-api.mjs` | Selesai · `https://ihsanpras.my.id` (deployment `dpl_HpCeYFkFSHHc29mQUFHS8NMLNKMw`, commit `c9ea81a`): `/api/v1/health` 200 JSON, SPA 200 di `/`, `/transaksi`, `/tidak-ada`, API tanpa sesi 401 JSON, login salah 401, tick 403 tanpa token dan 200 bertoken |
 
 ### Lapisan data libSQL dan penyalaan serverless (D-21)
 
@@ -221,6 +222,7 @@ Perintah dan hasil nyata, bukan klaim:
 | Dump offsite dari basis data berkas (`pnpm offsite:dump`, mode A) | PASS — `sumber: …\app\data\ihsan.db`, 24 tabel, 193 baris, 408 KB, jurnal seimbang, `integrity_check` ok, segel `sha256`; berkas masuk `data/offsite/` dan snapshot `data/backups/` tidak tersentuh |
 | SigV4 terhadap vektor resmi AWS | 2/2 (`get-vanilla` `5fa00fa3…`, `get-vanilla-query-order-key-case` `b97d918c…`) |
 | Gerbang penuh (`NODE_OPTIONS=--max-old-space-size=1536 pnpm --dir app verify`) | EXIT=0 dalam ±71 detik: tsc server+web, 107 tes server, 5 tes web, `vite build` |
+| Produksi Vercel setelah D-24 (deployment `dpl_HpCeYFkFSHHc29mQUFHS8NMLNKMw`, commit `c9ea81a`) | `curl.exe -4` ke `https://ihsanpras.my.id`: `/api/v1/health` 200 `{"data":{"ok":true,…}}`; `/` 200 (`index.html` 982 B); `/transaksi` 200; `/tidak-ada` 200 lewat fallback SPA; `/api/v1/wallets` 401 `Sesi tidak ditemukan…`; login salah 401 `Email atau kata sandi belum cocok…`; `/api/v1/internal/tick` 403 tanpa token dan 200 `{"data":{"today":"2026-10-03",…}}` dengan `Bearer $CRON_SECRET`; HSTS + `X-Content-Type-Options: nosniff`; `/sw.js` 200; `/manifest.webmanifest` 200 |
 
 Catatan lingkungan: mesin pengembangan ini 8 GB dengan memori bebas ~1 GB saat gerbang berjalan,
 jadi `.githooks/pre-commit` memasang `NODE_OPTIONS=--max-old-space-size=1536` sendiri bila pemanggil
@@ -306,6 +308,10 @@ bukan sebagai satu alur peramban.
 | Pemeriksaan kontras otomatis | Dijalankan manual lewat peramban, belum masuk `pnpm verify` | Pindahkan pemeriksa kontras ke skrip gerbang; hasil ad hoc terakhir di `.impeccable/review/audit-d18.json` |
 | Peran kedua (anggota ruang) | P0 hanya pemilik tunggal per PRD | Di luar cakupan P0 |
 | Bahasa dokumen dan komentar | Penyimpangan sadar dari `AGENTS.md` aturan 7 | Menunggu keputusan pemilik; lihat `DECISIONS.md` D-13 |
+| Akun pemilik di produksi | Belum ada pengguna di Turso (`workspacesProcessed: 0`) | Pemilik mendaftar di peramban (akun pertama boleh lahir walau `IHSAN_ALLOW_REGISTRATION=0`) |
+| Cadangan offsite ke R2 | R2 belum diaktifkan di akun Cloudflare (kode 10042) | Pemilik menekan **Enable R2**, lalu isi `R2_*` dan `IHSAN_S3_*`; jalankan `node server/src/tools/offsite.ts all` |
+| `www.ihsanpras.my.id` | CNAME `www` belum ada di IDWebhost (NXDOMAIN di NS otoritatif) | Pemilik menambah `CNAME www → cname.vercel-dns.com`, lalu domain `www` ditambahkan di proyek Vercel |
+| Rotasi kredensial yang pernah tampil di obrolan | Token Vercel, Turso, dan Cloudflare pernah tercetak | Pemilik merotasi ketiganya setelah penyalaan selesai |
 
 ### Catatan AT14
 

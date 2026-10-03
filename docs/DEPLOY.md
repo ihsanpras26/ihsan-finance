@@ -211,7 +211,9 @@ cadangan — ada di `docs/PANDUAN_PENYALAAN.md`; ringkasannya di bawah ini.
    dan sebarkan ulang.
 
 Batas yang perlu diketahui: fungsi Node Vercel hanya bisa menulis di `/tmp` (dipakai untuk ekspor),
-`maxDuration` dipatok 30 detik di `vercel.json`, dan setiap penyalaan dingin membuka koneksi Turso
+`maxDuration` dipatok 30 detik di `vercel.json` (penyetelan `memory` diabaikan pada penagihan Active
+CPU, jadi tidak dipasang), berkas ber-hash di `/assets/*` dikirim `immutable` lewat `headers` supaya
+setara dengan penyalaan satu proses, dan setiap penyalaan dingin membuka koneksi Turso
 baru. Batas waktu itu cukup untuk P0 (satu pengguna, data puluhan ribu baris), tetapi dump besar
 untuk cadangan harus dijalankan dari mesin tetap (`pnpm --dir app offsite`), bukan dari fungsi.
 

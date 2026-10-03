@@ -578,3 +578,12 @@ jadi kembalikan dengan `git checkout -- app/api/index.js` sesudah diperiksa. Tid
 dengan kredensial produksi dan menjawab `/api/v1/health` 200 `{"data":{"ok":true,…}}`,
 `/api/v1/wallets` 401, login salah 401 `Email atau kata sandi belum cocok. Periksa lalu coba lagi.`,
 tick tanpa token 403. `pnpm verify` lulus: 107 tes server, 5 tes web.
+
+**Verifikasi produksi (3 Oktober 2026):** deployment `dpl_HpCeYFkFSHHc29mQUFHS8NMLNKMw`
+(commit `c9ea81a`) READY dengan fungsi benar-benar terpasang: `https://ihsanpras.my.id/api/v1/health`
+200 `{"data":{"ok":true,…}}`, `/api/v1/wallets` 401 JSON (bukan lagi HTML SPA), login salah 401
+`Email atau kata sandi belum cocok. Periksa lalu coba lagi.`, `/api/v1/internal/tick` 403 tanpa
+token dan 200 `{"data":{"today":"2026-10-03",…}}` dengan `Bearer $CRON_SECRET`, `/`, `/transaksi`,
+dan `/tidak-ada` 200 dari satu `index.html` 982 B, `/sw.js` dan `/manifest.webmanifest` 200, HSTS
+dan `X-Content-Type-Options: nosniff` terpasang. Log build memuat
+`api/index.js 1964 KB (bundel fungsi Vercel)`.
