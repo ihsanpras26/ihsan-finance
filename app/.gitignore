@@ -11,3 +11,7 @@ data/
 .DS_Store
 coverage/
 tmp/
+.vercel
+# Hasil bundel fungsi Vercel (scripts/build-api.mjs); sumbernya server/src/vercel.ts.
+api/index.js
+api/index.js.map

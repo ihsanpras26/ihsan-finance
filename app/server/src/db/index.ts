@@ -14,6 +14,18 @@ import type { Client, Transaction } from '@libsql/client';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
+declare global {
+  /** Schema text inlined by the Vercel bundle; undefined in every other target. */
+  var __IHSAN_SCHEMA__: string | undefined;
+}
+
+/**
+ * `app/scripts/build-api.mjs` defines this global as a string literal while bundling the Vercel
+ * function, which ships no assets. Everywhere else it is undefined and the file beside this module
+ * is read.
+ */
+const INLINED_SCHEMA = globalThis.__IHSAN_SCHEMA__;
+
 export type BindValue = string | number | bigint | null | Uint8Array;
 
 /** Driver values that are not native SQLite types; normalise before binding. */
@@ -148,7 +160,7 @@ export async function openDatabase(target: string, authToken?: string): Promise<
 }
 
 export async function migrate(db: Db): Promise<void> {
-  const schema = readFileSync(join(HERE, 'schema.sql'), 'utf8');
+  const schema = INLINED_SCHEMA ?? readFileSync(join(HERE, 'schema.sql'), 'utf8');
   await db.script(schema);
   // Local files only: Turso answers `PRAGMA user_version = …` over HTTP with 400
   // `SQL_PARSE_ERROR: SQL not allowed statement`, and the marker exists for local upgrades.
