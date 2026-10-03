@@ -485,3 +485,41 @@ membuat pasangan kunci S3 di dashboard. Catatan lingkar kerja: `CLOUDFLARE_API_T
 berlingkup akun, jadi `/user/tokens/verify` menjawab 401 `Invalid API Token` sementara `/zones` 200
 dan `/accounts/{id}/r2/buckets` menjawab 10042 — patokan sehat token itu adalah dua panggilan
 terakhir, bukan `verify`.
+
+---
+
+## D-23 · Fungsi Vercel dibundel esbuild dari paket server, bukan dikompilasi platform
+
+**Keputusan:** Entri fungsi Vercel adalah **`app/server/src/vercel.ts`** (sumber TypeScript, ikut
+`pnpm verify`), dan `app/scripts/build-api.mjs` membundelnya dengan esbuild menjadi
+**`app/api/index.js`** pada langkah build (`pnpm run build:api`, dipanggil `app/vercel.json`).
+Bundel itu berdiri sendiri: seluruh modul lokal, seluruh dependensi pihak ketiga, dan teks
+`schema.sql` (lewat `define` `globalThis.__IHSAN_SCHEMA__`) masuk ke dalam satu berkas. Hanya
+penggerak libSQL asli (`@libsql/client`, `libsql`) yang tetap eksternal, karena ia hanya dijangkau
+target `file:` yang tidak pernah dipakai di mode Turso. Berkas `api/index.js` dan `.map`-nya
+di-gitignore; yang di-commit hanya sumbernya.
+
+**Alasan:** dua perilaku platform yang terbukti dari kegagalan produksi, bukan dugaan:
+
+1. Vercel mengompilasi `api/*.ts` dengan `tsc`-nya sendiri, **mempertahankan spesifier impor `.ts`**
+   di JS hasilnya (log build memuat `TS5097 allowImportingTsExtensions`), dan **mengirim hanya
+   berkas `.js`** (0 `.ts`, 33 `.js` di `server/`). Fungsi karena itu mati pada impor pertama dengan
+   `ERR_MODULE_NOT_FOUND: …server/src/config.ts` → 500 `FUNCTION_INVOCATION_FAILED`. Repo ini
+   menjalankan TypeScript langsung di Node 24 (D-03), jadi spesifier `.ts` memang wajib ada di
+   sumber; yang salah adalah menyerahkan kompilasi ke platform.
+2. `functions.includeFiles` bukan jalan keluar: dengan `includeFiles: "server/src/**"` berkas `.ts`
+   tetap tidak terkirim dan `schema.sql` justru hilang.
+
+**Konsekuensi:** bundel CJS di keluaran ESM perlu banner `createRequire(import.meta.url)`, karena
+Fastify/pino memanggil `require('node:events')` dan esbuild melempar `Dynamic require of … is not
+supported` tanpa itu. Entri tidak boleh diletakkan di `api/`: Vercel menolak `api/index.ts`
+berdampingan dengan `api/index.js` hasil build sebagai `Two or more files have conflicting paths`
+(nama dibandingkan tanpa ekstensi, jadi `.mjs` pun bentrok). `packages: 'external'` juga tidak
+dipakai: NFT tidak menyalin apa pun dari bundel di `api/` (fungsi hasil build tidak punya
+`node_modules`), sehingga paket eksternal akan gagal diselesaikan saat dijalankan.
+
+**Bukti:** `pnpm run build:api` → `api/index.js` 1,97 MB tanpa spesifier `.ts`; `vercel build`
+lokal menghasilkan fungsi berisi hanya `api/index.js` (2,0 MB, tanpa `node_modules`); menjalankan
+artefak itu lewat shim HTTP dengan kredensial produksi menjawab `/api/v1/health` 200
+`{"data":{"ok":true,…}}`, `/api/v1/wallets` 401, login salah 401 dengan pesan Indonesia (baca/tulis
+Turso lewat `@libsql/client/web` yang dibundel), dan tick tanpa token 403.

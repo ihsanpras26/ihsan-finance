@@ -148,7 +148,7 @@ catatan idempotensi, pekerjaan data.
 | Bagian | Berkas | Keadaan |
 |---|---|---|
 | Port basis data (berkas atau Turso) | `server/src/db/index.ts` | Selesai · teruji: pemilihan klien, transaksi bersarang, isolasi konteks async, uang tetap `INTEGER` |
-| Fungsi Vercel pembungkus Fastify | `app/api/index.ts`, `app/vercel.json` | Selesai · dijalankan lewat soket HTTP nyata (health, register, dompet, fallback SPA) |
+| Fungsi Vercel pembungkus Fastify | `server/src/vercel.ts`, `scripts/build-api.mjs`, `app/vercel.json` | Selesai · bundel esbuild 1,97 MB dijalankan lewat soket HTTP nyata terhadap Turso produksi: health 200, login salah 401, dompet tanpa sesi 401, tick tanpa token 403 |
 | Titik penjadwal ber-token | `server/src/http/routes/internal.ts` | Selesai · teruji: tanpa token 404/403, bertoken menjalankan penjadwal |
 | Dump lintas mode + unggah S3/R2/B2 | `server/src/tools/offsite.ts`, `core/s3.ts`, `core/sigv4.ts` | Selesai · SigV4 cocok vektor resmi AWS; unggahan ke ember sungguhan **belum dicoba** (ember belum ada) |
 | Perintah cadangan offsite | `app/package.json` (`offsite`, `offsite:dump`) | Selesai · dump 24 tabel/193 baris/408 KB dengan pemeriksaan jurnal; sumber Turso atau berkas lokal, hasilnya di `<IHSAN_DATA_DIR>/offsite` |
@@ -175,6 +175,21 @@ Belum tertutup setelah panduan dijalankan: koneksi Turso sungguhan, unggahan ke 
 alarm ketidakseimbangan jurnal di luar proses (NFR08), uji restore terjadwal tiga bulanan (NFR05),
 dan pipeline CI.
 
+Keadaan 3 Oktober 2026 (penyalaan dijalankan; menggantikan tabel penghalang di atas):
+
+| Bagian | Keadaan |
+|---|---|
+| Token Vercel | berakses penuh — proyek `ihsan-finance-app` dibuat, sembilan variabel produksi terpasang, domain `ihsanpras.my.id` terverifikasi, penyebaran berjalan dari `main` |
+| Turso | aktif — basis data `ihsan-finance` (24 tabel, `migrate` idempoten) |
+| DNS | apex `A → 216.198.79.1` hidup, `NS` → `ns1`/`ns2.idwebhost.id`; `www` belum punya catatan |
+| R2 | masih 10042 `Please enable R2 through the Cloudflare Dashboard`; pasangan kunci S3 menunggu pemilik |
+| Akun pemilik | belum lahir; pendaftaran akun pertama tetap terbuka walau `IHSAN_ALLOW_REGISTRATION=0` |
+
+Dua cacat nyata ditemukan saat menyalakan produksi dan sudah diperbaiki: Turso menolak
+`PRAGMA user_version` lewat HTTP (D-21), dan fungsi Vercel mati pada impor pertama karena platform
+mengirim hanya berkas `.js` sambil mempertahankan spesifier `.ts` (D-23). Sesudah keduanya,
+`/api/v1/health` di fungsi hasil bundel menjawab 200 dengan sumber Turso sungguhan.
+
 ---
 
 ## Bukti verifikasi
@@ -184,7 +199,7 @@ Perintah dan hasil nyata, bukan klaim:
 | Perintah | Hasil |
 |---|---|
 | `tsc --noEmit` server dan web | EXIT=0 keduanya |
-| Tes server (`node --test`, satu concurrency) | **106/106 lulus** (termasuk `db-port` 9/9, `offsite` 11/11, `internal-tick` 3/3) |
+| Tes server (`node --test`, satu concurrency) | **107/107 lulus** (termasuk `db-port` 10/10, `offsite` 11/11, `internal-tick` 3/3) |
 | Tes web (`node --test`) | **5/5 lulus** |
 | `vite build` | EXIT=0; `index-HPQJsJuM.js` 465.002 B (gzip 136.330 B), `index-Db3C64u0.css` 36.773 B (gzip 8.041 B) |
 | `pnpm smoke` | **50 lulus, 0 gagal** |
@@ -201,18 +216,24 @@ Perintah dan hasil nyata, bukan klaim:
 | Tes penyalaan produksi (`deploy.test.ts`, `deploy-local.test.ts`) | **5/5**: cookie `Secure` + HSTS saat `APP_ORIGIN` https, keduanya mati saat http, pendaftaran akun kedua dijawab 403 `forbidden`, titik kesehatan bebas sesi |
 | Skrip cadangan (`scripts/backup.mjs`, server sedang menulis) | snapshot 408 KB: integritas ok, 0 pelanggaran relasi, jurnal seimbang; retensi memangkas yang tertua; berkas rusak/hilang keluar 1; `--restore` menghasilkan 17 transaksi, 3 dompet, selisih jurnal **0** |
 | Smoke produksi satu proses (`NODE_ENV=production`, `APP_ORIGIN` https) | `/api/v1/health` 200 + HSTS, `/` 200 (982 B index), `/transaksi` 200 lewat fallback SPA, aset `immutable`, login demo 200 dengan cookie `Secure`, API tanpa sesi 401 |
-| Adapter serverless (`app/api/index.ts`, soket HTTP nyata) | `/api/v1/health` 200; tick tanpa token 403, bertoken 200 `{"today":"2026-10-01",…}`; register 200 + cookie `ifsess`; `GET /api/v1/wallets` 200; fallback SPA 200 |
+| Adapter serverless (`server/src/vercel.ts` → `api/index.js` hasil `pnpm run build:api`, soket HTTP nyata) | terhadap Turso produksi: `/api/v1/health` 200 `{"data":{"ok":true,…}}`; `/api/v1/wallets` 401; login salah 401 `Email atau kata sandi belum cocok. Periksa lalu coba lagi.` (membuktikan baca/tulis lewat `@libsql/client/web` yang dibundel); tick tanpa token 403 |
 | Klien remote dipilih untuk URL `libsql://` | `db.remote === true` dan kueri gagal di lapisan transpor (`tidak-ada.turso.invalid`), bukan galat modul/binding (`db-port.test.ts`) |
 | Dump offsite dari basis data berkas (`pnpm offsite:dump`, mode A) | PASS — `sumber: …\app\data\ihsan.db`, 24 tabel, 193 baris, 408 KB, jurnal seimbang, `integrity_check` ok, segel `sha256`; berkas masuk `data/offsite/` dan snapshot `data/backups/` tidak tersentuh |
 | SigV4 terhadap vektor resmi AWS | 2/2 (`get-vanilla` `5fa00fa3…`, `get-vanilla-query-order-key-case` `b97d918c…`) |
-| Gerbang penuh (`NODE_OPTIONS=--max-old-space-size=1536 pnpm --dir app verify`) | EXIT=0 dalam ±66 detik: tsc server+web, 106 tes server, 5 tes web, `vite build` |
+| Gerbang penuh (`NODE_OPTIONS=--max-old-space-size=1536 pnpm --dir app verify`) | EXIT=0 dalam ±71 detik: tsc server+web, 107 tes server, 5 tes web, `vite build` |
 
 Catatan lingkungan: mesin pengembangan ini 8 GB dengan memori bebas ~1 GB saat gerbang berjalan,
 jadi `.githooks/pre-commit` memasang `NODE_OPTIONS=--max-old-space-size=1536` sendiri bila pemanggil
 belum menyetelnya. Tanpa batas heap Node abort dengan `Zone Allocation failed` dan keluar 134;
 batas 2560 MB justru lebih sering abort pada mesin ini, karena yang habis adalah memori sistem,
 bukan ruang lama V8. Perintah yang terbukti: hook keluar 0, `tsc --noEmit` (server dan web) EXIT=0,
-tes server **106/106**, tes web **5/5**, `vite build` EXIT=0.
+tes server **107/107**, tes web **5/5**, `vite build` EXIT=0.
+
+Jaringan mesin ini juga merusak IPv6: alamat NAT64 (`64:ff9b::…`) tidak bisa dihubungi, sehingga
+`curl` dan `git` gagal `Recv failure: Connection was reset`. Perintah verifikasi karena itu selalu
+`curl.exe -4`, dan `git push` yang butuh `Proxy-Connection` dijalankan lewat proxy CONNECT IPv4
+lokal sementara di `127.0.0.1:9999` (`git -c http.proxy=http://127.0.0.1:9999 push origin main`);
+perintah Node memakai `NODE_OPTIONS=--dns-result-order=ipv4first`.
 
 Cakupan skenario penerimaan yang diuji otomatis, memakai penomoran PRD §15:
 

@@ -16,13 +16,17 @@ menjadi keputusan teknis yang mengikat. Perubahan di sini dicatat di `docs/DECIS
 
 Berkas data pengembangan: `app/data/ihsan.db` (di-gitignore). Mode `WAL`, `foreign_keys=ON`.
 Produksi boleh memakai basis data Turso: `IHSAN_DB_URL` + `IHSAN_DB_TOKEN` mengalihkan target, dan
-penyalaan serverless memakai `app/api/index.ts` + cron `GET /api/v1/internal/tick` (D-21).
+penyalaan serverless memakai `server/src/vercel.ts` yang dibundel `app/scripts/build-api.mjs` menjadi
+`app/api/index.js` + cron `GET /api/v1/internal/tick` (D-21, D-23). Fungsi Vercel mengirim hanya
+berkas `.js`, jadi entri yang di-commit adalah sumber TypeScript di paket server dan berkas `api/*.js`
+adalah hasil build yang di-gitignore.
 
 ## 2. Peta modul
 
 ```
 server/src/
   main.ts            bootstrap: config → db → migrate → http → scheduler
+  vercel.ts          entri fungsi Vercel: satu instance Fastify di belakang satu handler
   config.ts          env (HOST, PORT, APP_ORIGIN, IHSAN_DB_URL/DATA_DIR, token penjadwal)
   core/              ids · money · dates · errors · validate   (tanpa dependensi domain)
   db/                schema.sql · index.ts (port libSQL: query/mutate/tx/migrate)
