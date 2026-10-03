@@ -4,12 +4,6 @@
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "pnpm run build:api && pnpm --dir web build",
   "outputDirectory": "web/dist",
-  "functions": {
-    "api/index.js": {
-      "maxDuration": 30,
-      "memory": 512
-    }
-  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index" },
     { "source": "/(.*)", "destination": "/index.html" }
