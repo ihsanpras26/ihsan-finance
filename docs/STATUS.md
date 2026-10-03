@@ -1,6 +1,6 @@
 # Status Implementasi: Ihsan Finance
 
-Diperbarui: 1 Oktober 2026
+Diperbarui: 3 Oktober 2026
 Sumber kebenaran: `PRD_Aplikasi_Keuangan_Pribadi_v1.md` · Kontrak teknis: `docs/ARCHITECTURE.md`
 Keputusan menyimpang: `docs/DECISIONS.md`
 
@@ -141,6 +141,7 @@ catatan idempotensi, pekerjaan data.
 | Wadah | `Dockerfile`, `.dockerignore`, `compose.yaml` | Selesai · **belum dibangun** (Docker tidak ada di mesin ini) |
 | VPS tanpa wadah | `deploy/systemd/ihsan.service`, `ihsan-backup.service`, `ihsan-backup.timer` | Selesai · dicoba di server pertama |
 | Runbook | `docs/DEPLOY.md` | Selesai (dua bentuk penyalaan: satu proses, serverless) |
+| Runbook mode A (VPS/mesin sendiri) | `docs/PANDUAN_PENYALAAN_VPS.md`, `deploy/caddy/Caddyfile.example`, `deploy/systemd/ihsan-offsite.service` + `.timer` | Selesai · belum dicoba di server sungguhan |
 
 ### Lapisan data libSQL dan penyalaan serverless (D-21)
 

@@ -1,0 +1,13 @@
+# deploy/systemd/ihsan-offsite.timer: 03:20 setiap hari (waktu server), setelah snapshot lokal
+# 03:10 di ihsan-backup.timer. Aktifkan dengan:
+#   systemctl enable --now ihsan-offsite.timer
+[Unit]
+Description=Ihsan Finance: jadwal cadangan offsite
+
+[Timer]
+OnCalendar=*-*-* 03:20:00
+Persistent=true
+RandomizedDelaySec=15m
+
+[Install]
+WantedBy=timers.target

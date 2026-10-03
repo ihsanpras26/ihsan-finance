@@ -146,8 +146,8 @@ pnpm --dir app offsite        # dump, unggah, lalu pangkas salinan lokal
 IHSAN_DB_URL="libsql://…turso.io" IHSAN_DB_TOKEN="…" pnpm --dir app offsite
 ```
 
-Jadwal: `deploy/systemd/ihsan-backup.timer` memanggil `backup.mjs`; untuk dump offsite, tambahkan
-unit kedua dengan jadwal sama yang menjalankan `pnpm --dir app offsite` dari direktori `app`.
+Jadwal: `deploy/systemd/ihsan-backup.timer` memanggil `backup.mjs` (03:10), dan
+`deploy/systemd/ihsan-offsite.timer` memanggil `server/src/tools/offsite.ts` (03:20).
 Mesin Windows memakai `deploy/windows/offsite.ps1` (membaca berkas env di luar repositori, menulis
 log, meneruskan kode keluar) yang cocok dipasang lewat Task Scheduler. Kalau `IHSAN_S3_*` belum
 diisi, perintah `upload`/`all` berhenti dengan kode 2 dan tidak mengunggah apa pun.
@@ -192,7 +192,8 @@ cadangan — ada di `docs/PANDUAN_PENYALAAN.md`; ringkasannya di bawah ini.
    Menyetel `0` sejak awal tetap aman: akun pertama boleh lahir sebagai pengecualian bootstrap,
    sesudah itu pendaftaran ditolak.
 4. **Skema.** Dijalankan otomatis: setiap penyalaan fungsi memanggil `migrate(db)`, yang idempoten
-   (`schema.sql` + `PRAGMA user_version`).
+   (`schema.sql`; `PRAGMA user_version` hanya ditulis pada basis data berkas karena Turso menolak
+   perintah itu lewat HTTP).
 5. **Cron.** `vercel.json` sudah memasang `/api/v1/internal/tick` harian; pastikan `CRON_SECRET`
    terisi, karena tanpa itu titik akhir menjawab 404.
 6. **Domain.** Tambahkan domain di Vercel, arahkan DNS, lalu samakan `APP_ORIGIN` dengan domain itu
@@ -222,24 +223,24 @@ lain disimpan sebagai cadangan bila kuota gratis tidak lagi cukup:
 Untuk semua pilihan di atas, yang tetap sama: `APP_ORIGIN` https, penjadwal yang berjalan
 (mode A tiap 15 menit, mode B lewat cron), dan snapshot harian yang dikirim ke luar mesin.
 
+Perintah langkah demi langkah untuk tiap bentuk ada di dua halaman: `docs/PANDUAN_PENYALAAN.md`
+(mode B, dari dashboard Vercel/Turso/IDWebhost/R2) dan `docs/PANDUAN_PENYALAAN_VPS.md` (mode A,
+VPS atau mesin sendiri, systemd atau wadah + Caddy).
+
 ## 9. Yang belum dikerjakan
 
 - Uji restore terjadwal tiga bulanan (NFR05): belum ada berkasnya; pembuktian saat ini manual dan
   tercatat di bagian 6.
-- Domain: `ihsanpras.my.id` belum terdelegasi (kueri `NS`/`SOA`/`A` menjawab SERVFAIL di resolver
-  Cloudflare dan Google), jadi zona di panel IDWebhost harus dibuat dan diarahkan ke Vercel lebih
-  dulu. Catatan yang perlu ditambahkan menyusul dari tanggapan API Vercel saat domain dipasang.
+- Domain: `ihsanpras.my.id` sudah terdelegasi (`NS` → `ns1`/`ns2.idwebhost.id`) dan apex `A`
+  mengarah ke Vercel (`216.198.79.1`); `www` belum punya catatan. Rantai TLS dan uji lewat domain
+  sungguhan terhalang kuirk jaringan mesin ini: resolusi IPv6 (NAT64) mati, jadi perintah verifikasi
+  harus memakai `curl -4`.
 - Kredensial: berkas `C:\Users\HP\.ihsan-prod.env` (di luar repo, tidak pernah masuk git) sudah
-  terisi domain dan token; yang masih kosong hanya `TURSO_API_TOKEN`, `TURSO_ORG`, dan pasangan
-  kunci S3 R2.
-- Izin token: token Vercel yang ada lolos `GET /v2/user` tetapi ditolak saat membuat proyek
-  (`POST /v11/projects` → 403), jadi perlu token dengan akses penuh. Token Cloudflare aktif, tetapi
-  R2 belum dinyalakan pada akun itu (`GET …/r2/buckets` → 10042), sehingga bucket dan kredensial S3
-  belum bisa dibuat lewat API.
-- Unggahan offsite belum pernah dijalankan terhadap ember sungguhan; ember R2 akan dibuat begitu
-  token Cloudflare tersedia. Yang sudah terbukti: format permintaan SigV4 cocok dengan vektor resmi
-  AWS, dan round-trip dump diperiksa di `app/server/test/offsite.test.ts`.
-- Pipelines CI: repo belum punya `.github/workflows`; gerbang saat ini hanya hook `pre-commit`.
+  memuat token Vercel berakses penuh, token Turso platform + basis data, dan `CRON_SECRET`; yang
+  masih kosong hanya pasangan kunci S3 R2 karena R2 belum dinyalakan.
+- R2 belum dinyalakan pada akun Cloudflare (`GET …/r2/buckets` → 10042), jadi bucket dan kredensial
+  S3 belum bisa dibuat, dan unggahan ke ember sungguhan belum pernah dijalankan. Yang sudah
+  terbukti: format permintaan SigV4 cocok dengan vektor resmi AWS, dan round-trip dump diperiksa di
+  `app/server/test/offsite.test.ts`.
+- Pipelines CI: repo belum punya `.github/workflows`.
 - Alarm ketidakseimbangan jurnal di luar proses: saat ini hanya log kode gagal (NFR08).
-- Uji jalur Turso sungguhan (koneksi jaringan): menunggu kredensial; yang terbukti sekarang adalah
-  pemilihan klien HTTP untuk URL `libsql://` dan seluruh perilaku port pada basis data berkas.

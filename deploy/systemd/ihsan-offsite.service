@@ -1,0 +1,21 @@
+# deploy/systemd/ihsan-offsite.service: dump logis + unggah ke ember S3/R2/B2 (NFR05, NFR07).
+# Pasangan waktu ada di ihsan-offsite.timer. Mode A membacanya dari berkas IHSAN_DB_PATH; mode B
+# memakai IHSAN_DB_URL/IHSAN_DB_TOKEN. Tanpa IHSAN_S3_* lengkap perintah keluar 2 tanpa mengunggah.
+[Unit]
+Description=Ihsan Finance: cadangan offsite (dump, verifikasi, unggah)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ihsan
+WorkingDirectory=/opt/ihsan/app
+EnvironmentFile=/etc/ihsan/ihsan.env
+ExecStart=/usr/bin/node server/src/tools/offsite.ts
+# Dump ditulis ke <IHSAN_DATA_DIR>/offsite; direktori itu harus berada di jalur yang boleh ditulis.
+ReadWritePaths=/data
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+TimeoutStartSec=30min

@@ -7,6 +7,9 @@ Yang akan jadi setelah selesai: aplikasi hidup di `https://ihsanpras.my.id` (fun
 basis datanya Turso, penjadwal harian Vercel memicu `/api/v1/internal/tick`, dan dump cadangan
 harian naik ke ember R2 dari mesin tetap.
 
+Untuk mesin sendiri atau VPS (mode satu proses, basis data berkas, penjadwal internal), pakai
+`docs/PANDUAN_PENYALAAN_VPS.md`. Jangan menyalakan dua bentuk penyalaan di atas basis data yang sama.
+
 Perkiraan waktu 45–60 menit, ditambah waktu propagasi DNS.
 
 | # | Bagian | Siapa | Hasil |
@@ -45,7 +48,8 @@ Catatan: skema `libsql://` dipakai apa adanya; klien aplikasi otomatis memilih j
 alamat remote. Skema berkas hanya untuk pengembangan lokal.
 
 Skema tabel tidak perlu dijalankan manual: setiap penyalaan fungsi memanggil migrasi idempoten
-(`schema.sql` + `PRAGMA user_version`).
+(`schema.sql`). Penanda `PRAGMA user_version` hanya ditulis pada basis data berkas — Turso menolak
+perintah itu lewat HTTP (`SQL_PARSE_ERROR: SQL not allowed statement`).
 
 ✅ Periksa: URL berawalan `libsql://`, token tersimpan, basis data terlihat di dashboard.
 

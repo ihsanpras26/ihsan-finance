@@ -92,9 +92,10 @@ Dump membaca basis data Turso bila `IHSAN_DB_URL` terisi, kalau tidak berkas lok
 Berkasnya ditaruh di `<IHSAN_DATA_DIR>/offsite` (`IHSAN_OFFSITE_DIR` bila perlu tempat lain), bukan
 di direktori snapshot `backup.mjs`, supaya retensi keduanya tidak saling menghapus.
 
-Kontrak penyalaan, penjadwal, dan pemulihan ada di `docs/DEPLOY.md`; langkah dari dashboard untuk
-menyalakan produksi ada di `docs/PANDUAN_PENYALAAN.md`. Di Windows, jadwal dump harian memakai
-`deploy/windows/offsite.ps1`.
+Kontrak penyalaan, penjadwal, dan pemulihan ada di `docs/DEPLOY.md`; langkah menyalakan produksi
+dari dashboard ada di `docs/PANDUAN_PENYALAAN.md` (mode serverless Vercel + Turso) dan
+`docs/PANDUAN_PENYALAAN_VPS.md` (mode satu proses di VPS atau mesin sendiri). Di Windows, jadwal
+offsite memakai `deploy/windows/offsite.ps1`.
 
 ## Susunan
 
@@ -146,6 +147,7 @@ Seluruh keputusan lain beserta alasannya ada di `docs/DECISIONS.md`.
 | `docs/STATUS.md` | Keadaan tiap fitur, cakupan tes, dan yang belum selesai |
 | `docs/DEPLOY.md` | Menjalankan di server: lingkungan, wadah, TLS, cadangan/restore, pilihan hosting |
 | `docs/PANDUAN_PENYALAAN.md` | Panduan langkah demi langkah penyalaan produksi (Turso, Vercel, DNS, R2) |
+| `docs/PANDUAN_PENYALAAN_VPS.md` | Panduan langkah demi langkah penyalaan mode A (VPS/mesin sendiri, Caddy, DNS, systemd) |
 | `docs/DELIVERY_GATE.md` | Laporan gerbang anti-slop sebelum penyerahan |
 | `docs/SKILLS.md` | Skill agen yang dipakai, sumber, dan lisensinya |
 | `docs/UX_RESEARCH.md` | Riset pola UX aplikasi keuangan sejenis, dengan sumber |

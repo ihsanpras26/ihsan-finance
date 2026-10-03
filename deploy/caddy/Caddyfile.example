@@ -1,0 +1,17 @@
+# deploy/caddy/Caddyfile.example: TLS + proksi balik untuk penyalaan satu proses (mode A).
+# Pasang ke /etc/caddy/Caddyfile, ganti keuangan.contoh.id dengan domain Anda, lalu:
+#   sudo systemctl reload caddy
+# Caddy menerbitkan sertifikat Let's Encrypt sendiri, jadi port 80 dan 443 harus terbuka ke luar
+# dan <domain> harus sudah mengarah ke mesin ini sebelum reload.
+# Aplikasi mendengarkan di 127.0.0.1:8787 (HOST/PORT di /etc/ihsan/ihsan.env); jangan buka port itu
+# ke internet. Caddy meneruskan Host, X-Forwarded-For, dan X-Forwarded-Proto sendiri, jadi
+# IHSAN_TRUST_PROXY=1 sudah cukup untuk mencatat IP klien asli.
+
+keuangan.contoh.id {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:8787
+}
+
+www.keuangan.contoh.id {
+	redir https://keuangan.contoh.id{uri} permanent
+}
