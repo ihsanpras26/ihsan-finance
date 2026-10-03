@@ -142,7 +142,7 @@ catatan idempotensi, pekerjaan data.
 | VPS tanpa wadah | `deploy/systemd/ihsan.service`, `ihsan-backup.service`, `ihsan-backup.timer` | Selesai · dicoba di server pertama |
 | Runbook | `docs/DEPLOY.md` | Selesai (dua bentuk penyalaan: satu proses, serverless) |
 | Runbook mode A (VPS/mesin sendiri) | `docs/PANDUAN_PENYALAAN_VPS.md`, `deploy/caddy/Caddyfile.example`, `deploy/systemd/ihsan-offsite.service` + `.timer` | Selesai · belum dicoba di server sungguhan |
-| Mode B hidup (Vercel Hobby + Turso + DNS) | `app/vercel.json`, `app/api/index.js`, `scripts/build-api.mjs` | Selesai · `https://ihsanpras.my.id` (deployment `dpl_HpCeYFkFSHHc29mQUFHS8NMLNKMw`, commit `c9ea81a`): `/api/v1/health` 200 JSON, SPA 200 di `/`, `/transaksi`, `/tidak-ada`, API tanpa sesi 401 JSON, login salah 401, tick 403 tanpa token dan 200 bertoken |
+| Mode B hidup (Vercel Hobby + Turso + DNS) | `app/vercel.json`, `app/api/index.js`, `scripts/build-api.mjs` | Selesai · `https://ihsanpras.my.id` (deployment `dpl_EH1JVaCYk8P94AaSmevEsASNDed4`, commit `27b9238`): `/api/v1/health` 200 JSON, SPA 200 di `/`, `/transaksi`, `/tidak-ada`, API tanpa sesi 401 JSON, login salah 401, tick 403 tanpa token dan 200 bertoken, aset ber-hash `immutable` |
 
 ### Lapisan data libSQL dan penyalaan serverless (D-21)
 
@@ -222,7 +222,7 @@ Perintah dan hasil nyata, bukan klaim:
 | Dump offsite dari basis data berkas (`pnpm offsite:dump`, mode A) | PASS — `sumber: …\app\data\ihsan.db`, 24 tabel, 193 baris, 408 KB, jurnal seimbang, `integrity_check` ok, segel `sha256`; berkas masuk `data/offsite/` dan snapshot `data/backups/` tidak tersentuh |
 | SigV4 terhadap vektor resmi AWS | 2/2 (`get-vanilla` `5fa00fa3…`, `get-vanilla-query-order-key-case` `b97d918c…`) |
 | Gerbang penuh (`NODE_OPTIONS=--max-old-space-size=1536 pnpm --dir app verify`) | EXIT=0 dalam ±71 detik: tsc server+web, 107 tes server, 5 tes web, `vite build` |
-| Produksi Vercel setelah D-24 (deployment `dpl_HpCeYFkFSHHc29mQUFHS8NMLNKMw`, commit `c9ea81a`) | `curl.exe -4` ke `https://ihsanpras.my.id`: `/api/v1/health` 200 `{"data":{"ok":true,…}}`; `/` 200 (`index.html` 982 B); `/transaksi` 200; `/tidak-ada` 200 lewat fallback SPA; `/api/v1/wallets` 401 `Sesi tidak ditemukan…`; login salah 401 `Email atau kata sandi belum cocok…`; `/api/v1/internal/tick` 403 tanpa token dan 200 `{"data":{"today":"2026-10-03",…}}` dengan `Bearer $CRON_SECRET`; HSTS + `X-Content-Type-Options: nosniff`; `/sw.js` 200; `/manifest.webmanifest` 200 |
+| Produksi Vercel setelah D-24 (commit `c9ea81a`, lalu `27b9238`) | `curl.exe -4` ke `https://ihsanpras.my.id`: `/api/v1/health` 200 `{"data":{"ok":true,…}}`; `/` 200 (`index.html` 982 B); `/transaksi` 200; `/tidak-ada` 200 lewat fallback SPA; `/api/v1/wallets` 401 `Sesi tidak ditemukan…`; login salah 401 `Email atau kata sandi belum cocok…`; `/api/v1/internal/tick` 403 tanpa token dan 200 `{"data":{"today":"2026-10-03",…}}` dengan `Bearer $CRON_SECRET`; HSTS + `X-Content-Type-Options: nosniff`; `/sw.js` 200; `/manifest.webmanifest` 200; `/assets/index-HPQJsJuM.js` `Cache-Control: public, max-age=31536000, immutable`, halaman SPA `max-age=0, must-revalidate` |
 
 Catatan lingkungan: mesin pengembangan ini 8 GB dengan memori bebas ~1 GB saat gerbang berjalan,
 jadi `.githooks/pre-commit` memasang `NODE_OPTIONS=--max-old-space-size=1536` sendiri bila pemanggil

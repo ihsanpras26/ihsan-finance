@@ -587,3 +587,10 @@ token dan 200 `{"data":{"today":"2026-10-03",…}}` dengan `Bearer $CRON_SECRET`
 dan `/tidak-ada` 200 dari satu `index.html` 982 B, `/sw.js` dan `/manifest.webmanifest` 200, HSTS
 dan `X-Content-Type-Options: nosniff` terpasang. Log build memuat
 `api/index.js 1964 KB (bundel fungsi Vercel)`.
+
+Setelah `27b9238` (deployment `dpl_EH1JVaCYk8P94AaSmevEsASNDed4`), `vercel.json` menambahkan blok
+`headers` untuk `/assets/*` (`Cache-Control: public, max-age=31536000, immutable`) supaya perilaku
+penyajian aset sama dengan penyalaan satu proses, dan menyisakan halaman SPA `max-age=0,
+must-revalidate`. Penyetelan `memory` dihapus karena log build platform menyebutnya diabaikan pada
+penagihan Active CPU; `maxDuration: 30` tetap dipakai. Keduanya diuji ulang di produksi: aset
+ber-hash menjawab `immutable`, `/api/v1/health` 200, `wallets` 401, tick 403/200.
