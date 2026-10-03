@@ -150,7 +150,11 @@ export async function openDatabase(target: string, authToken?: string): Promise<
 export async function migrate(db: Db): Promise<void> {
   const schema = readFileSync(join(HERE, 'schema.sql'), 'utf8');
   await db.script(schema);
-  await db.script('PRAGMA user_version = 1');
+  // Local files only: Turso answers `PRAGMA user_version = …` over HTTP with 400
+  // `SQL_PARSE_ERROR: SQL not allowed statement`, and the marker exists for local upgrades.
+  // Remote stays correct without it: schema.sql is all `CREATE … IF NOT EXISTS`, so it is
+  // idempotent and additive on every cold start.
+  if (!db.remote) await db.script('PRAGMA user_version = 1');
 }
 
 export async function run(db: Db, sql: string, ...params: unknown[]): Promise<{ changes: number }> {

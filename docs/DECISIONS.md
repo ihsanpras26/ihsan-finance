@@ -440,11 +440,14 @@ Mesin 8 GB tidak sanggup memberi V8 heap 2560 MB saat memori bebas menipis (`Zon
 failed`), jadi hook `pre-commit` memakai 1536 MB — angka yang lolos utuh dalam ±65 detik.
 Di Vercel Hobby penjadwal menjadi harian, bukan tiap 15 menit, sehingga pengingat
 H−7/H−1/H−0 tetap akurat harinya tetapi tidak muncul lebih rapat; pada paket berbayar frekuensi
-bisa dirapatkan tanpa perubahan kode. Koneksi Turso sungguhan belum pernah diuji karena kredensial
-belum ada (`docs/STATUS.md` mencatatnya sebagai kewajiban terbuka); yang terbukti adalah pemilihan
-klien HTTP untuk URL `libsql://` dan seluruh perilaku port pada basis data berkas.
-**Status:** Kode dan verifikasi selesai di mesin pengembangan; penyalaan mode B menunggu
-kredensial Turso/Vercel, nama domain, dan ember cadangan dari pemilik.
+bisa dirapatkan tanpa perubahan kode. Tambahan 3 Oktober 2026: koneksi Turso sungguhan sudah diuji
+(`migrate` membuat 24 tabel di basis data `ihsan-finance`, idempoten saat diulang, server lokal
+menjawab `/api/v1/health` 200 dengan sumber Turso). Uji itu menemukan satu cacat nyata: Turso
+menolak `PRAGMA user_version = …` lewat HTTP dengan 400 `SQL_PARSE_ERROR: SQL not allowed statement`,
+sehingga setiap penyalaan dingin gagal sebelum `migrate()` selesai. `migrate()` sekarang menulis
+penanda itu hanya pada basis data berkas (`if (!db.remote)`), dengan alasan: `schema.sql` seluruhnya
+`CREATE … IF NOT EXISTS` sehingga tetap idempoten dan menambah tanpa penanda versi. Perilaku itu
+dikunci tes regresi di `app/server/test/db-port.test.ts`.
 
 ---
 
@@ -474,5 +477,11 @@ dijalankan dari mesin tetap, bukan dari fungsi. Bila kuota gratis tidak lagi cuk
 berbayar ada di `docs/DEPLOY.md` bagian 8, dan seluruh kode tetap sama karena hanya variabel
 lingkungan yang berubah.
 
-**Status:** menunggu berkas kredensial terisi; seluruh pekerjaan yang tidak butuh kredensial sudah
-selesai dan terverifikasi.
+**Status:** 3 Oktober 2026 penyalaan dijalankan lewat REST API dengan kredensial dari pemilik:
+basis data Turso `ihsan-finance`, proyek Vercel `ihsan-finance-app` (Root Directory `app`, Node 24.x,
+branch produksi `main`), sembilan variabel lingkungan produksi, dan domain `ihsanpras.my.id`
+terverifikasi. Sisa milik pemilik: menekan **Enable R2** (butuh metode bayar; tidak ada API-nya) dan
+membuat pasangan kunci S3 di dashboard. Catatan lingkar kerja: `CLOUDFLARE_API_TOKEN` yang ada
+berlingkup akun, jadi `/user/tokens/verify` menjawab 401 `Invalid API Token` sementara `/zones` 200
+dan `/accounts/{id}/r2/buckets` menjawab 10042 — patokan sehat token itu adalah dua panggilan
+terakhir, bukan `verify`.

@@ -7,7 +7,8 @@ import { setTimeout } from 'node:timers/promises';
 import { mkdtempSync, rmSync, existsSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { all, migrate, one, openDatabase, run, scalar, tx, type Db } from '../src/db/index.ts';
+import { all, Db, migrate, one, openDatabase, run, scalar, tx } from '../src/db/index.ts';
+import type { Client } from '@libsql/client';
 
 const dir = mkdtempSync(join(tmpdir(), 'ihsan-port-'));
 let seq = 0;
@@ -54,6 +55,31 @@ test('migrate applies the schema once and records the version', async () => {
   assert.equal(version, 1);
   await db.close();
 });
+
+/**
+ * Turso answers `PRAGMA user_version = …` with HTTP 400 (SQL_PARSE_ERROR: SQL not allowed
+ * statement); a production cold start failed on exactly that statement. A remote migration must
+ * apply the schema and stop there, while a local file still records the version.
+ */
+test('remote migrate applies the schema without the version pragma', async () => {
+  const calls: string[] = [];
+  const recorder = {
+    async executeMultiple(sql: string) {
+      calls.push(sql);
+      return { columns: [], columnTypes: [], rows: [], rowsAffected: 0 };
+    },
+  };
+
+  await migrate(new Db(recorder as unknown as Client, true));
+  assert.equal(calls.length, 1, 'remote migration must send the schema only');
+  assert.match(calls[0], /CREATE TABLE IF NOT EXISTS/);
+
+  calls.length = 0;
+  await migrate(new Db(recorder as unknown as Client, false));
+  assert.deepEqual(calls.slice(1), ['PRAGMA user_version = 1'], 'local files keep recording the version');
+  assert.match(calls[0], /CREATE TABLE IF NOT EXISTS/);
+});
+
 test('run, all, one and scalar bind values the way the schema expects', async () => {
   const db = await freshDb();
   await insertUser(db, 'u1', 'Satu@Contoh.id');
