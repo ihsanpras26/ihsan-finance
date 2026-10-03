@@ -1,4 +1,9 @@
--- db/schema.sql: physical schema for Ihsan Finance P0.
+// db/schema.ts: skema fisik Ihsan Finance P0 sebagai modul, bukan berkas .sql.
+//
+// Alasan: fungsi Vercel dibundel menjadi satu berkas, jadi tidak ada aset yang bisa dibaca saat
+// jalan (docs/DECISIONS.md D-24). Modul ini juga satu-satunya sumber skema: migrate() mengimpor
+// SCHEMA_SQL dari sini sehingga bundel apa pun otomatis membawa teksnya.
+export const SCHEMA_SQL = `-- db/schema.ts: physical schema for Ihsan Finance P0.
 -- Money: INTEGER rupiah (no cents). Ids: TEXT UUIDv7. Dates: TEXT 'YYYY-MM-DD' local.
 -- Timestamps: TEXT ISO-8601 UTC. Every financial row carries workspace_id.
 
@@ -333,3 +338,4 @@ CREATE TABLE IF NOT EXISTS data_jobs (
   expires_at    TEXT,
   created_at    TEXT NOT NULL
 );
+`;

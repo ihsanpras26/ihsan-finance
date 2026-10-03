@@ -300,7 +300,7 @@ sudo -u ihsan pnpm --dir web build
 sudo systemctl restart ihsan
 ```
 
-Skema dimigrasi otomatis saat penyalaan (`schema.sql` + `PRAGMA user_version`, idempoten), jadi
+Skema dimigrasi otomatis saat penyalaan (`db/schema.ts` + `PRAGMA user_version`, idempoten), jadi
 tidak ada langkah basis data manual.
 
 Rollback: `sudo -u ihsan git -C /opt/ihsan checkout <tag-atau-commit>`, ulangi install + build +

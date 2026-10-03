@@ -7,24 +7,8 @@
 // addon out of serverless bundles. `await import()` is the only way to pick it by environment, and
 // it is confined to this one line.
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { Client, Transaction } from '@libsql/client';
-
-const HERE = dirname(fileURLToPath(import.meta.url));
-
-declare global {
-  /** Schema text inlined by the Vercel bundle; undefined in every other target. */
-  var __IHSAN_SCHEMA__: string | undefined;
-}
-
-/**
- * `app/scripts/build-api.mjs` defines this global as a string literal while bundling the Vercel
- * function, which ships no assets. Everywhere else it is undefined and the file beside this module
- * is read.
- */
-const INLINED_SCHEMA = globalThis.__IHSAN_SCHEMA__;
+import { SCHEMA_SQL } from './schema.ts';
 
 export type BindValue = string | number | bigint | null | Uint8Array;
 
@@ -160,11 +144,10 @@ export async function openDatabase(target: string, authToken?: string): Promise<
 }
 
 export async function migrate(db: Db): Promise<void> {
-  const schema = INLINED_SCHEMA ?? readFileSync(join(HERE, 'schema.sql'), 'utf8');
-  await db.script(schema);
+  await db.script(SCHEMA_SQL);
   // Local files only: Turso answers `PRAGMA user_version = …` over HTTP with 400
   // `SQL_PARSE_ERROR: SQL not allowed statement`, and the marker exists for local upgrades.
-  // Remote stays correct without it: schema.sql is all `CREATE … IF NOT EXISTS`, so it is
+  // Remote stays correct without it: the schema is all `CREATE … IF NOT EXISTS`, so it is
   // idempotent and additive on every cold start.
   if (!db.remote) await db.script('PRAGMA user_version = 1');
 }

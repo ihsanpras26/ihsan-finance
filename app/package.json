@@ -13,7 +13,6 @@
     "test": "pnpm --dir server test",
     "typecheck": "pnpm --dir server typecheck && pnpm --dir web typecheck",
     "build": "pnpm --dir web build",
-    "build:api": "node scripts/build-api.mjs",
     "smoke": "node scripts/smoke.mjs",
     "start": "node server/src/main.ts",
     "backup": "node scripts/backup.mjs",

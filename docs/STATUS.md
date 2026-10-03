@@ -125,7 +125,7 @@ glifnya. Rinciannya di `docs/DELIVERY_GATE.md` bagian D-18, cacat nomor 7 sampai
 
 ### Skema basis data
 
-Satu berkas, `db/schema.sql`, 25 tabel: pengguna dan sesi, ruang dan keanggotaan, akun buku besar,
+Satu modul, `db/schema.ts` (`SCHEMA_SQL`), 25 tabel: pengguna dan sesi, ruang dan keanggotaan, akun buku besar,
 dompet, kategori, transaksi, baris jurnal, tautan transaksi, pihak lawan, utang, pembayaran utang,
 tujuan, alokasi tujuan, anggaran, aturan berulang, kejadian berulang, pengingat, log audit,
 catatan idempotensi, pekerjaan data.
@@ -148,7 +148,7 @@ catatan idempotensi, pekerjaan data.
 | Bagian | Berkas | Keadaan |
 |---|---|---|
 | Port basis data (berkas atau Turso) | `server/src/db/index.ts` | Selesai · teruji: pemilihan klien, transaksi bersarang, isolasi konteks async, uang tetap `INTEGER` |
-| Fungsi Vercel pembungkus Fastify | `server/src/vercel.ts`, `scripts/build-api.mjs`, `app/vercel.json` | Selesai · bundel esbuild 1,97 MB dijalankan lewat soket HTTP nyata terhadap Turso produksi: health 200, login salah 401, dompet tanpa sesi 401, tick tanpa token 403 |
+| Fungsi Vercel pembungkus Fastify | `server/src/vercel.ts`, `api/index.js` (entri git), `scripts/build-api.mjs`, `app/vercel.json` | Selesai · entri di git wajib ada sebelum build (D-24); paket fungsi hasil `vercel build` lokal berisi bundel 2.010.871 B, `filePathMap` kosong, 0 berkas `.ts`; dijalankan lewat soket HTTP nyata terhadap Turso produksi: health 200, login salah 401, dompet tanpa sesi 401, tick tanpa token 403 |
 | Titik penjadwal ber-token | `server/src/http/routes/internal.ts` | Selesai · teruji: tanpa token 404/403, bertoken menjalankan penjadwal |
 | Dump lintas mode + unggah S3/R2/B2 | `server/src/tools/offsite.ts`, `core/s3.ts`, `core/sigv4.ts` | Selesai · SigV4 cocok vektor resmi AWS; unggahan ke ember sungguhan **belum dicoba** (ember belum ada) |
 | Perintah cadangan offsite | `app/package.json` (`offsite`, `offsite:dump`) | Selesai · dump 24 tabel/193 baris/408 KB dengan pemeriksaan jurnal; sumber Turso atau berkas lokal, hasilnya di `<IHSAN_DATA_DIR>/offsite` |
@@ -216,7 +216,7 @@ Perintah dan hasil nyata, bukan klaim:
 | Tes penyalaan produksi (`deploy.test.ts`, `deploy-local.test.ts`) | **5/5**: cookie `Secure` + HSTS saat `APP_ORIGIN` https, keduanya mati saat http, pendaftaran akun kedua dijawab 403 `forbidden`, titik kesehatan bebas sesi |
 | Skrip cadangan (`scripts/backup.mjs`, server sedang menulis) | snapshot 408 KB: integritas ok, 0 pelanggaran relasi, jurnal seimbang; retensi memangkas yang tertua; berkas rusak/hilang keluar 1; `--restore` menghasilkan 17 transaksi, 3 dompet, selisih jurnal **0** |
 | Smoke produksi satu proses (`NODE_ENV=production`, `APP_ORIGIN` https) | `/api/v1/health` 200 + HSTS, `/` 200 (982 B index), `/transaksi` 200 lewat fallback SPA, aset `immutable`, login demo 200 dengan cookie `Secure`, API tanpa sesi 401 |
-| Adapter serverless (`server/src/vercel.ts` → `api/index.js` hasil `pnpm run build:api`, soket HTTP nyata) | terhadap Turso produksi: `/api/v1/health` 200 `{"data":{"ok":true,…}}`; `/api/v1/wallets` 401; login salah 401 `Email atau kata sandi belum cocok. Periksa lalu coba lagi.` (membuktikan baca/tulis lewat `@libsql/client/web` yang dibundel); tick tanpa token 403 |
+| Adapter serverless (`server/src/vercel.ts` → bundel `api/index.js` dari `node scripts/build-api.mjs`, soket HTTP nyata) | paket fungsi hasil `vercel build` lokal (2.010.871 B, `filePathMap` kosong) terhadap Turso produksi: `/api/v1/health` 200 `{"data":{"ok":true,…}}`; `/api/v1/wallets` 401; login salah 401 `Email atau kata sandi belum cocok. Periksa lalu coba lagi.` (membuktikan baca/tulis lewat `@libsql/client/web` yang dibundel); tick tanpa token 403 |
 | Klien remote dipilih untuk URL `libsql://` | `db.remote === true` dan kueri gagal di lapisan transpor (`tidak-ada.turso.invalid`), bukan galat modul/binding (`db-port.test.ts`) |
 | Dump offsite dari basis data berkas (`pnpm offsite:dump`, mode A) | PASS — `sumber: …\app\data\ihsan.db`, 24 tabel, 193 baris, 408 KB, jurnal seimbang, `integrity_check` ok, segel `sha256`; berkas masuk `data/offsite/` dan snapshot `data/backups/` tidak tersentuh |
 | SigV4 terhadap vektor resmi AWS | 2/2 (`get-vanilla` `5fa00fa3…`, `get-vanilla-query-order-key-case` `b97d918c…`) |

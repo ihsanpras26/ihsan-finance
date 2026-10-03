@@ -25,7 +25,7 @@ dibagi ke beberapa replika: satu proses, satu penulis.
 
 | Bagian | Peran |
 |---|---|
-| `app/server/src/vercel.ts` → `app/api/index.js` | Fungsi Node Vercel: Fastify dibungkus satu handler, permintaan `/api/*` masuk ke sini. Entri sumber ada di paket server; `pnpm run build:api` (esbuild) menghasilkannya menjadi satu berkas JS yang berdiri sendiri |
+| `app/api/index.js` | Fungsi Node Vercel: Fastify dibungkus satu handler, permintaan `/api/*` masuk ke sini. Berkas di git hanya re-ekspor tipis supaya Vercel merencanakan fungsi; `node scripts/build-api.mjs` menggantinya dengan bundel mandiri pada langkah build |
 | `app/web/dist` | Berkas statis, disajikan CDN Vercel |
 | `IHSAN_DB_URL` + `IHSAN_DB_TOKEN` | Turso; berkas lokal tidak bisa dipakai di sana (sistem berkas hanya-baca) |
 | `vercel.json` → `crons` | Penjadwal harian memanggil `GET /api/v1/internal/tick` |
@@ -184,26 +184,26 @@ cadangan — ada di `docs/PANDUAN_PENYALAAN.md`; ringkasannya di bawah ini.
 1. **Basis data.** Buat basis data Turso (`turso db create ihsan-finance`), ambil
    `turso db show --url ihsan-finance` dan `turso db tokens create ihsan-finance`. URL masuk
    `IHSAN_DB_URL`, token masuk `IHSAN_DB_TOKEN`.
-2. **Proyek.** Hubungkan repositori ini di Vercel, lalu set **Root Directory = `app`**. Semua
-   perintah build ada di `app/vercel.json`: `pnpm install --frozen-lockfile`, `pnpm run build:api`
-   (membundel `server/src/vercel.ts` → `api/index.js`), lalu `pnpm --dir web build` (keluaran
-   `web/dist`).
-3. **Kenapa dibundel.** Vercel mengompilasi `api/*.ts` dengan `tsc`-nya sendiri, mempertahankan
-   spesifier impor `.ts` di JS hasilnya, dan mengirim hanya berkas `.js` — fungsi lalu mati pada
-   impor pertama (`ERR_MODULE_NOT_FOUND` → 500 `FUNCTION_INVOCATION_FAILED` di produksi). Karena
-   itu entri fungsi tinggal di `server/src/vercel.ts` (tidak boleh di `api/`: Vercel menolak
-   `api/index.ts` berdampingan dengan `api/index.js` hasil build), dan bundel esbuild menyisipkan
-   seluruh modul lokal, seluruh dependensi pihak ketiga, serta teks `schema.sql` (`define`
-   `globalThis.__IHSAN_SCHEMA__`) ke dalam `api/index.js`; yang tersisa eksternal hanya penggerak
-   libSQL asli (`@libsql/client`, `libsql`) yang tidak pernah dipakai di mode Turso. Bundel CJS di
-   keluaran ESM memakai `createRequire` lewat banner, karena Fastify/pino memanggil
-   `require('node:events')` dan padanannya. Rinciannya di `docs/DECISIONS.md` D-23.
+2. **Proyek.** Hubungkan repositori ini di Vercel, lalu set **Root Directory = `app`** dan
+   **Framework Preset = Other** (boleh kosong). Perintah build ada di `app/vercel.json` dan harus
+   sama di pengaturan proyek, karena pengaturan proyek menang: `pnpm install --frozen-lockfile`,
+   lalu `node scripts/build-api.mjs && pnpm --dir web build` (keluaran `web/dist`).
+3. **Kenapa dibundel.** Vercel merencanakan fungsi dari pohon sumber *sebelum* perintah build
+   berjalan, jadi `api/index.js` harus ada di git — isinya re-ekspor tipis. Platform lalu
+   mengompilasi `server/src/*.ts` dengan `tsc`-nya sendiri, mempertahankan spesifier impor `.ts` di
+   JS hasilnya, dan mengirim hanya berkas `.js`, sehingga fungsi mati pada impor pertama
+   (`ERR_MODULE_NOT_FOUND` → 500 `FUNCTION_INVOCATION_FAILED`). Karena itu langkah build menimpa
+   berkas itu dengan bundel esbuild mandiri: seluruh modul lokal, seluruh dependensi pihak ketiga,
+   dan skema (`db/schema.ts`) masuk ke satu berkas; yang tersisa eksternal hanya penggerak libSQL
+   asli (`@libsql/client`, `libsql`) yang dijangkau hanya untuk target `file:`, tidak pernah di mode
+   Turso. Bundel CJS di keluaran ESM memakai `createRequire` lewat banner, karena Fastify/pino
+   memanggil `require('node:events')` dan padanannya. Rinciannya di `docs/DECISIONS.md` D-24.
 4. **Variabel.** Isi `IHSAN_DB_URL`, `IHSAN_DB_TOKEN`, `APP_ORIGIN=https://<domain>`,
    `IHSAN_ALLOW_REGISTRATION=0`, `CRON_SECRET` (acak, panjang), dan `IHSAN_TRUST_PROXY=1`.
    Menyetel `0` sejak awal tetap aman: akun pertama boleh lahir sebagai pengecualian bootstrap,
    sesudah itu pendaftaran ditolak.
 5. **Skema.** Dijalankan otomatis: setiap penyalaan fungsi memanggil `migrate(db)`, yang idempoten
-   (`schema.sql`; `PRAGMA user_version` hanya ditulis pada basis data berkas karena Turso menolak
+   (`db/schema.ts`; `PRAGMA user_version` hanya ditulis pada basis data berkas karena Turso menolak
    perintah itu lewat HTTP).
 6. **Cron.** `vercel.json` sudah memasang `/api/v1/internal/tick` harian; pastikan `CRON_SECRET`
    terisi, karena tanpa itu titik akhir menjawab 404.

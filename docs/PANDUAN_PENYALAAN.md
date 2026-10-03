@@ -48,7 +48,7 @@ Catatan: skema `libsql://` dipakai apa adanya; klien aplikasi otomatis memilih j
 alamat remote. Skema berkas hanya untuk pengembangan lokal.
 
 Skema tabel tidak perlu dijalankan manual: setiap penyalaan fungsi memanggil migrasi idempoten
-(`schema.sql`). Penanda `PRAGMA user_version` hanya ditulis pada basis data berkas — Turso menolak
+(`db/schema.ts`). Penanda `PRAGMA user_version` hanya ditulis pada basis data berkas — Turso menolak
 perintah itu lewat HTTP (`SQL_PARSE_ERROR: SQL not allowed statement`).
 
 ✅ Periksa: URL berawalan `libsql://`, token tersimpan, basis data terlihat di dashboard.

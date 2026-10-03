@@ -1,12 +1,9 @@
 // vercel.ts: Vercel Node function hosting the Fastify app (docs/DEPLOY.md, "Vercel + Turso").
 // Static files (web/dist) are served by Vercel's CDN; every /api/* request lands here.
 //
-// This file is not the deployed entry: `scripts/build-api.mjs` bundles it into `api/index.js`
-// during the Vercel build. Vercel compiles `api/*.ts` itself with plain `tsc`, which keeps the
-// `.ts` import specifiers and ships only the emitted JS — the function then dies on its first
-// import (production answered 500 FUNCTION_INVOCATION_FAILED). The bundle inlines these imports.
-// Keep the file inside the server package: `api/index.ts` and the generated `api/index.js` share a
-// path stem and Vercel rejects that as a conflict.
+// The committed entry `api/index.js` imports this module; Vercel plans functions from the source
+// tree, so the entry must exist before the build runs, and Vercel's own bundle keeps every import
+// inlined (docs/DECISIONS.md D-24).
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { config as appConfig } from './config.ts';
 import { migrate, openDatabase } from './db/index.ts';

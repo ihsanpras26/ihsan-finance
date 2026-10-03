@@ -488,7 +488,7 @@ terakhir, bukan `verify`.
 
 ---
 
-## D-23 · Fungsi Vercel dibundel esbuild dari paket server, bukan dikompilasi platform
+## D-23 · Fungsi Vercel dibundel esbuild dari paket server, bukan dikompilasi platform (digantikan D-24)
 
 **Keputusan:** Entri fungsi Vercel adalah **`app/server/src/vercel.ts`** (sumber TypeScript, ikut
 `pnpm verify`), dan `app/scripts/build-api.mjs` membundelnya dengan esbuild menjadi
@@ -523,3 +523,58 @@ lokal menghasilkan fungsi berisi hanya `api/index.js` (2,0 MB, tanpa `node_modul
 artefak itu lewat shim HTTP dengan kredensial produksi menjawab `/api/v1/health` 200
 `{"data":{"ok":true,…}}`, `/api/v1/wallets` 401, login salah 401 dengan pesan Indonesia (baca/tulis
 Turso lewat `@libsql/client/web` yang dibundel), dan tick tanpa token 403.
+
+---
+
+## D-24 · Entri fungsi Vercel ada di git, bundel lahir pada langkah build, skema jadi modul
+
+**Tanggal:** 3 Oktober 2026
+
+**Konteks:** D-23 memindahkan kompilasi fungsi Vercel ke esbuild pada langkah build. Kenyataan
+platform membatalkan urutan itu: Vercel **merencanakan fungsi dari pohon sumber sebelum perintah
+build berjalan**, jadi berkas yang lahir saat build tidak pernah menjadi fungsi. Buktinya dua:
+galat `The pattern "api/index.js" defined in functions doesn't match any Serverless Functions
+inside the api directory` muncul di log 0,07 detik setelah CLI start, sebelum langkah install; dan
+deployment `dc8e2bc` (READY) menjawab setiap `/api/*` dengan HTML aplikasi (200) serta 405 untuk
+POST — tidak ada fungsi di dalamnya.
+
+**Keputusan:**
+
+1. **Entri di-commit.** `app/api/index.js` ada di git sebagai re-ekspor tipis
+   (`import handler from '../server/src/vercel.ts'`), hanya supaya perencanaan Vercel menemukan
+   berkas di `api/`; isinya tidak pernah dipakai di produksi.
+2. **Bundel lahir pada langkah build.** `app/scripts/build-api.mjs` (esbuild) menimpa
+   `app/api/index.js` dengan bundel mandiri 1,96 MB, dan `app/vercel.json` memanggilnya **sebelum**
+   `pnpm --dir web build`. Pengumpulan paket fungsi terjadi sesudah perintah build, jadi yang
+   terkirim adalah bundelnya.
+3. **Skema jadi modul.** `server/src/db/schema.sql` → `server/src/db/schema.ts`
+   (`export const SCHEMA_SQL`), karena paket fungsi adalah satu berkas tanpa aset.
+4. **`app/vercel.json` memakai `functions` untuk `api/index.js`** (maxDuration 30, memory 512);
+   pola itu kini cocok karena berkasnya ada di git. Pengaturan proyek Vercel — yang mengalahkan
+   `vercel.json` — di-PATCH ke bentuk yang sama: `framework: null`,
+   `buildCommand: node scripts/build-api.mjs && pnpm --dir web build`, `outputDirectory: web/dist`.
+
+**Alasan:** dua jalur lain ditolak perilaku platform yang teramati, bukan dugaan:
+
+1. Entri `.ts` di `api/`: platform mengompilasi `.ts` → `.js` tetapi **mempertahankan spesifier
+   `.ts`** pada hasilnya — `server/src/vercel.js` hasil build lokal benar-benar memuat
+   `from './config.ts'` — sementara berkas `.ts` tidak ikut dikirim, sehingga fungsi mati pada
+   impor pertama. Menulis impor tanpa ekstensi bukan pilihan: Node 24 tidak memetakan `./x.js` ke
+   `x.ts` (diuji, `ERR_MODULE_NOT_FOUND`), sedangkan seluruh server menjalankan TypeScript
+   langsung (D-03).
+2. Build Output API (perintah build menulis `.vercel/output` sendiri): `vercel build` lokal
+   menimpanya — paket fungsi kembali berisi entri tipis 376 B, bahkan menelusuri `data/`
+   pengembangan lewat `config.ts`.
+
+**Konsekuensi:** `api/index.js` ada di git dalam dua wujud — entri tipis yang di-commit dan bundel
+hasil build di wadah Vercel. Setiap `vercel build` lokal menimpa berkas kerja itu dengan bundel,
+jadi kembalikan dengan `git checkout -- app/api/index.js` sesudah diperiksa. Tidak ada lagi berkas
+`.sql` di repo.
+
+**Bukti:** `node scripts/build-api.mjs` → `api/index.js` 1.964 KB (24 `CREATE TABLE`);
+`vercel build --prod` lokal dengan entri tipis di git menghasilkan
+`.vercel/output/functions/api/index.func/api/index.js` **2.010.871 B** (bundel, bukan 376 B),
+`filePathMap` **kosong**, 0 berkas `.ts`, tanpa `data/`; paket itu dijalankan lewat shim HTTP
+dengan kredensial produksi dan menjawab `/api/v1/health` 200 `{"data":{"ok":true,…}}`,
+`/api/v1/wallets` 401, login salah 401 `Email atau kata sandi belum cocok. Periksa lalu coba lagi.`,
+tick tanpa token 403. `pnpm verify` lulus: 107 tes server, 5 tes web.
