@@ -594,3 +594,12 @@ penyajian aset sama dengan penyalaan satu proses, dan menyisakan halaman SPA `ma
 must-revalidate`. Penyetelan `memory` dihapus karena log build platform menyebutnya diabaikan pada
 penagihan Active CPU; `maxDuration: 30` tetap dipakai. Keduanya diuji ulang di produksi: aset
 ber-hash menjawab `immutable`, `/api/v1/health` 200, `wallets` 401, tick 403/200.
+
+**Uji alur penuh pada basis data terpisah:** bundel `api/index.js` yang sama dijalankan sebagai satu
+proses HTTP dengan `IHSAN_DB_URL` menunjuk basis data Turso sekali pakai (`ihsan-uji-*`, dibuat lewat
+Turso Platform API, dihapus sesudahnya). Alur nyata lulus: register (kode pemulihan dikembalikan),
+login (cookie `Secure`), kategori bawaan, dompet, pendapatan + pengeluaran, idempotensi (kunci sama
+→ id sama, muatan beda → 409), ringkasan AT01, pembatalan transaksi, `networth-check` seimbang, dan
+pemulihan kata sandi memakai kode pemulihan; akun kedua ditolak 403 oleh gerbang pendaftaran.
+Setelah proses dijalankan ulang, angka yang sama terbaca kembali dari Turso — jadi migrasi idempoten
+dan data persisten. Basis data produksi tidak tersentuh (login akun uji ke produksi → 401).
