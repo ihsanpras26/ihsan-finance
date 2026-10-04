@@ -311,7 +311,7 @@ bukan sebagai satu alur peramban.
 | Pemeriksaan kontras otomatis | Dijalankan manual lewat peramban, belum masuk `pnpm verify` | Pindahkan pemeriksa kontras ke skrip gerbang; hasil ad hoc terakhir di `.impeccable/review/audit-d18.json` |
 | Peran kedua (anggota ruang) | P0 hanya pemilik tunggal per PRD | Di luar cakupan P0 |
 | Bahasa dokumen dan komentar | Penyimpangan sadar dari `AGENTS.md` aturan 7 | Menunggu keputusan pemilik; lihat `DECISIONS.md` D-13 |
-| Akun pemilik di produksi | Tick produksi (3 Okt 15:42Z) melaporkan `workspacesProcessed: 1`, jadi satu akun sudah lahir di Turso produksi; belum dapat dipastikan itu akun pemilik dan agen tidak menyimpan kredensialnya | Konfirmasi dengan pemilik bahwa ia bisa masuk; bila bukan pemilik, rotasi kredensial dan periksa jalur pendaftaran |
+| Akun pemilik di produksi | Tick produksi melaporkan `workspacesProcessed: 1` (tick sebelumnya masih `0`), jadi satu akun sudah lahir di Turso produksi; belum dapat dipastikan itu akun pemilik dan agen tidak menyimpan kredensialnya | Konfirmasi dengan pemilik bahwa ia bisa masuk; bila bukan pemilik, rotasi kredensial dan periksa jalur pendaftaran |
 | Cadangan offsite ke R2 | R2 belum diaktifkan di akun Cloudflare (kode 10042) | Pemilik menekan **Enable R2**, lalu isi `R2_*` dan `IHSAN_S3_*`; jalankan `node server/src/tools/offsite.ts all` |
 | `www.ihsanpras.my.id` | CNAME `www` belum ada di IDWebhost (NXDOMAIN di NS otoritatif) | Pemilik menambah `CNAME www → cname.vercel-dns.com`, lalu domain `www` ditambahkan di proyek Vercel |
 | Rotasi kredensial yang pernah tampil di obrolan | Token Vercel, Turso, dan Cloudflare pernah tercetak | Pemilik merotasi ketiganya setelah penyalaan selesai |
