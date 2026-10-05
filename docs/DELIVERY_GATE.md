@@ -674,7 +674,7 @@ telusuri klik di Chromium pada server lokal 8789 (basis data baru, ruang tanpa d
 | R-18 | Ada testimoni fiktif? | **TIDAK** | Tidak ada bagian testimoni di aplikasi. |
 | R-23 | Ada aset visual dibuat tanpa instruksi atau placeholder jujur? | **TIDAK** | Layar masuk memakai monogram `IF` dengan pasangan token yang sudah ada (`bg-accent-solid` + `text-accent-fg`, kelas `size-9 rounded-control`), bukan berkas aset baru. Teks `[LOGO]` **sudah tidak ada**: `document.body.innerText` pada `/masuk` tidak memuat `[LOGO]`, dan judul layar berbunyi `Ihsan Finance`. Baris R-23 pada gerbang D-18 menyebut placeholder `[LOGO]`; baris itu kini usang (lihat "Koreksi terhadap gerbang D-18" di bawah). |
 | R-24 | Ada tautan navigasi ke halaman yang tidak ada? | **TIDAK** | Tombol "Buat dompet pertama" pada keadaan kosong Beranda menavigasi ke `/profil`, dan `/profil` merender `h1` = "Profil" tanpa galat. Tiga rute lain dibuka lewat rel aplikasi: `h1` = "Laporan", "Transaksi", "Beranda". |
-| R-25 | Ada teks dengan kontras di bawah WCAG AA? | **TIDAK** | Tidak ada token warna baru. Monogram diukur dari `getComputedStyle`: `#ffffff` di atas `rgb(2, 86, 255)` = `#0256ff`; rasio dihitung ulang dari nilai linear sRGB = **5,56:1** (ambang 4,5:1 untuk teks normal). Pasangan token ini sudah lolos pada 3.724 pemeriksaan gerbang D-18. |
+| R-25 | Ada teks dengan kontras di bawah WCAG AA? | **TIDAK** | Tidak ada token warna baru. Monogram diukur dari `getComputedStyle` di tema terang (server lokal): `#ffffff` di atas `rgb(2, 86, 255)` = `#0256ff`, rasio dihitung ulang dari nilai linear sRGB = **5,56:1**; di tema gelap (produksi `ihsanpras.my.id`, Chromium dengan preferensi sistem gelap): `#ffffff` di atas `rgb(37, 99, 235)` = `#2563eb` = **5,17:1**. Keduanya di atas ambang 4,5:1 untuk teks normal dan sudah lolos pada 3.724 pemeriksaan gerbang D-18. |
 | R-26 | Ada tombol, dropdown, atau formulir yang tidak melakukan apa pun? | **TIDAK** | "Buat dompet pertama" membuka lembar dompet di `/profil`. Chip saringan memicu `GET /api/v1/transactions?type=expense&page=1&pageSize=20` dan mengubah URL menjadi `/transaksi?type=expense` **tanpa menutup lembar**. Tombol "Selesai" menutup lembar saringan; "Bersihkan" mengosongkan saringan. |
 | R-27 | Antarmuka kurang keadaan kosong, memuat, atau galat? | **TIDAK** | Ruang tanpa dompet: Beranda memuat keadaan kosong "Mulai dari sini", Profil "Belum ada dompet", Transaksi "Belum ada transaksi". Galat pemuatan di 18 titik memakai `DataError` dengan label sebab konkret; galat non-401 tetap menawarkan "Coba lagi". Dibuktikan dengan membatalkan permintaan `GET /api/v1/wallets`: `/profil` menampilkan "Dompet gagal dimuat. Tidak ada koneksi ke server. Periksa jaringan lalu coba lagi." beserta tombol "Coba lagi". |
 | R-28 | FAQ berisi pertanyaan generik? | **TIDAK** | Tidak ada FAQ. |
@@ -757,6 +757,7 @@ telusuri klik di Chromium pada server lokal 8789 (basis data baru, ruang tanpa d
 | 9 | Ruang berisi (8788, `Asia/Jakarta`) | Baris periode Beranda: "Periode Oktober 2026, dihitung sampai 5 Oktober 2026 (zona waktu Asia/Jakarta)." |
 | 10 | `/laporan` di ruang yang sama | Subjudul: "Rentang aktif: Oktober 2026. Zona waktu Asia/Jakarta." (nilai mengikuti `SessionUser.timezone`, berubah menjadi `Asia/Makassar` pada akun 8789) |
 | 11 | Empat rute pada 360x800, tema terang dan gelap | 0 luapan (`scrollWidth = clientWidth = 360`), 0 em dash, kendali terkecil 44 px |
+| 12 | Produksi `https://ihsanpras.my.id/masuk`, Chromium 360x800, deploy `dpl_SyNiEQmw9BuTc2UvzJdsmCUK8mfv` | `h1` "Ihsan Finance", monogram `IF` 36x36 px dengan `#ffffff` di atas `#2563eb`, tab "Masuk"/"Daftar"/"Lupa kata sandi"; 0 teks `[LOGO]`, 0 em dash, 0 luapan, kendali terkecil 44 px, **0 galat konsol** |
 
 ## Koreksi terhadap gerbang D-18
 
@@ -773,8 +774,9 @@ baris lama dibiarkan utuh sebagai riwayat.
 
 ## Catatan kejujuran
 
-Batas pertama: rasio kontras monogram (5,56:1) saya hitung dari nilai `getComputedStyle`
-(`#ffffff` di atas `#0256ff`) dengan rumus kontras WCAG, bukan dari cuplikan piksel; warnanya
+Batas pertama: rasio kontras monogram (5,56:1 di tema terang, 5,17:1 di tema gelap) saya hitung
+dari nilai `getComputedStyle` (`#ffffff` di atas `#0256ff` dan di atas `#2563eb`) dengan rumus
+kontras WCAG, bukan dari cuplikan piksel; warnanya
 sendiri terukur, angkanya turunan. Batas kedua: gerbang ini tidak mengukur ulang pemeriksaan yang
 tidak bersinggungan dengan kelima perubahan (74 baris kontras per halaman, pemindaian gradien,
 glassmorphism, dan pola latar pada 24 halaman); yang berlaku untuk baris itu adalah hasil gerbang
