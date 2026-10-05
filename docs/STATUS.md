@@ -1,7 +1,7 @@
 # Status Implementasi: Ihsan Finance
 
-Diperbarui: 3 Oktober 2026
-Sumber kebenaran: `PRD_Aplikasi_Keuangan_Pribadi_v1.md` · Kontrak teknis: `docs/ARCHITECTURE.md`
+Diperbarui: 5 Oktober 2026
+Sumber kebenaran: `docs/PRD_Aplikasi_Keuangan_Pribadi_v1.md` · Kontrak teknis: `docs/ARCHITECTURE.md`
 Keputusan menyimpang: `docs/DECISIONS.md`
 
 ---
@@ -134,14 +134,14 @@ catatan idempotensi, pekerjaan data.
 
 | Bagian | Berkas | Keadaan |
 |---|---|---|
-| Kontrak lingkungan | `app/.env.example`, `docs/DEPLOY.md` | Selesai · dipakai tes smoke |
+| Kontrak lingkungan | `app/.env.example`, `docs/panduan/DEPLOY.md` | Selesai · dipakai tes smoke |
 | Titik kesehatan bebas sesi + HSTS + cookie `Secure` | `server/src/http/server.ts`, `routes/auth.ts`, `config.ts` | Selesai · teruji |
 | Gerbang pendaftaran (`IHSAN_ALLOW_REGISTRATION`) | `routes/auth.ts` | Selesai · teruji |
 | Cadangan + pemulihan + retensi | `scripts/backup.mjs` | Selesai · teruji pada basis data yang sedang dipakai |
 | Wadah | `Dockerfile`, `.dockerignore`, `compose.yaml` | Selesai · **belum dibangun** (Docker tidak ada di mesin ini) |
 | VPS tanpa wadah | `deploy/systemd/ihsan.service`, `ihsan-backup.service`, `ihsan-backup.timer` | Selesai · dicoba di server pertama |
-| Runbook | `docs/DEPLOY.md` | Selesai (dua bentuk penyalaan: satu proses, serverless) |
-| Runbook mode A (VPS/mesin sendiri) | `docs/PANDUAN_PENYALAAN_VPS.md`, `deploy/caddy/Caddyfile.example`, `deploy/systemd/ihsan-offsite.service` + `.timer` | Selesai · belum dicoba di server sungguhan |
+| Runbook | `docs/panduan/DEPLOY.md` | Selesai (dua bentuk penyalaan: satu proses, serverless) |
+| Runbook mode A (VPS/mesin sendiri) | `docs/panduan/PANDUAN_PENYALAAN_VPS.md`, `deploy/caddy/Caddyfile.example`, `deploy/systemd/ihsan-offsite.service` + `.timer` | Selesai · belum dicoba di server sungguhan |
 | Mode B hidup (Vercel Hobby + Turso + DNS) | `app/vercel.json`, `app/api/index.js`, `scripts/build-api.mjs` | Selesai · `https://ihsanpras.my.id` (deployment `dpl_EH1JVaCYk8P94AaSmevEsASNDed4`, commit `27b9238`): `/api/v1/health` 200 JSON, SPA 200 di `/`, `/transaksi`, `/tidak-ada`, API tanpa sesi 401 JSON, login salah 401, tick 403 tanpa token dan 200 bertoken, aset ber-hash `immutable` |
 
 ### Lapisan data libSQL dan penyalaan serverless (D-21)
@@ -167,7 +167,7 @@ Pemilik sudah memilih **Vercel Hobby + Turso Free + Cloudflare R2** dengan batas
 | DNS belum terdelegasi | `NS/SOA/A ihsanpras.my.id` → SERVFAIL di resolver Cloudflare dan Google, jadi zona di IDWebhost belum melayani jawaban |
 
 Pemilik memutuskan menyalakan sendiri dari dashboard, jadi penyalaan tidak lewat REST API penyedia.
-Langkah lengkapnya ada di `docs/PANDUAN_PENYALAAN.md`: Turso → proyek dan variabel Vercel → DNS di
+Langkah lengkapnya ada di `docs/panduan/PANDUAN_PENYALAAN.md`: Turso → proyek dan variabel Vercel → DNS di
 IDWebhost → akun pemilik → lima pemeriksaan → ember R2 dan jadwal cadangan → pemulihan dan rotasi
 token. Panduan itu memuat perintah verifikasi yang bisa disalin (`/api/v1/health`, tick tanpa dan
 dengan token, fallback SPA, header cookie) beserta tabel gejala–penyebab–tindakan.

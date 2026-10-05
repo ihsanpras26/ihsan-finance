@@ -361,7 +361,7 @@ belum memilih penyedia hosting karena akun, biaya, dan domain hanya bisa diputus
 2. **Kontrak lingkungan, bukan setelan tersembunyi.** `HOST`, `PORT`, `APP_ORIGIN`,
    `IHSAN_DATA_DIR`, `IHSAN_DB_PATH`, `IHSAN_BACKUP_DIR`, `IHSAN_BACKUP_KEEP`,
    `IHSAN_TRUST_PROXY`, `IHSAN_ALLOW_REGISTRATION`, `SESSION_DAYS`, `NODE_ENV`, `LOG_LEVEL`
-   dicatat di `app/.env.example` dan `docs/DEPLOY.md`.
+   dicatat di `app/.env.example` dan `docs/panduan/DEPLOY.md`.
 3. **TLS di proksi, keamanan cookie dari `APP_ORIGIN`.** `APP_ORIGIN=https://…` menyalakan atribut
    `Secure` pada cookie sesi dan header `Strict-Transport-Security`; tanpa itu keduanya tetap mati
    supaya pengembangan lewat http tidak terkunci. `IHSAN_TRUST_PROXY=1` membuat daftar perangkat
@@ -382,8 +382,8 @@ bukan disalin manual; sedangkan batas "satu penulis" harus diucapkan karena SQLi
 rusak kalau dipakai dua mesin sekaligus. Menyalakan `Secure`/HSTS dari `APP_ORIGIN` menempatkan
 satu sumber kebenaran untuk kedua hal itu, sehingga tidak ada setelan kedua yang bisa lupa diisi.
 **Konsekuensi:** Pemilihan penyedia, domain, dan penyimpanan cadangan luar mesin masih menunggu
-keputusan pemilik (`docs/DEPLOY.md` bagian 6 dan 7). Uji restore terjadwal tiga bulanan (NFR05)
-belum ada berkasnya; pembuktian saat ini manual dan tercatat di `docs/DEPLOY.md` bagian 5.
+keputusan pemilik (`docs/panduan/DEPLOY.md` bagian 6 dan 7). Uji restore terjadwal tiga bulanan (NFR05)
+belum ada berkasnya; pembuktian saat ini manual dan tercatat di `docs/panduan/DEPLOY.md` bagian 5.
 Kewajiban lingkungan yang belum tertutup tetap dicatat di `docs/STATUS.md` (batas heap hook
 `pre-commit`).
 **Status:** Kontrak dan perangkat penyalaan selesai dan terverifikasi di mesin pengembangan; deploy
@@ -474,7 +474,7 @@ belum dijalankan.
 pasangan kunci S3), jadi langkah itu tetap milik pemilik walau token Cloudflare diberikan. Paket
 gratis Vercel membatasi cron ke sekali sehari dan fungsi 30 detik; dump cadangan karena itu selalu
 dijalankan dari mesin tetap, bukan dari fungsi. Bila kuota gratis tidak lagi cukup, peta pilihan
-berbayar ada di `docs/DEPLOY.md` bagian 8, dan seluruh kode tetap sama karena hanya variabel
+berbayar ada di `docs/panduan/DEPLOY.md` bagian 8, dan seluruh kode tetap sama karena hanya variabel
 lingkungan yang berubah.
 
 **Status:** 3 Oktober 2026 penyalaan dijalankan lewat REST API dengan kredensial dari pemilik:
@@ -603,3 +603,36 @@ login (cookie `Secure`), kategori bawaan, dompet, pendapatan + pengeluaran, idem
 pemulihan kata sandi memakai kode pemulihan; akun kedua ditolak 403 oleh gerbang pendaftaran.
 Setelah proses dijalankan ulang, angka yang sama terbaca kembali dari Turso — jadi migrasi idempoten
 dan data persisten. Basis data produksi tidak tersentuh (login akun uji ke produksi → 401).
+
+## D-25 · Susunan berkas: PRD ke `docs/`, panduan penyalaan ke `docs/panduan/`
+
+**Keputusan:** Dokumen yang bukan kontrak perkakas pindah ke `docs/`: PRD pindah dari akar
+repositori ke `docs/PRD_Aplikasi_Keuangan_Pribadi_v1.md`, dan tiga panduan penyalaan
+(`DEPLOY.md`, `PANDUAN_PENYALAAN.md`, `PANDUAN_PENYALAAN_VPS.md`) pindah dari `docs/` ke subfolder
+baru `docs/panduan/`.
+Di akar repositori hanya tinggal berkas yang dibaca berdasarkan nama oleh perkakas: `AGENTS.md`
+(aturan agen, dibaca dari akar), `README.md` (pintu masuk repositori), `PRODUCT.md` dan `SOUL.md`
+(dibaca skill impeccable lewat `impeccable context`), serta `Dockerfile`, `compose.yaml`, dan
+`.dockerignore` (ditemukan `docker build` dan `docker compose` berdasarkan nama di direktori kerja).
+
+**Alasan:** Akar repositori mencampur dokumen proyek dengan kontrak perkakas, sementara panduan
+penyalaan tersebar di antara dokumen desain dan status. Setelah pemindahan, `docs/` terbaca sebagai
+tiga kelompok: keputusan dan keadaan (`DECISIONS.md`, `STATUS.md`), arah produk dan desain
+(`PRD_Aplikasi_Keuangan_Pribadi_v1.md`, `DESIGN.md`, `DELIVERY_GATE.md`, `COMPANY.md`,
+`UX_RESEARCH.md`), dan cara menjalankan (`panduan/`). Berkas yang bergantung pada nama di akar tidak
+dipindah karena memindahkannya memaksa setiap perkakas memakai jalur eksplisit (`impeccable context`,
+`docker compose -f`, `docker build -f`, `--config`) tanpa manfaat yang sebanding.
+
+**Konsekuensi:** Seluruh rujukan lintas berkas diperbarui (`AGENTS.md`, `README.md`, `PRODUCT.md`,
+`docs/**`, `app/server/src/vercel.ts`, catatan permukaan impeccable), dan rujukan baru selalu ditulis
+relatif terhadap akar repositori (`docs/panduan/DEPLOY.md`) supaya bisa di-grep dan tidak bergantung
+pada direktori berkas pemanggil. Dua jalur absolut `D:\Ihsan Finance\ihsan-finance\...` di
+`deploy/windows/offsite.ps1` dan `docs/panduan/PANDUAN_PENYALAAN.md` tidak berubah: susunan di dalam
+repositori tidak memindahkan repositorinya. Artefak yang bisa dibuat ulang juga dibuang pada
+kesempatan ini: `D:\Ihsan Finance\.smoke-out` (yatim, tidak dirujuk kode mana pun) dan `app/web/dist`.
+
+**Verifikasi:** `pnpm --dir app verify` lulus setelah pemindahan (typecheck, tes server, tes web,
+build produksi); tautan berkas di dalam dokumen diperiksa ulang dan tidak ada rujukan yang menunjuk
+jalur lama.
+
+**Status:** 5 Oktober 2026 · diterapkan.

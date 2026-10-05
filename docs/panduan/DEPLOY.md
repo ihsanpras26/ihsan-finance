@@ -1,7 +1,7 @@
 # Penyebaran dan Operasi: Ihsan Finance
 
 Dokumen ini adalah kontrak menjalankan aplikasi di server, bukan di mesin pengembangan. Sumber
-kebenaran produk tetap `PRD_Aplikasi_Keuangan_Pribadi_v1.md`; keputusan yang menyimpang dicatat di
+kebenaran produk tetap `docs/PRD_Aplikasi_Keuangan_Pribadi_v1.md`; keputusan yang menyimpang dicatat di
 `docs/DECISIONS.md`.
 
 ## 1. Dua bentuk penyalaan
@@ -179,7 +179,7 @@ PASS  ihsan-20261001-141209321.db — 24 tabel, 193 baris, 408 KB, jurnal seimba
 
 Pemilik perlu melakukan sendiri bagian akun; agen tidak memegang kredensial. Panduan langkah demi
 langkah dari dashboard — Turso, Vercel, DNS IDWebhost, akun pemilik, verifikasi, ember R2, jadwal
-cadangan — ada di `docs/PANDUAN_PENYALAAN.md`; ringkasannya di bawah ini.
+cadangan — ada di `docs/panduan/PANDUAN_PENYALAAN.md`; ringkasannya di bawah ini.
 
 1. **Basis data.** Buat basis data Turso (`turso db create ihsan-finance`), ambil
    `turso db show --url ihsan-finance` dan `turso db tokens create ihsan-finance`. URL masuk
@@ -236,8 +236,8 @@ lain disimpan sebagai cadangan bila kuota gratis tidak lagi cukup:
 Untuk semua pilihan di atas, yang tetap sama: `APP_ORIGIN` https, penjadwal yang berjalan
 (mode A tiap 15 menit, mode B lewat cron), dan snapshot harian yang dikirim ke luar mesin.
 
-Perintah langkah demi langkah untuk tiap bentuk ada di dua halaman: `docs/PANDUAN_PENYALAAN.md`
-(mode B, dari dashboard Vercel/Turso/IDWebhost/R2) dan `docs/PANDUAN_PENYALAAN_VPS.md` (mode A,
+Perintah langkah demi langkah untuk tiap bentuk ada di dua halaman: `docs/panduan/PANDUAN_PENYALAAN.md`
+(mode B, dari dashboard Vercel/Turso/IDWebhost/R2) dan `docs/panduan/PANDUAN_PENYALAAN_VPS.md` (mode A,
 VPS atau mesin sendiri, systemd atau wadah + Caddy).
 
 ## 9. Yang belum dikerjakan

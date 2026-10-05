@@ -1,19 +1,19 @@
 # Panduan penyalaan produksi mode A (VPS atau mesin sendiri)
 
-Dokumen ini adalah pasangan `docs/PANDUAN_PENYALAAN.md`: yang itu menyala di **mode B (serverless
+Dokumen ini adalah pasangan `docs/panduan/PANDUAN_PENYALAAN.md`: yang itu menyala di **mode B (serverless
 Vercel + Turso)**, yang ini menyala di **mode A (satu proses, basis data berkas)**. Pilih satu,
 jangan keduanya untuk basis data yang sama — berkas SQLite hanya boleh ditulis satu proses.
 
 | Bentuk | Kapan dipakai | Panduan |
 |---|---|---|
 | **A. Satu proses + basis data berkas** | VPS (±US$5/bulan), mesin sendiri, atau wadah; penjadwal tiap 15 menit | berkas ini |
-| **B. Fungsi serverless + Turso** | gratis (Vercel Hobby + Turso Free), penjadwal harian | `docs/PANDUAN_PENYALAAN.md` |
+| **B. Fungsi serverless + Turso** | gratis (Vercel Hobby + Turso Free), penjadwal harian | `docs/panduan/PANDUAN_PENYALAAN.md` |
 
 Yang akan jadi setelah selesai: satu proses Node 24 memegang API, PWA hasil build, dan penjadwal
 internal; `ihsan.db` tinggal di volume `/data`; TLS diterminasi Caddy dengan sertifikat otomatis;
 snapshot harian dan dump offsite naik ke luar mesin.
 
-Kontrak menjalankannya (bukan langkahnya) ada di `docs/DEPLOY.md` bagian 1–6. Halaman ini hanya
+Kontrak menjalankannya (bukan langkahnya) ada di `docs/panduan/DEPLOY.md` bagian 1–6. Halaman ini hanya
 urutan perintah yang bisa disalin, ditulis untuk Ubuntu 24.04 LTS (Debian 12 sama saja).
 
 Perkiraan waktu: 60–90 menit, di luar propagasi DNS.
@@ -25,7 +25,7 @@ Perkiraan waktu: 60–90 menit, di luar propagasi DNS.
 - VPS dengan akses `sudo`, atau mesin sendiri yang menyala terus.
 - Nama domain yang catatan DNS-nya bisa Anda ubah.
 - (Opsional, sangat disarankan) ember Cloudflare R2 + kunci S3 untuk cadangan keluar mesin,
-  langkahnya sama dengan `docs/PANDUAN_PENYALAAN.md` bagian 6.1.
+  langkahnya sama dengan `docs/panduan/PANDUAN_PENYALAAN.md` bagian 6.1.
 - Port 22, 80, dan 443 terbuka dari luar; port aplikasi (8787) **tidak** dibuka.
 
 Node 24 dipasang di bagian 3. Tidak ada langkah build untuk server: Node 24 menjalankan TypeScript

@@ -1,6 +1,6 @@
 # Riset UX Aplikasi Keuangan Pribadi Sejenis
 
-Hasil reverse engineering tingkat permukaan atas aplikasi keuangan pribadi sejenis, untuk memutuskan detail layar yang belum diputuskan di `PRD_Aplikasi_Keuangan_Pribadi_v1.md`.
+Hasil reverse engineering tingkat permukaan atas aplikasi keuangan pribadi sejenis, untuk memutuskan detail layar yang belum diputuskan di `docs/PRD_Aplikasi_Keuangan_Pribadi_v1.md`.
 
 - Pemeriksaan sumber: 22 September 2026.
 - Sumber: dokumentasi resmi penerbit, pusat bantuan resmi, kode sumber publik, halaman toko aplikasi.

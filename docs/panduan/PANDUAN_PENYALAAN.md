@@ -8,7 +8,7 @@ basis datanya Turso, penjadwal harian Vercel memicu `/api/v1/internal/tick`, dan
 harian naik ke ember R2 dari mesin tetap.
 
 Untuk mesin sendiri atau VPS (mode satu proses, basis data berkas, penjadwal internal), pakai
-`docs/PANDUAN_PENYALAAN_VPS.md`. Jangan menyalakan dua bentuk penyalaan di atas basis data yang sama.
+`docs/panduan/PANDUAN_PENYALAAN_VPS.md`. Jangan menyalakan dua bentuk penyalaan di atas basis data yang sama.
 
 Perkiraan waktu 45–60 menit, ditambah waktu propagasi DNS.
 
@@ -261,7 +261,7 @@ turso db shell ihsan-uji < dump.sql
 
 Bila hanya perlu mengganti basis data berkas lokal: hentikan server, timpa `IHSAN_DB_PATH` dengan
 berkas dump, buang `-wal`/`-shm` yang tertinggal, jalankan lagi. Prosedur lengkap ada di
-`docs/DEPLOY.md` bagian 6.3.
+`docs/panduan/DEPLOY.md` bagian 6.3.
 
 ### 7.2 Perawatan rutin
 

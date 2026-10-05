@@ -92,19 +92,27 @@ Dump membaca basis data Turso bila `IHSAN_DB_URL` terisi, kalau tidak berkas lok
 Berkasnya ditaruh di `<IHSAN_DATA_DIR>/offsite` (`IHSAN_OFFSITE_DIR` bila perlu tempat lain), bukan
 di direktori snapshot `backup.mjs`, supaya retensi keduanya tidak saling menghapus.
 
-Kontrak penyalaan, penjadwal, dan pemulihan ada di `docs/DEPLOY.md`; langkah menyalakan produksi
-dari dashboard ada di `docs/PANDUAN_PENYALAAN.md` (mode serverless Vercel + Turso) dan
-`docs/PANDUAN_PENYALAAN_VPS.md` (mode satu proses di VPS atau mesin sendiri). Di Windows, jadwal
+Kontrak penyalaan, penjadwal, dan pemulihan ada di `docs/panduan/DEPLOY.md`; langkah menyalakan produksi
+dari dashboard ada di `docs/panduan/PANDUAN_PENYALAAN.md` (mode serverless Vercel + Turso) dan
+`docs/panduan/PANDUAN_PENYALAAN_VPS.md` (mode satu proses di VPS atau mesin sendiri). Di Windows, jadwal
 offsite memakai `deploy/windows/offsite.ps1`.
 
 ## Susunan
 
 ```
 Ihsan Finance/
-  PRD_Aplikasi_Keuangan_Pribadi_v1.md   sumber kebenaran produk
-  SOUL.md                               nilai dan cara kerja
-  AGENTS.md                             aturan yang mengikat semua agen
-  docs/                                 arsitektur, desain, keputusan, status, riset, gerbang
+  AGENTS.md                             aturan yang mengikat semua agen (dibaca dari akar)
+  README.md                             halaman ini: menjalankan, verifikasi, susunan
+  PRODUCT.md, SOUL.md                   kebenaran produk dan nilai kerja (dibaca skill impeccable)
+  docs/
+    PRD_Aplikasi_Keuangan_Pribadi_v1.md sumber kebenaran produk
+    ARCHITECTURE.md                     bentuk sistem, modul, dan aliran data
+    DESIGN.md                           arah visual: palet, rupa huruf, jarak, motif, gerak
+    DECISIONS.md, STATUS.md             keputusan yang mengikat dan keadaan tiap fitur
+    DELIVERY_GATE.md, SKILLS.md         laporan gerbang anti-slop dan daftar skill
+    COMPANY.md, UX_RESEARCH.md          piagam kerja agen dan riset pola UX sejenis
+    evidence/                           tangkapan layar bukti UI
+    panduan/                            DEPLOY.md, PANDUAN_PENYALAAN.md, PANDUAN_PENYALAAN_VPS.md
   skills/                               skill agen pihak ketiga berlisensi terbuka
   app/
     server/                             Node 24 + TypeScript langsung + @libsql/client (berkas atau Turso)
@@ -117,9 +125,12 @@ Ihsan Finance/
     api/                                fungsi Vercel pembungkus Fastify (mode serverless, D-21)
     vercel.json                         build, rewrite SPA, dan cron penjadwal harian
     web/                                React 19 + Vite 7 + Tailwind v4, PWA
+    scripts/                            dev, bundel fungsi, cadangan, smoke
+    data/                               basis data lokal, backup, ekspor, offsite (tidak masuk git)
   deploy/
-    systemd/                            unit server, snapshot, dan timer cadangan
+    caddy/, systemd/                    proksi TLS, unit server, snapshot, dan timer cadangan
     windows/offsite.ps1                 dump + unggah offsite terjadwal dari Task Scheduler
+  Dockerfile, compose.yaml              wadah: nama berkasnya wajib ada di akar
 ```
 
 ## Keputusan yang mengikat
@@ -140,14 +151,14 @@ Seluruh keputusan lain beserta alasannya ada di `docs/DECISIONS.md`.
 
 | Berkas | Isi |
 |---|---|
-| `PRD_Aplikasi_Keuangan_Pribadi_v1.md` | Sumber kebenaran produk. Bila kode dan PRD berbeda, PRD menang. |
+| `docs/PRD_Aplikasi_Keuangan_Pribadi_v1.md` | Sumber kebenaran produk. Bila kode dan PRD berbeda, PRD menang. |
 | `docs/ARCHITECTURE.md` | Bentuk sistem, modul, dan aliran data |
 | `docs/DESIGN.md` | Arah visual: palet, rupa huruf, jarak, motif, gerak |
 | `docs/DECISIONS.md` | Keputusan teknis dan penyimpangan yang dicatat terbuka |
 | `docs/STATUS.md` | Keadaan tiap fitur, cakupan tes, dan yang belum selesai |
-| `docs/DEPLOY.md` | Menjalankan di server: lingkungan, wadah, TLS, cadangan/restore, pilihan hosting |
-| `docs/PANDUAN_PENYALAAN.md` | Panduan langkah demi langkah penyalaan produksi (Turso, Vercel, DNS, R2) |
-| `docs/PANDUAN_PENYALAAN_VPS.md` | Panduan langkah demi langkah penyalaan mode A (VPS/mesin sendiri, Caddy, DNS, systemd) |
+| `docs/panduan/DEPLOY.md` | Menjalankan di server: lingkungan, wadah, TLS, cadangan/restore, pilihan hosting |
+| `docs/panduan/PANDUAN_PENYALAAN.md` | Panduan langkah demi langkah penyalaan produksi (Turso, Vercel, DNS, R2) |
+| `docs/panduan/PANDUAN_PENYALAAN_VPS.md` | Panduan langkah demi langkah penyalaan mode A (VPS/mesin sendiri, Caddy, DNS, systemd) |
 | `docs/DELIVERY_GATE.md` | Laporan gerbang anti-slop sebelum penyerahan |
 | `docs/SKILLS.md` | Skill agen yang dipakai, sumber, dan lisensinya |
 | `docs/UX_RESEARCH.md` | Riset pola UX aplikasi keuangan sejenis, dengan sumber |

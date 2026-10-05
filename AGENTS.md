@@ -1,6 +1,6 @@
 # Ihsan Finance: Aturan Proyek (semua agen)
 
-Aplikasi keuangan pribadi P0. **`PRD_Aplikasi_Keuangan_Pribadi_v1.md` adalah sumber kebenaran.**
+Aplikasi keuangan pribadi P0. **`docs/PRD_Aplikasi_Keuangan_Pribadi_v1.md` adalah sumber kebenaran.**
 Bila kode dan PRD berbeda, PRD menang; jangan diam-diam mengubah cakupan; catat di `docs/DECISIONS.md`.
 
 ## Aturan yang tidak boleh dilanggar

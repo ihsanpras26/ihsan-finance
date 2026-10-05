@@ -4,7 +4,7 @@
 
 ## Misi
 
-Membangun aplikasi keuangan pribadi P0 sesuai `PRD_Aplikasi_Keuangan_Pribadi_v1.md`,
+Membangun aplikasi keuangan pribadi P0 sesuai `docs/PRD_Aplikasi_Keuangan_Pribadi_v1.md`,
 sampai seluruh kriteria penerimaan (AT01–AT18) dan NFR P0 lulus verifikasi nyata
 (bukan klaim). PRD adalah sumber kebenaran; bila kode dan PRD berbeda, PRD menang.
 

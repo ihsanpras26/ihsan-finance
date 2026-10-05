@@ -1,4 +1,4 @@
-// vercel.ts: Vercel Node function hosting the Fastify app (docs/DEPLOY.md, "Vercel + Turso").
+// vercel.ts: Vercel Node function hosting the Fastify app (docs/panduan/DEPLOY.md, "Vercel + Turso").
 // Static files (web/dist) are served by Vercel's CDN; every /api/* request lands here.
 //
 // The committed entry `api/index.js` imports this module; Vercel plans functions from the source

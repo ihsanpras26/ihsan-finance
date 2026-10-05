@@ -19,7 +19,7 @@ Bukti dan isi: seluruh angka berasal dari API (jurnal berpasangan); tidak ada an
 demonstrasi berasal dari `pnpm seed` dan diberi label sintetis.
 
 Batasan: `APP/AGENTS.md` (uang integer Rupiah, `workspace_id` dari sesi, idempotensi, atomik),
-`PRD_Aplikasi_Keuangan_Pribadi_v1.md` (urutan informasi Beranda §03, FR04 kartu membuka rincian,
+`docs/PRD_Aplikasi_Keuangan_Pribadi_v1.md` (urutan informasi Beranda §03, FR04 kartu membuka rincian,
 FR07 cari dan saring, FR18 laporan), `docs/DESIGN.md` (sumber kebenaran visual sampai ditulis ulang
 di akhir), target sentuh 44px, NFR06 arah uang tidak pernah warna-saja, R-27 empat keadaan.
 

@@ -1,6 +1,6 @@
 # Arsitektur: Ihsan Finance P0
 
-Sumber kebenaran produk: `PRD_Aplikasi_Keuangan_Pribadi_v1.md`. Dokumen ini menerjemahkannya
+Sumber kebenaran produk: `docs/PRD_Aplikasi_Keuangan_Pribadi_v1.md`. Dokumen ini menerjemahkannya
 menjadi keputusan teknis yang mengikat. Perubahan di sini dicatat di `docs/DECISIONS.md`.
 
 ## 1. Stack & alasan

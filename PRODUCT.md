@@ -78,7 +78,7 @@ kebutuhan kartu kredit sejak awal, dan apakah impor riwayat masuk rilis pertama.
 
 ## Evidence on Hand
 
-- `PRD_Aplikasi_Keuangan_Pribadi_v1.md` (v1.0, 21 September 2026) — sumber kebenaran produk.
+- `docs/PRD_Aplikasi_Keuangan_Pribadi_v1.md` (v1.0, 21 September 2026) — sumber kebenaran produk.
 - `docs/UX_RESEARCH.md` — riset permukaan atas Money Lover, Finansialku, Wallet, Actual Budget,
   Firefly III, Money Manager EX, dengan sumber resmi dan bagian "tidak terverifikasi".
 - `docs/STATUS.md` — bukti verifikasi, termasuk 18 skenario AT dan cacat yang sudah diperbaiki.
