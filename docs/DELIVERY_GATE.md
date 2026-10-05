@@ -644,3 +644,139 @@ bergantung pada satu cuplikan. `DESIGN.md`, `STATUS.md`, dan komentar `styles/in
 memakai angka baru itu. Sejalan dengan itu, `.impeccable/design.json` diperbaiki di tempat pada
 1 Oktober 2026 (nilai dan redaksi) tetapi `generatedAt` di dalamnya tetap 29 September 2026 karena
 field itu mencatat kapan lembar itu dibangkitkan, bukan kapan terakhir disentuh.
+
+---
+
+# Gerbang D-27 · Koreksi UX sesudah catatan pemilik "masih lemot dan tidak intuitif"
+
+Dijalankan: 5 Oktober 2026 · Mode: **During** (sebelum penyerahan) · Perubahan: `D-27` (commit
+`4a3b95d`), ditambah koreksi teks pada commit dokumentasi sesudahnya.
+
+Lingkup gerbang ini hanya lima perubahan klien: penanganan galat pemuatan (18 titik memakai
+`DataError`), keadaan kosong Beranda untuk ruang tanpa dompet, label kaki lembar saringan
+(`Terapkan` menjadi `Selesai`), penyebutan zona waktu ruang pada periode, dan penanda merek layar
+masuk (teks `[LOGO]` menjadi monogram `IF`). Server, skema, dan aturan jurnal tidak disentuh, jadi
+baris gerbang D-18 yang tidak bersinggungan dengan lima hal itu tidak diukur ulang dan tetap
+berlaku.
+
+Bukti mentah: `pnpm --dir app verify` (typecheck, 107 tes server, 5 tes web, `vite build`) lulus;
+telusuri klik di Chromium pada server lokal 8789 (basis data baru, ruang tanpa dompet, zona waktu
+`Asia/Makassar`) dan 8788 (ruang berisi,`Asia/Jakarta`), ditambah produksi `ihsanpras.my.id`
+(deploy `dpl_HDCtADZd38i8TdYnwSnHJ5fwJxbN`, region `hnd1`).
+
+## Blok 1 · Hard Gate (semua jawaban harus TIDAK)
+
+| # | Pertanyaan | Jawaban | Bukti |
+|---|---|---|---|
+| R-02 | Ada em dash di teks mana pun di luar pengecualian? | **TIDAK** | Teks antarmuka dipindai di DOM hidup pada empat rute (`/`, `/profil`, `/laporan`, `/transaksi`) di lebar 360 px dan pada `/masuk` di lebar 1365 px, tema terang dan gelap: `document.body.innerText.includes('\u2014')` **false** di sebelas pembacaan. Dua em dash yang sempat masuk teks keadaan kosong Beranda dan dua komentar sumber dicabut sebelum commit dokumentasi; `grep -rn "—" app/web/src` kembali **0 hasil**. |
+| R-03 | Ada luapan horizontal atau tata letak rusak di mobile? | **TIDAK** | 360x800, ruang kosong (8789) dan ruang berisi (8788), empat rute: `scrollWidth 360 = clientWidth 360` di delapan halaman (terang dan gelap). Kendali terkecil **44 px**, 0 kendali di bawah 44 px; lembar saringan `/transaksi` diukur tombol demi tombol: **25 tombol, semuanya 44 px**. |
+| R-17 | Ada statistik tanpa sumber nyata? | **TIDAK** | Tidak ada angka statistik baru. Satu-satunya angka baru di layar adalah saldo dompet uji (Rp150.000) yang berasal dari jurnal pembukaan di basis data uji. |
+| R-18 | Ada testimoni fiktif? | **TIDAK** | Tidak ada bagian testimoni di aplikasi. |
+| R-23 | Ada aset visual dibuat tanpa instruksi atau placeholder jujur? | **TIDAK** | Layar masuk memakai monogram `IF` dengan pasangan token yang sudah ada (`bg-accent-solid` + `text-accent-fg`, kelas `size-9 rounded-control`), bukan berkas aset baru. Teks `[LOGO]` **sudah tidak ada**: `document.body.innerText` pada `/masuk` tidak memuat `[LOGO]`, dan judul layar berbunyi `Ihsan Finance`. Baris R-23 pada gerbang D-18 menyebut placeholder `[LOGO]`; baris itu kini usang (lihat "Koreksi terhadap gerbang D-18" di bawah). |
+| R-24 | Ada tautan navigasi ke halaman yang tidak ada? | **TIDAK** | Tombol "Buat dompet pertama" pada keadaan kosong Beranda menavigasi ke `/profil`, dan `/profil` merender `h1` = "Profil" tanpa galat. Tiga rute lain dibuka lewat rel aplikasi: `h1` = "Laporan", "Transaksi", "Beranda". |
+| R-25 | Ada teks dengan kontras di bawah WCAG AA? | **TIDAK** | Tidak ada token warna baru. Monogram diukur dari `getComputedStyle`: `#ffffff` di atas `rgb(2, 86, 255)` = `#0256ff`; rasio dihitung ulang dari nilai linear sRGB = **5,56:1** (ambang 4,5:1 untuk teks normal). Pasangan token ini sudah lolos pada 3.724 pemeriksaan gerbang D-18. |
+| R-26 | Ada tombol, dropdown, atau formulir yang tidak melakukan apa pun? | **TIDAK** | "Buat dompet pertama" membuka lembar dompet di `/profil`. Chip saringan memicu `GET /api/v1/transactions?type=expense&page=1&pageSize=20` dan mengubah URL menjadi `/transaksi?type=expense` **tanpa menutup lembar**. Tombol "Selesai" menutup lembar saringan; "Bersihkan" mengosongkan saringan. |
+| R-27 | Antarmuka kurang keadaan kosong, memuat, atau galat? | **TIDAK** | Ruang tanpa dompet: Beranda memuat keadaan kosong "Mulai dari sini", Profil "Belum ada dompet", Transaksi "Belum ada transaksi". Galat pemuatan di 18 titik memakai `DataError` dengan label sebab konkret; galat non-401 tetap menawarkan "Coba lagi". Dibuktikan dengan membatalkan permintaan `GET /api/v1/wallets`: `/profil` menampilkan "Dompet gagal dimuat. Tidak ada koneksi ke server. Periksa jaringan lalu coba lagi." beserta tombol "Coba lagi". |
+| R-28 | FAQ berisi pertanyaan generik? | **TIDAK** | Tidak ada FAQ. |
+| R-32 | Tidak dapat dinavigasi papan tombol atau tanpa fokus terlihat? | **TIDAK** | Keadaan kosong Beranda menyisipkan `h1` kelas `sr-only` "Beranda" supaya halaman tetap punya satu judul utama. 14 langkah `Tab` pada halaman itu: satu-satunya elemen tanpa `outline` adalah `BODY` sebelum langkah pertama, seluruh kendali sesudahnya punya cincin fokus. |
+| R-33 | Ada fitur ditambahkan dengan menambal sumber/CSS dari luar? | **TIDAK** | Semua perubahan ada di berkas sumber; `grep -rn "—" app/web/src` nol hasil menunjukkan tidak ada tambalan teks di bundel. |
+| R-34 | Satu mode tema rusak? | **TIDAK** | Empat rute dijalankan ulang dalam mode gelap pada 360x800 (`document.documentElement.className` = `dark`): 0 luapan, 0 em dash, kendali terkecil 44 px, `h1` tunggal per halaman. `/masuk` di mode gelap pada 1365 px: 0 luapan, 0 em dash. |
+| R-35 | Diserahkan tanpa dijalankan atau tanpa catatan telusuri klik? | **TIDAK** | `vite build` EXIT=0, `pnpm verify` lulus, dan telusuri klik ada di bagian bawah laporan ini. |
+| R-36 | Ada klaim keamanan, kepatuhan, kinerja, atau pelanggan yang dikarang? | **TIDAK** | Angka kinerja dilaporkan apa adanya, termasuk panggilan pertama sesudah deploy yang masih 406-732 ms karena instance dingin, dan diukur dengan jumlah panggilan yang sama seperti sebelum perubahan. Tidak ada klaim waktu muat yang tidak punya angka mentah di `DECISIONS.md` D-26. |
+| R-37 | Dibangun tanpa arah dan tidak dilabeli? | **TIDAK** | Lima perubahan bersandar pada temuan yang bisa diperiksa: pesan galat yang mustahil berhasil (401 menawarkan "Coba lagi"), tidak ada langkah berikutnya di ruang kosong, label kaki lembar yang menjanjikan penerapan yang tidak ada, zona waktu tidak tampak padahal kriteria penerimaan PRD FR04 memintanya, dan placeholder `[LOGO]` di layar pertama. Keputusannya dicatat di `DECISIONS.md` D-27. |
+| R-38 | Ada konten bergaya realistis yang dikarang? | **TIDAK** | Akun dan nominal pengujian dibuat lewat API aplikasi di basis data sementara; tidak ada data pelanggan. |
+
+**Blok 1: PASS.**
+
+## Blok 2 · Purpose Gate (semua jawaban harus TIDAK)
+
+| # | Pertanyaan | Jawaban | Alasan tertulis |
+|---|---|---|---|
+| R-01 | Gradien atau glow sebagai bawaan tanpa tujuan? | **TIDAK** | 0 gradien dan 0 glow baru; perubahan hanya teks, satu komponen tombol, dan pemakaian ulang token warna. |
+| R-04 | Ikon generik atau pustaka ikon tanpa relevansi? | **TIDAK** | Tidak ada ikon baru. Monogram adalah dua huruf dari nama produk, bukan glif generik. |
+| R-06 | Monospace besar, label kapital jarak lebar, atau rupa tanpa alasan? | **TIDAK** | Tidak ada perubahan tipografi; keadaan kosong memakai `EmptyState` yang sudah ada. |
+| R-07 | Pola latar grid, blueprint, atau titik tanpa tujuan? | **TIDAK** | 0 pola latar. |
+| R-08 | Panah pada hampir setiap tombol sebagai hiasan? | **TIDAK** | Tidak ada panah baru; tombol keadaan kosong berbunyi "Buat dompet pertama" tanpa hiasan arah. |
+| R-09 | Lencana kapsul tanpa fungsi, atau pil di atas H1? | **TIDAK** | Monogram bukan lencana status dan tidak berdiri di atas `h1`; ia satu baris dengan judul `Ihsan Finance` di dalam kartu masuk. |
+| R-10 | Glassmorphism pada lebih dari 1-2 elemen? | **TIDAK** | 0 `backdrop-filter` baru. |
+| R-12 | Bayangan besar pada setiap komponen tanpa alasan elevasi? | **TIDAK** | Tidak ada bayangan baru; keadaan kosong dan kartu masuk memakai token yang sudah ada. |
+| R-13 | Glow pada kartu, tombol, lencana, ikon, latar, dan garis sekaligus? | **TIDAK** | 0 glow. |
+| R-14 | Semua kartu fitur identik tanpa alasan hierarki? | **TIDAK BERLAKU** | Tidak ada kartu fitur. |
+| R-19 | Semua animasi templat sekaligus, atau gerak melawan dial MOTION? | **TIDAK** | Tidak ada gerak baru; daftar gerak tetap seperti `DESIGN.md` bagian Motion dan `prefers-reduced-motion` tidak diubah. |
+| R-22 | Ilustrasi generik tanpa kaitan produk? | **TIDAK** | 0 ilustrasi. |
+
+**Blok 2: PASS.**
+
+## Blok 3 · Liveliness (semua jawaban harus YA)
+
+| Pertanyaan | Jawaban | Bukti |
+|---|---|---|
+| Dial ditetapkan dan eksplisit? | **YA** | `DESIGN.md`: ENERGY 4 / RHYTHM 4 / MOTION 3, tidak diubah oleh D-27. |
+| Hasil konsisten dengan dial yang diklaim? | **YA** | Kelima perubahan memakai komponen dan token yang sudah ada (`EmptyState`, `Button`, `DataError`, `bg-accent-solid`), jadi jarak, radius, dan gerak tetap mengikuti dial. |
+| Ada satu titik fokus jelas per layar? | **YA** | Beranda ruang kosong: satu judul "Mulai dari sini" dan satu tombol utama; tidak ada angka yang bersaing karena tidak ada saldo untuk ditampilkan. |
+| Ruang putih struktural, bukan sisa? | **YA** | Keadaan kosong memakai pembungkus berjarak tetap (`flex flex-col gap-3 pt-4`) di dalam `#konten` yang sama dengan Beranda biasa. |
+| Ada satu aksen sengaja? | **YA** | Biru aksen tetap satu-satunya warna keputusan: tombol "Buat dompet pertama", monogram layar masuk, dan penanda navigasi aktif. |
+| Ada motif identitas? | **YA** | Monogram `IF` kini muncul di dua tempat dengan bentuk yang sama (layar masuk dan rel aplikasi), jadi penandanya dikenali sebelum masuk. |
+| Design Read dinyatakan sebelum dibangun? | **YA** | `DESIGN.md` bagian arah canon, tidak berubah. |
+
+**Blok 3: PASS.**
+
+## Blok 4 · Craftsmanship & Quality Locks (semua jawaban harus TIDAK)
+
+| # | Pertanyaan | Jawaban | Bukti |
+|---|---|---|---|
+| C-1 | Ada keputusan yang hanya beralasan "bawaan AI"? | **TIDAK** | Tiap perubahan punya alasan satu baris di `DECISIONS.md` D-27. |
+| C-2 | Ada elemen interaktif yang tidak melakukan apa pun? | **TIDAK** | Sama dengan R-26. |
+| C-3 | Ada bagian yang hanya mengisi templat? | **TIDAK** | Keadaan kosong Beranda menggantikan ringkasan yang seluruhnya nol, bukan menambah blok hiasan. |
+| C-4 | Antarmuka rusak pada suatu keadaan, tema, atau tanpa tetikus? | **TIDAK** | Delapan halaman (empat rute x dua tema) tanpa luapan, tanpa teks `undefined`/`NaN`, dan satu `h1` per halaman. Telusuri klik memakai papan tombol di kaki lembar saringan dan tombol keadaan kosong. |
+| C-5 | Ada testimoni, statistik, atau klaim yang dikarang? | **TIDAK** | Sama dengan R-17, R-18, R-36. |
+| R-05 | Tata letak mengikuti templat AI atau irama bagian melawan dial RHYTHM? | **TIDAK** | Keadaan kosong adalah satu blok di dalam urutan blok tetap Beranda, bukan hero pemasaran. |
+| R-11 | Semua elemen dibuat berbentuk pil tanpa variasi radius? | **TIDAK** | Monogram memakai radius kendali (`rounded-control`) yang sama dengan lencana rel aplikasi; tidak ada radius literal baru. |
+| R-15 | CTA masih generik? | **TIDAK** | Tombol keadaan kosong berbunyi "Buat dompet pertama" (menyebut objek yang dibuat), bukan "Mulai" atau "Lanjut". Kaki lembar saringan berbunyi "Selesai" dan "Bersihkan", keduanya menerangkan hasil kliknya. |
+| R-16 | Ada kata pemanis pemasaran AI? | **TIDAK** | Teks baru berbunyi apa adanya: "Buat dompet pertama, misalnya kas harian, rekening bank, atau e-wallet, lalu catat transaksi pertama Anda. Saldo awal dicatat sebagai jurnal pembukaan, bukan pendapatan." 0 kata pemanis. |
+| R-20 | Terasa generik bila logo dan nama ditukar? | **TIDAK** | Layar masuk menyebut pekerjaan produknya ("Buku kas pribadi: catat pendapatan, pengeluaran, utang, piutang, dan tujuan tabungan dalam satu tempat."), bukan slogan yang bisa dipasang di produk lain. |
+| R-21 | Mode gelap dipaksa tanpa alasan, atau toggle ditunda? | **TIDAK** | Toggle tidak disentuh; mode gelap diuji dengan pilihan tersimpan (`localStorage` `ihsan.theme` = `dark`) dan empat rute lolos. |
+| R-29 | Palet melebihi 2-3 warna inti + 1 aksen tanpa sistem? | **TIDAK** | 0 token warna baru ditambahkan. |
+| R-30 | Meniru produk populer lain? | **TIDAK** | Monogram dan pesan galat tidak meniru produk lain. |
+| R-31 | Ada keputusan visual besar yang alasannya tidak bisa ditulis satu baris? | **TIDAK** | Alasan kelima perubahan ada di `DECISIONS.md` D-27, satu butir satu paragraf. |
+
+**Blok 4: PASS.**
+
+## Telusuri klik (R-35)
+
+| # | Langkah | Hasil terukur |
+|---|---|---|
+| 1 | Ruang tanpa dompet (8789, `Asia/Makassar`), `/masuk` 360x800 | `h1` "Ihsan Finance" + monogram `IF` 36x36 px; tidak ada teks `[LOGO]`; 0 em dash |
+| 2 | Isi surel dan sandi, klik "Masuk" | Beranda merender keadaan kosong: judul "Mulai dari sini" dan tombol "Buat dompet pertama" |
+| 3 | Klik "Buat dompet pertama" | Pindah ke `/profil` (`h1` "Profil") dengan keadaan kosong "Belum ada dompet" dan lembar pembuatan dompet |
+| 4 | 14 langkah `Tab` di Beranda kosong | Hanya `BODY` sebelum langkah pertama tanpa `outline`; seluruh kendali berikutnya bercincin fokus |
+| 5 | `/transaksi`, klik "Filter" | Lembar saringan terbuka; kaki berisi "Selesai" dan "Bersihkan"; 0 kemunculan "Terapkan"; 25 tombol di dalam lembar semuanya 44 px |
+| 6 | Klik chip "Pengeluaran" di dalam lembar | `GET /api/v1/transactions?type=expense&page=1&pageSize=20` dikirim dan URL menjadi `/transaksi?type=expense`, lembar tetap terbuka |
+| 7 | Batalkan permintaan `GET /api/v1/wallets`, buka `/profil` | "Dompet gagal dimuat. Tidak ada koneksi ke server. Periksa jaringan lalu coba lagi." + tombol "Coba lagi"; 0 galat konsol |
+| 8 | Galat 401 di tengah sesi (`/laporan`) | "Sesi berakhir. Masuk lagi untuk melihat data ini. Draf yang belum terkirim tetap tersimpan di perangkat ini." tanpa tombol "Coba lagi" (0 kemunculan) |
+| 9 | Ruang berisi (8788, `Asia/Jakarta`) | Baris periode Beranda: "Periode Oktober 2026, dihitung sampai 5 Oktober 2026 (zona waktu Asia/Jakarta)." |
+| 10 | `/laporan` di ruang yang sama | Subjudul: "Rentang aktif: Oktober 2026. Zona waktu Asia/Jakarta." (nilai mengikuti `SessionUser.timezone`, berubah menjadi `Asia/Makassar` pada akun 8789) |
+| 11 | Empat rute pada 360x800, tema terang dan gelap | 0 luapan (`scrollWidth = clientWidth = 360`), 0 em dash, kendali terkecil 44 px |
+
+## Koreksi terhadap gerbang D-18
+
+Dua baris pada gerbang D-18 kini tidak lagi menggambarkan aplikasi. Keduanya dicatat di sini dan
+baris lama dibiarkan utuh sebagai riwayat.
+
+1. Baris **R-23** gerbang D-18 menyebut placeholder jujur `[LOGO]` pada layar masuk. Layar masuk
+   sekarang memakai monogram `IF`, jadi placeholder itu tidak ada lagi; alasan dan bentuk
+   penggantinya ada di D-27 butir 5.
+2. Baris **R-36 nomor 6** (telusuri live 1 Oktober 2026) mencatat empat tombol kaki lembar
+   saringan: "Bulan ini, Pilih tanggal, Terapkan, Bersihkan". Tombol `Terapkan` sudah diganti
+   `Selesai` karena saringan berlaku langsung saat chip ditekan; jumlah tombol kaki sekarang dua,
+   dan lembar menutup lewat `Selesai` atau tombol tutup.
+
+## Catatan kejujuran
+
+Batas pertama: rasio kontras monogram (5,56:1) saya hitung dari nilai `getComputedStyle`
+(`#ffffff` di atas `#0256ff`) dengan rumus kontras WCAG, bukan dari cuplikan piksel; warnanya
+sendiri terukur, angkanya turunan. Batas kedua: gerbang ini tidak mengukur ulang pemeriksaan yang
+tidak bersinggungan dengan kelima perubahan (74 baris kontras per halaman, pemindaian gradien,
+glassmorphism, dan pola latar pada 24 halaman); yang berlaku untuk baris itu adalah hasil gerbang
+D-18 dengan komponen yang sama. Batas ketiga: telusuri dijalankan pada Chromium headless dengan
+geometri dan gaya terhitung, jadi selera visual akhir tetap penilaian pemilik.

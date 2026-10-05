@@ -283,7 +283,7 @@ export function AuthPage() {
     <div className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col justify-center px-4 py-10">
       <Card className="px-5 py-6">
         {/* Penanda merek: monogram yang sama dengan rel aplikasi (DESIGN.md "lencana merek"), bukan
-            berkas logo — pemilik belum menyetujui logo resmi, jadi tidak ada aset baru yang dibuat. */}
+            berkas logo, sebab pemilik belum menyetujui logo resmi, jadi tidak ada aset baru yang dibuat. */}
         <div className="flex items-center gap-2.5">
           <span className="inline-flex size-9 items-center justify-center rounded-control bg-accent-solid text-base font-bold text-accent-fg" aria-hidden="true">
             IF

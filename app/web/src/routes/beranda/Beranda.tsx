@@ -77,7 +77,7 @@ export function BerandaPage() {
         <h1 className="sr-only">Beranda</h1>
         <EmptyState
           title="Mulai dari sini"
-          body="Buat dompet pertama — kas harian, rekening bank, atau e-wallet — lalu catat transaksi pertama Anda. Saldo awal dicatat sebagai jurnal pembukaan, bukan pendapatan."
+          body="Buat dompet pertama, misalnya kas harian, rekening bank, atau e-wallet, lalu catat transaksi pertama Anda. Saldo awal dicatat sebagai jurnal pembukaan, bukan pendapatan."
           action={<Button onClick={() => navigate('/profil')}>Buat dompet pertama</Button>}
         />
       </div>

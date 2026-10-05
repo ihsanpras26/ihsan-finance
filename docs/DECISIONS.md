@@ -685,9 +685,22 @@ diubah pada keputusan ini: setelah fungsi dan basis data satu region, biaya per 
 diukur ulang, bukan tebakan.
 
 **Verifikasi:** `pnpm --dir app verify` lulus (typecheck, 107 tes server, 5 tes web, build produksi).
-Setelah deploy, latensi produksi diukur ulang dengan urutan perintah yang sama seperti pengukuran
-sebelumnya (`/api/v1/health`, `/api/v1/internal/tick`, `POST /api/v1/auth/login` dengan surel tidak
-dikenal) dan hasilnya dicatat di berkas ini bila berbeda jauh.
+Deploy produksi `dpl_HDCtADZd38i8TdYnwSnHJ5fwJxbN` (commit `4a3b95d`, 5 Oktober 2026 13:10 UTC) READY
+dalam 26 detik dengan `region: ["hnd1"]`, jadi setelan `regions` di `vercel.json` benar-benar
+dipakai, bukan diabaikan. Latensi diukur ulang dengan urutan perintah yang sama seperti pengukuran
+sebelum perubahan, satu panggilan pemanasan dibuang:
+
+| Ukuran | Sebelum (`iad1`) | Sesudah (`hnd1`) |
+|---|---|---|
+| `GET /api/v1/health` hangat, tanpa pernyataan DB | 300 ms | 157–181 ms |
+| `POST /api/v1/internal/tick` hangat, beberapa penulisan | 1,7–1,8 dtk | 216–263 ms |
+| `POST /api/v1/auth/login` surel tidak dikenal | 0,82 dtk | 200–214 ms |
+| `GET /api/v1/wallets` tanpa sesi (baca sesi) | belum diukur | 150–184 ms |
+| `/masuk` TTFB / FCP, 4G + CPU 4x, cache kosong | 192 ms / 1852 ms | 80 ms / 236 ms |
+
+Panggilan pertama sesudah deploy masih menyentuh 406–699 ms (`health`) dan 483–732 ms (`tick`):
+itu instance yang baru dinyalakan, bukan bentuk mantapnya. Aset awal yang benar-benar diunduh
+peramban dari produksi: `index` 59,1 KB + `vendor` 261,1 KB + CSS 33,4 KB mentah, satu woff2 46,8 KB.
 
 **Status:** 5 Oktober 2026 · diterapkan.
 
@@ -723,7 +736,7 @@ uang tidak disentuh.
 
 4. **Zona waktu ruang tampak di tempat periode dilaporkan.** Kriteria penerimaan PRD FR04 meminta
    rentang tanggal dan zona waktu tampak jelas. Baris periode Beranda kini menyebut "(zona waktu
-   …)" dan subjudul Laporan menyebut "Zona waktu …" — keduanya dari `SessionUser.timezone` yang
+   …)" dan subjudul Laporan menyebut "Zona waktu …", keduanya dari `SessionUser.timezone` yang
    sama dengan yang dipakai server saat menghitung batas periode, bukan nilai yang ditebak klien.
 
 5. **Penanda merek di layar masuk: monogram `IF`, bukan teks `[LOGO]`.** Teks placeholder itu
@@ -743,5 +756,16 @@ dompet menampilkan keadaan kosong "Mulai dari sini" beserta tombolnya, dan setel
 dibuat Beranda kembali ke susunan panel biasa; subjudul Laporan dan baris periode Beranda menyebut
 zona waktu ruang; permintaan data yang dijawab 401 menampilkan "Sesi berakhir. Masuk lagi…" tanpa
 tombol "Coba lagi".
+
+**Verifikasi lanjutan (commit dokumentasi).** Diukur ulang pada 360x800, ruang tanpa dompet (`Asia/Makassar`)
+dan ruang berisi (`Asia/Jakarta`), tema terang dan gelap: empat rute tanpa luapan
+(`scrollWidth = clientWidth = 360`), kendali terkecil 44 px, satu `h1` per halaman, dan 0 em dash
+di teks antarmuka. Lembar saringan diukur tombol demi tombol: 25 tombol semuanya 44 px, kaki lembar
+hanya "Selesai" dan "Bersihkan", 0 kemunculan "Terapkan". Prop `label` dibuktikan dengan
+membatalkan permintaan `GET /api/v1/wallets`: `/profil` menampilkan "Dompet gagal dimuat. Tidak ada
+koneksi ke server. Periksa jaringan lalu coba lagi." beserta tombol "Coba lagi", sedangkan jalur 401
+tetap menampilkan arahan masuk ulang tanpa tombol itu. Dua em dash yang sempat masuk teks keadaan
+kosong Beranda dan dua komentar sumber dicabut sebelum commit ini. Laporan empat bloknya ada di
+`docs/DELIVERY_GATE.md`, bagian "Gerbang D-27".
 
 **Status:** 5 Oktober 2026 · diterapkan.
