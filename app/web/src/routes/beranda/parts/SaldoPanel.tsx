@@ -16,7 +16,7 @@ function WalletGlyph({ type }: { type: string }) {
   return <IconWallet size={19} />;
 }
 
-export function SaldoPanel({ dashboard }: { dashboard: DashboardData }) {
+export function SaldoPanel({ dashboard, timezone }: { dashboard: DashboardData; timezone?: string }) {
   const { hidden, toggle } = useMoneyVisibility();
   const [open, setOpen] = useState(false);
   const wallets = dashboard.wallets;
@@ -30,7 +30,8 @@ export function SaldoPanel({ dashboard }: { dashboard: DashboardData }) {
             <Money value={dashboard.totalBalance} direction={balanceDirection(dashboard.totalBalance)} size="2xl" sign={false} />
           </p>
           <p className="mt-1 text-xs text-muted">
-            Periode {formatPeriod(dashboard.period.label)}, dihitung sampai {formatDateLong(dashboard.asOf)}.
+            Periode {formatPeriod(dashboard.period.label)}, dihitung sampai {formatDateLong(dashboard.asOf)}
+            {timezone ? ` (zona waktu ${timezone})` : ''}.
           </p>
         </div>
         <IconButton

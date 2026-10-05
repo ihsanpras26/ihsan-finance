@@ -5,8 +5,9 @@ import { useEffect, useState } from 'react';
 import { api } from '../../../lib/api.ts';
 import { useAsync } from '../../../lib/hooks.ts';
 import { useSession } from '../../../lib/session.tsx';
-import { Button, Card, CardHead, ErrorState, Field, LoadingRows, Select, useToast } from '../../../components/ui.tsx';
+import { Button, Card, CardHead, Field, LoadingRows, Select, useToast } from '../../../components/ui.tsx';
 import { RadioGroup, SwitchRow, errorMessage } from '../../../components/forms/support.tsx';
+import { DataError } from '../../../components/layout/DataError.tsx';
 
 const ZONES: { value: string; label: string }[] = [
   { value: 'Asia/Jakarta', label: 'WIB, Asia/Jakarta' },
@@ -68,7 +69,7 @@ export function PreferenceSection() {
     <section className="mt-4">
       {workspace.loading && !workspace.data ? <LoadingRows rows={2} label="Memuat preferensi ruang" /> : null}
       {workspace.error ? (
-        <ErrorState message={`Preferensi gagal dimuat. ${workspace.error.display}`} onRetry={workspace.reload} />
+        <DataError error={workspace.error} onRetry={workspace.reload} label="Preferensi gagal dimuat." />
       ) : null}
 
       {workspace.data ? (

@@ -8,11 +8,13 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, type SummaryReport } from '../../lib/api.ts';
 import { useAsync } from '../../lib/hooks.ts';
+import { DataError } from '../../components/layout/DataError.tsx';
 import { Button, Card, CardHead, ErrorState, LoadingRows, Money, MoneyStat, PageHeader, useToast } from '../../components/ui.tsx';
 import { IconDownload } from '../../components/icons.tsx';
 import { errorMessage } from '../../components/forms/support.tsx';
 import { useShell } from '../../components/layout/AppShell.tsx';
 import { formatDateShort, toMinor } from '../../lib/format.ts';
+import { useSession } from '../../lib/session.tsx';
 import { RangePicker } from './parts/RangePicker.tsx';
 import { CategoryChart } from './parts/CategoryChart.tsx';
 import {
@@ -23,6 +25,7 @@ import { comparisonPeriodName, defaultRange, directionOf, isRangeUsable, monthly
 export function LaporanPage() {
   const { push } = useToast();
   const { dataVersion, openQuickEntry } = useShell();
+  const { user } = useSession();
   const navigate = useNavigate();
   const [draft, setDraft] = useState(defaultRange);
   const [exporting, setExporting] = useState(false);
@@ -67,7 +70,7 @@ export function LaporanPage() {
     <div className="flex flex-col gap-3">
       <PageHeader
         title="Laporan"
-        subtitle={`Rentang aktif: ${current.label}.`}
+        subtitle={`Rentang aktif: ${current.label}.${user ? ` Zona waktu ${user.timezone}.` : ''}`}
         action={
           <Button onClick={() => void downloadCsv()} loading={exporting} disabled={!usable}>
             <IconDownload size={18} />
@@ -85,7 +88,7 @@ export function LaporanPage() {
       ) : (
         <>
           {summary.loading && !summary.data ? <LoadingRows rows={4} label="Memuat ringkasan periode" /> : null}
-          {summary.error ? <ErrorState message={summary.error.display} onRetry={summary.reload} /> : null}
+          {summary.error ? <DataError error={summary.error} onRetry={summary.reload} /> : null}
           {summary.data ? (
             <>
               <SummaryPanel report={summary.data} label={current.label} from={current.from} to={current.to} />
@@ -132,7 +135,7 @@ export function LaporanPage() {
           ) : null}
 
           {monthly.loading && !monthly.data ? <LoadingRows rows={4} label="Memuat arus kas 12 bulan terakhir" /> : null}
-          {monthly.error ? <ErrorState message={monthly.error.display} onRetry={monthly.reload} /> : null}
+          {monthly.error ? <DataError error={monthly.error} onRetry={monthly.reload} /> : null}
           {monthly.data ? (
             <MonthlyCashflowCard
               window={monthlySpan}
@@ -146,11 +149,11 @@ export function LaporanPage() {
           ) : null}
 
           {cashflow.loading && !cashflow.data ? <LoadingRows rows={4} label="Memuat arus kas periode" /> : null}
-          {cashflow.error ? <ErrorState message={cashflow.error.display} onRetry={cashflow.reload} /> : null}
+          {cashflow.error ? <DataError error={cashflow.error} onRetry={cashflow.reload} /> : null}
           {cashflow.data ? <CashflowTables report={cashflow.data} /> : null}
 
           {netWorth.loading && !netWorth.data ? <LoadingRows rows={4} label="Memuat kekayaan bersih" /> : null}
-          {netWorth.error ? <ErrorState message={netWorth.error.display} onRetry={netWorth.reload} /> : null}
+          {netWorth.error ? <DataError error={netWorth.error} onRetry={netWorth.reload} /> : null}
           {netWorth.data ? (
             <NetWorthPanel
               report={netWorth.data}
@@ -163,7 +166,7 @@ export function LaporanPage() {
           ) : null}
 
           {debts.loading && !debts.data ? <LoadingRows rows={3} label="Memuat daftar utang" /> : null}
-          {debts.error ? <ErrorState message={debts.error.display} onRetry={debts.reload} /> : null}
+          {debts.error ? <DataError error={debts.error} onRetry={debts.reload} /> : null}
           {debts.data ? (
             <DebtTables
               report={debts.data}
@@ -176,7 +179,7 @@ export function LaporanPage() {
           ) : null}
 
           {goals.loading && !goals.data ? <LoadingRows rows={3} label="Memuat daftar tujuan" /> : null}
-          {goals.error ? <ErrorState message={goals.error.display} onRetry={goals.reload} /> : null}
+          {goals.error ? <DataError error={goals.error} onRetry={goals.reload} /> : null}
           {goals.data ? (
             <GoalTable
               goals={goals.data}

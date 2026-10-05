@@ -690,3 +690,58 @@ sebelumnya (`/api/v1/health`, `/api/v1/internal/tick`, `POST /api/v1/auth/login`
 dikenal) dan hasilnya dicatat di berkas ini bila berbeda jauh.
 
 **Status:** 5 Oktober 2026 · diterapkan.
+
+## D-27 · Kejelasan layar: penanganan sesi berakhir, langkah pertama, label saringan, zona waktu, penanda merek
+
+**Konteks.** Peninjauan pengalaman 5 Oktober 2026 menemukan lima tempat di mana antarmuka membuat
+pengguna menebak, bukan lima cacat fungsi. Semuanya diperbaiki di klien; server, skema, dan aturan
+uang tidak disentuh.
+
+**Keputusan.**
+
+1. **Semua galat pemuatan data lewat `DataError`, bukan `ErrorState` mentah.** Delapan belas titik di
+   Notifikasi, Profil (kategori, preferensi, dompet), Rencana (anggaran, utang/piutang, tujuan), dan
+   Laporan masih memakai `ErrorState` dengan tombol "Coba lagi" yang tidak mungkin berhasil saat
+   sesi sudah berakhir (HTTP 401). `DataError` memusatkan keputusan: 401 menampilkan "Sesi berakhir.
+   Masuk lagi…" dan memanggil `refresh()` sehingga pengguna diarahkan masuk ulang, sedangkan galat
+   lain tetap menawarkan "Coba lagi". `ErrorState` tetap dipakai untuk galat yang bukan hasil
+   pemuatan (mis. validasi rentang tanggal di Laporan) karena di sana "Coba lagi" memang masuk akal.
+   `DataError` menerima prop `label?: string` supaya kalimat sebabnya konkret ("Dompet gagal dimuat.")
+   alih-alih pesan server yang berdiri sendiri.
+
+2. **Beranda pengguna baru memberi satu langkah berikutnya.** Tanpa dompet, seluruh panel hanya
+   berisi nol dan pekerjaan yang menunggu pun kosong, jadi layar itu tidak punya aksi. PRD ("Alur
+   utama" dan "Standar tampilan") meminta tepat satu tindakan berikutnya. Beranda kini mendahulukan
+   keadaan kosong "Mulai dari sini" yang mengarahkan ke Profil untuk membuat dompet pertama, dengan
+   penjelasan bahwa saldo awal adalah jurnal pembukaan, bukan pendapatan. Cabang ini hanya berlaku
+   saat `dashboard.wallets.length === 0`; pengguna yang sudah punya dompet melihat layar yang sama
+   seperti sebelumnya.
+
+3. **Tombol kaki lembar saringan Transaksi: "Terapkan" menjadi "Selesai".** Saringan berlaku
+   langsung saat chip ditekan, jadi tombol itu tidak pernah menerapkan sesuatu yang belum
+   diterapkan; label lama menjanjikan penundaan yang tidak ada.
+
+4. **Zona waktu ruang tampak di tempat periode dilaporkan.** Kriteria penerimaan PRD FR04 meminta
+   rentang tanggal dan zona waktu tampak jelas. Baris periode Beranda kini menyebut "(zona waktu
+   …)" dan subjudul Laporan menyebut "Zona waktu …" — keduanya dari `SessionUser.timezone` yang
+   sama dengan yang dipakai server saat menghitung batas periode, bukan nilai yang ditebak klien.
+
+5. **Penanda merek di layar masuk: monogram `IF`, bukan teks `[LOGO]`.** Teks placeholder itu
+   pernah menjadi penanda jujur karena belum ada logo disetujui (aturan R-23), tetapi di layar
+   masuk ia terbaca sebagai antarmuka yang belum jadi. Diganti monogram yang sudah dipakai rel
+   aplikasi (`AppShell`): tidak ada berkas logo atau aset visual baru yang dibuat, jadi R-23 tetap
+   berlaku. Bila pemilik menyetujui logo resmi, satu blok di `routes/auth/Auth.tsx` yang diganti.
+
+**Konsekuensi.** Tidak ada perubahan kontrak API, skema, bentuk respons, atau aturan jurnal. Perilaku
+baru hanya di klien; satu prop opsional ditambahkan pada `DataError` dan `SaldoPanel`. Kalimat galat
+yang sudah ada tetap muncul apa adanya bila `label` tidak diberikan.
+
+**Verifikasi.** `NODE_OPTIONS=--max-old-space-size=1536 pnpm --dir app verify` lulus (typecheck,
+107 tes server, 5 tes web, build produksi). Telusuri klik pada Chrome: layar masuk menampilkan
+monogram `IF` tanpa teks `[LOGO]`; lembar saringan Transaksi berlabel "Selesai"; ruang baru tanpa
+dompet menampilkan keadaan kosong "Mulai dari sini" beserta tombolnya, dan setelah dompet pertama
+dibuat Beranda kembali ke susunan panel biasa; subjudul Laporan dan baris periode Beranda menyebut
+zona waktu ruang; permintaan data yang dijawab 401 menampilkan "Sesi berakhir. Masuk lagi…" tanpa
+tombol "Coba lagi".
+
+**Status:** 5 Oktober 2026 · diterapkan.

@@ -4,9 +4,10 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { api, ApiError, type Wallet } from '../../../lib/api.ts';
 import { useAsync } from '../../../lib/hooks.ts';
 import {
-  Button, Card, CardHead, ConfirmDialog, EmptyState, ErrorState, IconTile, LoadingRows, Money, StatusPill, useToast,
+  Button, Card, CardHead, ConfirmDialog, EmptyState, IconTile, LoadingRows, Money, StatusPill, useToast,
 } from '../../../components/ui.tsx';
 import { IconChevronDown, IconWallet } from '../../../components/icons.tsx';
+import { DataError } from '../../../components/layout/DataError.tsx';
 import { WalletForm } from '../../../components/forms/WalletForm.tsx';
 import { ReconcileForm } from '../../../components/forms/ReconcileForm.tsx';
 import { errorMessage } from '../../../components/forms/support.tsx';
@@ -68,7 +69,7 @@ export function WalletSection() {
     <section className="mt-4">
       {wallets.loading && !wallets.data ? <LoadingRows rows={3} label="Memuat dompet" /> : null}
       {wallets.error ? (
-        <ErrorState message={`Dompet gagal dimuat. ${wallets.error.display}`} onRetry={wallets.reload} />
+        <DataError error={wallets.error} onRetry={wallets.reload} label="Dompet gagal dimuat." />
       ) : null}
 
       {wallets.data ? (

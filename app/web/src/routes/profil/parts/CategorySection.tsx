@@ -4,9 +4,10 @@ import { useState } from 'react';
 import { api, type Category } from '../../../lib/api.ts';
 import { useAsync } from '../../../lib/hooks.ts';
 import {
-  Button, Card, CardHead, ConfirmDialog, EmptyState, ErrorState, IconTile, LoadingRows, StatusPill, Tabs, useToast,
+  Button, Card, CardHead, ConfirmDialog, EmptyState, IconTile, LoadingRows, StatusPill, Tabs, useToast,
 } from '../../../components/ui.tsx';
 import { IconIn, IconOut } from '../../../components/icons.tsx';
+import { DataError } from '../../../components/layout/DataError.tsx';
 import { CategoryForm } from '../../../components/forms/CategoryForm.tsx';
 import { errorMessage } from '../../../components/forms/support.tsx';
 import { SectionEmpty } from './Row.tsx';
@@ -58,7 +59,7 @@ export function CategorySection() {
     <section className="mt-4">
       {categories.loading && !categories.data ? <LoadingRows rows={3} label="Memuat kategori" /> : null}
       {categories.error ? (
-        <ErrorState message={`Kategori gagal dimuat. ${categories.error.display}`} onRetry={categories.reload} />
+        <DataError error={categories.error} onRetry={categories.reload} label="Kategori gagal dimuat." />
       ) : null}
 
       {categories.data ? (

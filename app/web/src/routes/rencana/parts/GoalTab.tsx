@@ -7,9 +7,10 @@ import { api, type Goal } from '../../../lib/api.ts';
 import { useAsync } from '../../../lib/hooks.ts';
 import { useSession } from '../../../lib/session.tsx';
 import {
-  Button, Card, ConfirmDialog, EmptyState, ErrorState, IconTile, LoadingRows, Money, ProgressBar, RowTitle, SectionHead, Sheet, StatusPill, TextInput, useToast,
+  Button, Card, ConfirmDialog, EmptyState, IconTile, LoadingRows, Money, ProgressBar, RowTitle, SectionHead, Sheet, StatusPill, TextInput, useToast,
 } from '../../../components/ui.tsx';
 import { IconGoal } from '../../../components/icons.tsx';
+import { DataError } from '../../../components/layout/DataError.tsx';
 import { GoalForm } from '../../../components/forms/GoalForm.tsx';
 import { AllocationForm } from '../../../components/forms/AllocationForm.tsx';
 import { errorMessage, issuesFrom, RadioGroup, type FormIssues } from '../../../components/forms/support.tsx';
@@ -61,7 +62,7 @@ export function GoalTab() {
   }
 
   if (goals.loading && !goals.data) return <LoadingRows rows={4} label="Memuat tujuan" />;
-  if (goals.error && !goals.data) return <ErrorState message={goals.error.display} onRetry={goals.reload} />;
+  if (goals.error && !goals.data) return <DataError error={goals.error} onRetry={goals.reload} />;
 
   return (
     <div className="flex flex-col gap-3 lg:gap-4">
@@ -84,10 +85,10 @@ export function GoalTab() {
       </Card>
 
       {wallets.error ? (
-        <ErrorState message={`Daftar dompet gagal dimuat, jadi alokasi belum bisa disimpan. ${wallets.error.display}`} onRetry={wallets.reload} />
+        <DataError error={wallets.error} onRetry={wallets.reload} label="Daftar dompet gagal dimuat, jadi alokasi belum bisa disimpan." />
       ) : null}
 
-      {goals.error && goals.data ? <ErrorState message={goals.error.display} onRetry={goals.reload} /> : null}
+      {goals.error && goals.data ? <DataError error={goals.error} onRetry={goals.reload} /> : null}
 
       <div className="flex flex-wrap gap-2">
         <Button onClick={() => setCreating(true)}>Buat tujuan</Button>

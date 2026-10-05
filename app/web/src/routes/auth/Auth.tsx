@@ -282,10 +282,14 @@ export function AuthPage() {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col justify-center px-4 py-10">
       <Card className="px-5 py-6">
-        <h1 className="text-xl font-semibold tracking-tight text-fg">Ihsan Finance</h1>
-        <p className="text-2xs text-muted" title="Penanda tempat logo. Berkas logo belum ada.">
-          [LOGO]
-        </p>
+        {/* Penanda merek: monogram yang sama dengan rel aplikasi (DESIGN.md "lencana merek"), bukan
+            berkas logo — pemilik belum menyetujui logo resmi, jadi tidak ada aset baru yang dibuat. */}
+        <div className="flex items-center gap-2.5">
+          <span className="inline-flex size-9 items-center justify-center rounded-control bg-accent-solid text-base font-bold text-accent-fg" aria-hidden="true">
+            IF
+          </span>
+          <h1 className="text-xl font-semibold tracking-tight text-fg">Ihsan Finance</h1>
+        </div>
         <p className="mt-3 text-sm text-muted">
           Buku kas pribadi: catat pendapatan, pengeluaran, utang, piutang, dan tujuan tabungan dalam satu tempat.
         </p>

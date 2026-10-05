@@ -6,11 +6,12 @@ import { useNavigate } from 'react-router-dom';
 import { api, type Notification } from '../../lib/api.ts';
 import { useAsync } from '../../lib/hooks.ts';
 import {
-  Button, Card, EmptyState, ErrorState, IconTile, LoadingRows, PageHeader, SectionHead, StatusPill, useToast,
+  Button, Card, EmptyState, IconTile, LoadingRows, PageHeader, SectionHead, StatusPill, useToast,
 } from '../../components/ui.tsx';
 import { IconBell, IconBudget, IconCheck, IconClock, IconGoal, IconRepeat } from '../../components/icons.tsx';
 import { formatDateShort, relativeDay } from '../../lib/format.ts';
 import { useShell } from '../../components/layout/AppShell.tsx';
+import { DataError } from '../../components/layout/DataError.tsx';
 
 // Kelompok tetap, dari yang paling mendesak: kewajiban yang bertanggal, lalu batas anggaran,
 // lalu rencana jangka panjang. Jenis baru dari server tidak pernah salah masuk kelompok.
@@ -125,7 +126,7 @@ export function NotifikasiPage() {
 
       {state.error ? (
         <div className="mt-3">
-          <ErrorState message={state.error.display} onRetry={state.reload} />
+          <DataError error={state.error} onRetry={state.reload} />
         </div>
       ) : null}
 

@@ -67,6 +67,22 @@ export function BerandaPage() {
   }
 
   const { dashboard, budgets } = state.data;
+
+  // Pengguna baru (PRD "Alur utama", "Standar tampilan"): tanpa dompet, seluruh panel hanya berisi nol
+  // dan pekerjaan yang menunggu pun kosong. Layar ini menampilkan satu aksi berikutnya, bukan ringkasan
+  // kosong: membuat dompet lebih dulu, karena transaksi tidak bisa dicatat tanpa dompet (PRD FR02).
+  if (dashboard.wallets.length === 0) {
+    return (
+      <div className="flex flex-col gap-3 pt-4">
+        <h1 className="sr-only">Beranda</h1>
+        <EmptyState
+          title="Mulai dari sini"
+          body="Buat dompet pertama — kas harian, rekening bank, atau e-wallet — lalu catat transaksi pertama Anda. Saldo awal dicatat sebagai jurnal pembukaan, bukan pendapatan."
+          action={<Button onClick={() => navigate('/profil')}>Buat dompet pertama</Button>}
+        />
+      </div>
+    );
+  }
   const nearBudgets = budgets.filter((budget) => budget.warning === 'near');
 
   return (
@@ -85,7 +101,7 @@ export function BerandaPage() {
         onReviewBudget={() => navigate('/rencana')}
         onConfirmRecurring={() => setRecurringOpen(true)}
       />
-      <SaldoPanel dashboard={dashboard} />
+      <SaldoPanel dashboard={dashboard} timezone={user?.timezone} />
       <MonthFlow
         period={dashboard.period}
         income={dashboard.income}

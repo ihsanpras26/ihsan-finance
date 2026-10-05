@@ -6,9 +6,10 @@ import { api, type Debt, type Wallet } from '../../../lib/api.ts';
 import { useAsync } from '../../../lib/hooks.ts';
 import { useSession } from '../../../lib/session.tsx';
 import {
-  Button, Card, EmptyState, ErrorState, IconTile, LoadingRows, Money, ProgressBar, RowTitle, SectionHead, StatusPill, useToast,
+  Button, Card, EmptyState, IconTile, LoadingRows, Money, ProgressBar, RowTitle, SectionHead, StatusPill, useToast,
 } from '../../../components/ui.tsx';
 import { IconDebt, IconReceivable } from '../../../components/icons.tsx';
+import { DataError } from '../../../components/layout/DataError.tsx';
 import { DebtForm } from '../../../components/forms/DebtForm.tsx';
 import { PaymentForm } from '../../../components/forms/PaymentForm.tsx';
 import { WriteOffForm } from '../../../components/forms/WriteOffForm.tsx';
@@ -47,7 +48,7 @@ export function DebtTab() {
 
   if (debts.loading && !debts.data) return <LoadingRows rows={5} label="Memuat utang dan piutang" />;
   if (debts.error && !debts.data) {
-    return <ErrorState message={debts.error.display} onRetry={debts.reload} />;
+    return <DataError error={debts.error} onRetry={debts.reload} />;
   }
 
   const nothingYet = all.length === 0;
@@ -76,10 +77,14 @@ export function DebtTab() {
       </Card>
 
       {wallets.error ? (
-        <ErrorState message={`Daftar dompet gagal dimuat, jadi cicilan dan pencatatan baru belum bisa disimpan. ${wallets.error.display}`} onRetry={wallets.reload} />
+        <DataError
+          error={wallets.error}
+          onRetry={wallets.reload}
+          label="Daftar dompet gagal dimuat, jadi cicilan dan pencatatan baru belum bisa disimpan."
+        />
       ) : null}
 
-      {debts.error && debts.data ? <ErrorState message={debts.error.display} onRetry={debts.reload} /> : null}
+      {debts.error && debts.data ? <DataError error={debts.error} onRetry={debts.reload} /> : null}
 
       {/* Aksi utama layar ini: mencatat catatan baru. Tombol di keadaan kosong memakai gaya
           sekunder supaya hanya ada satu tombol utama di layar. */}

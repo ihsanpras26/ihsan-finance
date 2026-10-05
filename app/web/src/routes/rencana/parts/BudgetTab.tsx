@@ -7,8 +7,9 @@ import { useNavigate } from 'react-router-dom';
 import { api, type Budget } from '../../../lib/api.ts';
 import { useAsync } from '../../../lib/hooks.ts';
 import {
-  Button, Card, Chip, EmptyState, ErrorState, LoadingRows, Money, ProgressBar, SectionHead, StatusPill, useToast,
+  Button, Card, Chip, EmptyState, LoadingRows, Money, ProgressBar, SectionHead, StatusPill, useToast,
 } from '../../../components/ui.tsx';
+import { DataError } from '../../../components/layout/DataError.tsx';
 import { BudgetForm } from '../../../components/forms/BudgetForm.tsx';
 import { currentPeriod, formatPercent, formatPeriod, periodOptions, toMinor } from '../../../lib/format.ts';
 import { sumMinor } from './money.ts';
@@ -37,7 +38,7 @@ export function BudgetTab() {
   }
 
   if (budgets.loading && !budgets.data) return <LoadingRows rows={4} label="Memuat anggaran" />;
-  if (budgets.error && !budgets.data) return <ErrorState message={budgets.error.display} onRetry={budgets.reload} />;
+  if (budgets.error && !budgets.data) return <DataError error={budgets.error} onRetry={budgets.reload} />;
 
   return (
     <div className="flex flex-col gap-3 lg:gap-4">
@@ -94,7 +95,7 @@ export function BudgetTab() {
         </div>
       </Card>
 
-      {budgets.error && budgets.data ? <ErrorState message={budgets.error.display} onRetry={budgets.reload} /> : null}
+      {budgets.error && budgets.data ? <DataError error={budgets.error} onRetry={budgets.reload} /> : null}
 
       {list.length === 0 ? (
         <EmptyState

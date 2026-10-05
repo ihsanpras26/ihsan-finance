@@ -6,7 +6,7 @@ import { ErrorState } from '../ui.tsx';
 import { ApiError } from '../../lib/api.ts';
 import { useSession } from '../../lib/session.tsx';
 
-export function DataError({ error, onRetry, children }: { error: ApiError; onRetry?: () => void; children?: ReactNode }) {
+export function DataError({ error, onRetry, children, label }: { error: ApiError; onRetry?: () => void; children?: ReactNode; label?: string }) {
   const { refresh } = useSession();
   const expired = error.status === 401;
 
@@ -21,7 +21,7 @@ export function DataError({ error, onRetry, children }: { error: ApiError; onRet
   }
 
   return (
-    <ErrorState message={error.display} onRetry={onRetry}>
+    <ErrorState message={label ? `${label} ${error.display}` : error.display} onRetry={onRetry}>
       {children}
     </ErrorState>
   );

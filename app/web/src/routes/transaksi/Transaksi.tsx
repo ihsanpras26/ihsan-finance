@@ -436,8 +436,10 @@ export function TransaksiPage() {
         title="Saringan transaksi"
         footer={
           <div className="flex flex-col gap-2 sm:flex-row-reverse">
+            {/* Saringan berlaku langsung saat chip ditekan (lihat penjelasan di badan lembar), jadi
+                tombol kaki ini hanya menutup lembar — bukan menerapkan sesuatu yang belum diterapkan. */}
             <Button block onClick={closeFilters}>
-              Terapkan
+              Selesai
             </Button>
             <Button variant="ghost" block onClick={resetFilters}>
               Bersihkan
