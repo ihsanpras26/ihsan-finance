@@ -256,7 +256,50 @@ export function setCsrfToken(token: string | null): void {
   csrfToken = token;
 }
 
-async function request<T>(method: string, path: string, options: { body?: unknown; idempotencyKey?: string; query?: Record<string, unknown> } = {}): Promise<T> {
+// ── batas waktu ─────────────────────────────────────────────────────────────
+// Satu permintaan yang menggantung tidak boleh membuat layar menampilkan kerangka selamanya
+// (R-27: keadaan galat harus muncul). Batas ini jauh di atas waktu respons normal.
+const REQUEST_TIMEOUT_MS = 15_000;
+
+// ── cache baca singkat ──────────────────────────────────────────────────────
+// Dompet dan kategori dibaca ulang oleh 5–7 layar berbeda, padahal isinya jarang berubah.
+// Tanpa cache, setiap perpindahan layar berarti menunggu jaringan dari nol lagi. Cache ini
+// dibersihkan setiap mutasi (AppShell memanggil clearApiReadCache lewat notifyDataChanged),
+// jadi layar tidak pernah menampilkan angka basi setelah pengguna mengubah data.
+const READ_TTL_MS = 30_000;
+const readCache = new Map<string, { at: number; value: unknown }>();
+const readInflight = new Map<string, Promise<unknown>>();
+let readGeneration = 0;
+
+/** Buang seluruh cache baca; panggil setelah setiap mutasi atau pergantian pengguna. */
+export function clearApiReadCache(): void {
+  readGeneration += 1;
+  readCache.clear();
+  readInflight.clear();
+}
+
+function cachedRead<T>(key: string, load: () => Promise<T>): Promise<T> {
+  const hit = readCache.get(key);
+  if (hit && Date.now() - hit.at < READ_TTL_MS) return Promise.resolve(hit.value as T);
+  const pending = readInflight.get(key);
+  if (pending) return pending as Promise<T>;
+  const generation = readGeneration;
+  const promise = load().then(
+    (value) => {
+      if (readInflight.get(key) === promise) readInflight.delete(key);
+      if (generation === readGeneration) readCache.set(key, { at: Date.now(), value });
+      return value;
+    },
+    (caught: unknown) => {
+      if (readInflight.get(key) === promise) readInflight.delete(key);
+      throw caught;
+    },
+  );
+  readInflight.set(key, promise);
+  return promise;
+}
+
+async function request<T>(method: string, path: string, options: { body?: unknown; idempotencyKey?: string; query?: Record<string, unknown>; signal?: AbortSignal } = {}): Promise<T> {
   const url = new URL(path, window.location.origin);
   if (options.query) {
     for (const [key, value] of Object.entries(options.query)) {
@@ -276,8 +319,12 @@ async function request<T>(method: string, path: string, options: { body?: unknow
       headers,
       credentials: 'same-origin',
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      signal: options.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
-  } catch {
+  } catch (caught) {
+    if (caught instanceof DOMException && caught.name === 'TimeoutError') {
+      throw new ApiError(0, { code: 'timeout', message: 'Server tidak menjawab dalam 15 detik. Periksa jaringan lalu coba lagi.' });
+    }
     throw new ApiError(0, { code: 'offline', message: 'Tidak ada koneksi ke server. Periksa jaringan lalu coba lagi.' });
   }
 
@@ -321,7 +368,8 @@ export const api = {
   updatePreferences: (body: Partial<Preferences>) => request<Preferences>('PATCH', '/api/v1/preferences', { body }),
 
   // wallets
-  wallets: (query: { includeArchived?: boolean } = {}) => request<Wallet[]>('GET', '/api/v1/wallets', { query }),
+  wallets: (query: { includeArchived?: boolean } = {}) =>
+    cachedRead(`wallets:${JSON.stringify(query)}`, () => request<Wallet[]>('GET', '/api/v1/wallets', { query })),
   createWallet: (body: { name: string; type: string; openingBalance: Money; openedOn: IsoDate; note?: string }) =>
     request<Wallet>('POST', '/api/v1/wallets', { body, idempotencyKey: newIdempotencyKey() }),
   updateWallet: (id: string, body: { name?: string; type?: string; note?: string; expectedVersion: number }) =>
@@ -332,7 +380,8 @@ export const api = {
     request<{ walletId: string; difference: Money; transactionId: string | null }>('POST', `/api/v1/wallets/${id}/reconcile`, { body, idempotencyKey: newIdempotencyKey() }),
 
   // categories
-  categories: (query: { kind?: 'income' | 'expense'; includeArchived?: boolean } = {}) => request<Category[]>('GET', '/api/v1/categories', { query }),
+  categories: (query: { kind?: 'income' | 'expense'; includeArchived?: boolean } = {}) =>
+    cachedRead(`categories:${JSON.stringify(query)}`, () => request<Category[]>('GET', '/api/v1/categories', { query })),
   createCategory: (body: { name: string; kind: 'income' | 'expense' }) => request<Category>('POST', '/api/v1/categories', { body }),
   updateCategory: (id: string, body: { name?: string; expectedVersion: number }) => request<Category>('PATCH', `/api/v1/categories/${id}`, { body }),
   archiveCategory: (id: string) => request<Category>('POST', `/api/v1/categories/${id}/archive`, {}),

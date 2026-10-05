@@ -4,17 +4,22 @@
 // Desktop (>= 1024px): rel kiri 248px dengan merek, tombol Tambah, dan 5 tujuan; kolom isi 1120px.
 // Alasan susunan: di HP pengguna mencatat sambil berdiri, jadi Tambah satu jempol dari mana saja;
 // di desktop pengguna meninjau.
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { api } from '../../lib/api.ts';
+import { api, clearApiReadCache } from '../../lib/api.ts';
 import { useAsync, useOnline } from '../../lib/hooks.ts';
 import { useSession } from '../../lib/session.tsx';
 import { ErrorBoundary } from './ErrorBoundary.tsx';
-import { QuickEntry, type QuickEntryInit } from '../forms/QuickEntry.tsx';
+import type { QuickEntryInit } from '../forms/QuickEntry.tsx';
 import {
   IconBell, IconCloudOff, IconGoal, IconLedger, IconMoon, IconPlus, IconReport, IconSun, IconUser, IconWallet,
 } from '../icons.tsx';
-import { Avatar, Button } from '../ui.tsx';
+import { Avatar, Button, LoadingRows, Sheet } from '../ui.tsx';
+
+// Formulir catat dipecah dari berkas awal: ia hanya dipakai setelah tombol Tambah ditekan.
+// Potongannya dihangatkan saat peramban menganggur, jadi menekan Tambah tetap terasa seketika;
+// selama potongan itu menyusul, kerangka lembar tampil lebih dulu supaya tombol tidak terasa mati.
+const QuickEntry = lazy(() => import('../forms/QuickEntry.tsx').then((mod) => ({ default: mod.QuickEntry })));
 
 interface ShellValue {
   /** Bertambah setiap ada mutasi yang berhasil, sehingga layar memuat ulang datanya. */
@@ -54,10 +59,24 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [entryOpen, setEntryOpen] = useState(false);
   const [entryInit, setEntryInit] = useState<QuickEntryInit | null>(null);
 
-  const notifyDataChanged = useCallback(() => setDataVersion((value) => value + 1), []);
+  const notifyDataChanged = useCallback(() => {
+    // Data bersama (dompet, kategori) tidak boleh lagi disajikan dari cache setelah ada perubahan.
+    clearApiReadCache();
+    setDataVersion((value) => value + 1);
+  }, []);
   const openQuickEntry = useCallback((init?: QuickEntryInit) => {
     setEntryInit(init ?? null);
     setEntryOpen(true);
+  }, []);
+
+  // Hangatkan potongan formulir saat peramban menganggur, bukan saat tombol Tambah ditekan.
+  useEffect(() => {
+    const warm = () => void import('../forms/QuickEntry.tsx');
+    const idle = window.requestIdleCallback?.(warm) ?? window.setTimeout(warm, 1_500);
+    return () => {
+      window.cancelIdleCallback?.(idle);
+      window.clearTimeout(idle);
+    };
   }, []);
   const closeQuickEntry = useCallback(() => setEntryOpen(false), []);
 
@@ -210,7 +229,17 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </nav>
 
-        <QuickEntry open={entryOpen} init={entryInit} onClose={closeQuickEntry} onSaved={notifyDataChanged} />
+        {entryOpen ? (
+          <Suspense
+            fallback={
+              <Sheet open onClose={closeQuickEntry} title="Catat transaksi">
+                <LoadingRows rows={3} label="Menyiapkan formulir" />
+              </Sheet>
+            }
+          >
+            <QuickEntry open={entryOpen} init={entryInit} onClose={closeQuickEntry} onSaved={notifyDataChanged} />
+          </Suspense>
+        ) : null}
       </div>
     </ShellContext.Provider>
   );

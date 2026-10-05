@@ -1,5 +1,9 @@
 // lib/format.ts: tampilan angka dan tanggal. Uang: integer rupiah, kolom tabular.
 
+
+// Satu pemformat dipakai bersama: membuat Intl.NumberFormat per panggilan mahal dan fungsi ini
+// dipanggil ulang setiap kali isian nominal berubah.
+const amountInputFormat = new Intl.NumberFormat('id-ID');
 const MONTHS_ID = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 const MONTHS_SHORT_ID = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
@@ -48,7 +52,7 @@ export function moneySign(value: string | number, direction: 'in' | 'out' | 'zer
 /** Rp25.000 menjadi "25.000" untuk isian teks. */
 export function formatAmountInput(value: string | number): string {
   const minor = toMinor(value);
-  return minor === 0 ? '' : new Intl.NumberFormat('id-ID').format(minor);
+  return minor === 0 ? '' : amountInputFormat.format(minor);
 }
 
 /** Menerima "25.000", "25000", "Rp25.000" dan mengembalikan integer rupiah. */

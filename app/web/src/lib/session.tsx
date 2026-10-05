@@ -1,6 +1,6 @@
 // lib/session.tsx: sesi, preferensi, tema. Sumber kebenaran tetap server.
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { api, ApiError, setCsrfToken, type Preferences, type SessionUser } from './api.ts';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { api, ApiError, clearApiReadCache, setCsrfToken, type Preferences, type SessionUser } from './api.ts';
 import { applyTheme, clearAllDrafts, readHideAmounts, readTheme, writeHideAmounts, writeTheme } from './offline.ts';
 import { MoneyVisibilityProvider } from '../components/ui.tsx';
 
@@ -33,6 +33,7 @@ const SessionContext = createContext<SessionValue | null>(null);
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [preferences, setPreferences] = useState<Preferences>(DEFAULTS);
+  const workspaceRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiError | null>(null);
   const [theme, setThemeState] = useState<'system' | 'light' | 'dark'>(() => readTheme());
@@ -58,12 +59,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     setError(null);
     try {
-      const me = await api.me();
+      // Dua bacaan ini tidak bergantung satu sama lain; menjalankannya berbarengan memotong satu
+      // perjalanan penuh ke server dari waktu tunggu layar boot. Preferensi yang gagal dimuat
+      // tidak memblokir aplikasi: nilai lokal dari perangkat tetap dipakai sampai server menjawab.
+      const [me, prefs] = await Promise.all([api.me(), api.preferences().catch(() => null)]);
+      // Cache baca milik pengguna sebelumnya tidak boleh terbawa ke ruang kerja lain.
+      if (workspaceRef.current !== me.workspaceId) {
+        clearApiReadCache();
+        workspaceRef.current = me.workspaceId;
+      }
       setUser(me);
-      const prefs = await api.preferences();
-      setPreferences(prefs);
-      setHideState(prefs.hideAmounts);
-      writeHideAmounts(prefs.hideAmounts);
+      if (prefs) {
+        setPreferences(prefs);
+        setHideState(prefs.hideAmounts);
+        writeHideAmounts(prefs.hideAmounts);
+      }
     } catch (caught) {
       const apiError = caught instanceof ApiError ? caught : null;
       if (apiError && apiError.status !== 401) setError(apiError);

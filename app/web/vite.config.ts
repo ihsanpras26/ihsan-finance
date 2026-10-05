@@ -17,5 +17,16 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
+    rollupOptions: {
+      output: {
+        // React dan router jarang berubah; memisahkannya membuat peramban hanya mengunduh ulang
+        // potongan kecil saat aplikasi diperbarui, bukan seluruh pustaka. Bentuk fungsi dipakai
+        // supaya seluruh berkas di dalam paket itu ikut pindah, bukan hanya pintu masuknya.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          return /node_modules\/(react|react-dom|scheduler|react-router|react-router-dom)\//.test(id) ? 'vendor' : undefined;
+        },
+      },
+    },
   },
 });

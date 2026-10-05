@@ -638,3 +638,55 @@ jalur lama. Commit `4173ad1` menyala di produksi sebagai deployment `dpl_4j91Uhb
 token dan 200 dengan `Bearer $CRON_SECRET`.
 
 **Status:** 5 Oktober 2026 · diterapkan.
+
+## D-26 · Kinerja: fungsi produksi didekatkan ke basis data, potongan kode per rute, batas waktu permintaan
+
+Keluhan pemilik "masih lemot" diukur lebih dulu, bukan ditebak. Hasil pengukuran sebelum perubahan:
+
+- **Server lokal** (berkas SQLite 417 KB, tanpa jaringan): seluruh endpoint 4–20 ms kecuali
+  `/api/v1/dashboard` 74,6 ms. Jadi "lemot" bukan berasal dari kueri lokal.
+- **Produksi** (Vercel + Turso): `/api/v1/health` tanpa satu pun pernyataan DB = 300 ms hangat;
+  `/api/v1/internal/tick` (beberapa pernyataan berurutan, tanpa aturan aktif) = 1,7 detik hangat;
+  `POST /api/v1/auth/login` dengan surel tidak dikenal (satu dua pernyataan) = 0,82 detik.
+  Selisih itu menunjukkan **~250 ms per ronde pernyataan berurutan**.
+- **Sebabnya region**: fungsi Vercel berjalan di `iad1` (Virginia, AS) sementara basis data Turso
+  berada di `aws-ap-northeast-1` (Tokyo). Setiap pernyataan berurutan menempuh Virginia–Tokyo, dan
+  setiap permintaan peramban dari Indonesia menempuh Jakarta–Virginia.
+- **Kode klien**: satu bundel 465 KB (140 KB brotli) tanpa pemecahan, 22 berkas font (hanya 3 yang
+  pernah diunduh), dan layar boot menunggu dua permintaan server secara berurutan.
+
+**Keputusan:**
+
+1. `app/vercel.json` menetapkan `"regions": ["hnd1"]` (Tokyo): fungsi berjalan satu region dengan
+   basis data, sekaligus lebih dekat ke pengguna (Jakarta–Tokyo jauh lebih pendek daripada
+   Jakarta–Virginia). Basis data tidak dipindah: memindahkan fungsi jauh lebih murah dan tidak
+   menyentuh data.
+2. Rute ber-sesi dimuat sesuai kebutuhan (`React.lazy`) sementara layar masuk tetap ikut berkas awal
+   (layar pertama pengunjung baru tidak boleh menunggu perjalanan tambahan). Potongan pustaka
+   (`react`, `react-dom`, `react-router-dom` beserta `scheduler`) dipisah lewat `manualChunks` bentuk
+   fungsi supaya hash-nya stabil antar rilis dan peramban hanya mengunduh ulang kode aplikasi.
+   Formulir catat juga dipotong dan dihangatkan saat peramban menganggur; kerangka lembar tampil
+   selama potongan menyusul supaya tombol Tambah tidak terasa mati.
+3. Rupa huruf IBM Plex Mono diimpor sebagai subset latin saja: 16 deklarasi `@font-face` dan 10
+   berkas woff untuk aksara lain tidak pernah dipakai aplikasi berbahasa Indonesia.
+4. `lib/api.ts` memberi setiap permintaan batas waktu 15 detik (keadaan galat lebih baik daripada
+   kerangka selamanya) dan menyimpan sementara hasil baca `wallets`/`categories` (30 detik, dibuang
+   setiap mutasi lewat `notifyDataChanged` dan setiap pergantian ruang kerja) karena kedua bacaan itu
+   diulang 5–7 layar.
+5. Sesi dimuat dengan satu ronde: `api.me()` dan `api.preferences()` berjalan berbarengan.
+
+**Konsekuensi:** Selisih waktu muat awal terukur di mesin pengembang: 465 KB → 354 KB decoded dan
+140 KB → 95 KB brotli untuk berkas awal (potongan rute menyusul: Rencana 9,5 KB, Laporan 8,1 KB,
+Profil 7,2 KB, Transaksi 5,8 KB, formulir catat 3,6 KB brotli). Setelah satu rilis, peramban hanya
+mengunduh ulang 16 KB brotli kode aplikasi (potongan `vendor` ber-hash stabil), bukan 72 KB.
+Amplifikasi pernyataan berurutan (mis. `dashboardReport` memanggil sembilan bagian berurutan) belum
+diubah pada keputusan ini: setelah fungsi dan basis data satu region, biaya per ronde turun dari
+~250 ms menjadi satuan milidetik, jadi pengurangan jumlah pernyataan menjadi pekerjaan lanjutan yang
+diukur ulang, bukan tebakan.
+
+**Verifikasi:** `pnpm --dir app verify` lulus (typecheck, 107 tes server, 5 tes web, build produksi).
+Setelah deploy, latensi produksi diukur ulang dengan urutan perintah yang sama seperti pengukuran
+sebelumnya (`/api/v1/health`, `/api/v1/internal/tick`, `POST /api/v1/auth/login` dengan surel tidak
+dikenal) dan hasilnya dicatat di berkas ini bila berbeda jauh.
+
+**Status:** 5 Oktober 2026 · diterapkan.

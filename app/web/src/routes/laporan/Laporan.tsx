@@ -22,7 +22,7 @@ import { comparisonPeriodName, defaultRange, directionOf, isRangeUsable, monthly
 
 export function LaporanPage() {
   const { push } = useToast();
-  const { openQuickEntry } = useShell();
+  const { dataVersion, openQuickEntry } = useShell();
   const navigate = useNavigate();
   const [draft, setDraft] = useState(defaultRange);
   const [exporting, setExporting] = useState(false);
@@ -37,8 +37,8 @@ export function LaporanPage() {
   const monthly = useAsync(() => api.cashflow({ from: monthlySpan.from, to: monthlySpan.to }), [monthlySpan.from, monthlySpan.to], { enabled: usable });
   const cashflow = useAsync(() => api.cashflow({ from: current.from, to: current.to }), [current.from, current.to], { enabled: usable });
   const netWorth = useAsync(() => api.netWorth({ asOf: current.to }), [current.to], { enabled: usable });
-  const debts = useAsync(() => api.debtsReport({ includeArchived: false }), []);
-  const goals = useAsync(() => api.goals(), []);
+  const debts = useAsync(() => api.debtsReport({ includeArchived: false }), [dataVersion]);
+  const goals = useAsync(() => api.goals(), [dataVersion]);
 
   const comparison = summary.data?.comparison ?? null;
   const comparisonLabel = comparison ? comparisonPeriodName(comparison.label) : '';

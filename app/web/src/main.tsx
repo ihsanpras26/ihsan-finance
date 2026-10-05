@@ -3,10 +3,11 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 // Rupa huruf self-host (DESIGN.md "Typography"): Schibsted Grotesk untuk antarmuka,
-// IBM Plex Mono untuk seluruh nominal uang.
+// IBM Plex Mono untuk seluruh nominal uang. Hanya subset latin yang diambil: 16 deklarasi
+// @font-face dan 10 berkas woff untuk aksara lain tidak pernah dipakai aplikasi berbahasa Indonesia.
 import '@fontsource-variable/schibsted-grotesk';
-import '@fontsource/ibm-plex-mono/400.css';
-import '@fontsource/ibm-plex-mono/500.css';
+import '@fontsource/ibm-plex-mono/latin-400.css';
+import '@fontsource/ibm-plex-mono/latin-500.css';
 import './styles/index.css';
 import { App } from './app.tsx';
 import { ToastProvider } from './components/ui.tsx';

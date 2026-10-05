@@ -1,16 +1,23 @@
 // app.tsx - routing, penjaga sesi, dan kerangka tata letak.
+import { lazy, Suspense } from 'react';
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AppShell } from './components/layout/AppShell.tsx';
 import { EmptyState, ErrorState, LoadingRows, PageHeader } from './components/ui.tsx';
 import { ApiError } from './lib/api.ts';
 import { useSession } from './lib/session.tsx';
 import { AuthPage } from './routes/auth/Auth.tsx';
-import { BerandaPage } from './routes/beranda/Beranda.tsx';
-import { LaporanPage } from './routes/laporan/Laporan.tsx';
-import { NotifikasiPage } from './routes/notifikasi/Notifikasi.tsx';
-import { ProfilPage } from './routes/profil/Profil.tsx';
-import { RencanaPage } from './routes/rencana/Rencana.tsx';
-import { TransaksiPage } from './routes/transaksi/Transaksi.tsx';
+
+// Layar ber-sesi dimuat sesuai kebutuhan. Berkas awal hanya membawa kerangka, sesi, komponen UI
+// dasar, dan layar masuk; sisa aplikasi menyusul sebagai potongan kecil saat rutenya dibuka.
+// Layar masuk sengaja tidak dipecah: itu layar pertama pengunjung baru, satu perjalanan tambahan
+// ke server di sana terasa mahal. Muatannya berjalan berbarengan dengan permintaan data layar,
+// jadi biaya tambahannya tidak menambah waktu tunggu secara berurutan.
+const BerandaPage = lazy(() => import('./routes/beranda/Beranda.tsx').then((mod) => ({ default: mod.BerandaPage })));
+const TransaksiPage = lazy(() => import('./routes/transaksi/Transaksi.tsx').then((mod) => ({ default: mod.TransaksiPage })));
+const RencanaPage = lazy(() => import('./routes/rencana/Rencana.tsx').then((mod) => ({ default: mod.RencanaPage })));
+const LaporanPage = lazy(() => import('./routes/laporan/Laporan.tsx').then((mod) => ({ default: mod.LaporanPage })));
+const NotifikasiPage = lazy(() => import('./routes/notifikasi/Notifikasi.tsx').then((mod) => ({ default: mod.NotifikasiPage })));
+const ProfilPage = lazy(() => import('./routes/profil/Profil.tsx').then((mod) => ({ default: mod.ProfilPage })));
 
 export function App() {
   const { user, loading, error, refresh } = useSession();
@@ -37,16 +44,18 @@ export function App() {
 
   return (
     <AppShell>
-      <Routes>
-        <Route path="/" element={<BerandaPage />} />
-        <Route path="/transaksi" element={<TransaksiPage />} />
-        <Route path="/rencana" element={<RencanaPage />} />
-        <Route path="/laporan" element={<LaporanPage />} />
-        <Route path="/notifikasi" element={<NotifikasiPage />} />
-        <Route path="/profil" element={<ProfilPage />} />
-        <Route path="/masuk" element={<Navigate to="/" replace />} />
-        <Route path="*" element={<HalamanTidakAda />} />
-      </Routes>
+      <Suspense fallback={<LoadingRows rows={6} label="Memuat halaman" />}>
+        <Routes>
+          <Route path="/" element={<BerandaPage />} />
+          <Route path="/transaksi" element={<TransaksiPage />} />
+          <Route path="/rencana" element={<RencanaPage />} />
+          <Route path="/laporan" element={<LaporanPage />} />
+          <Route path="/notifikasi" element={<NotifikasiPage />} />
+          <Route path="/profil" element={<ProfilPage />} />
+          <Route path="/masuk" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<HalamanTidakAda />} />
+        </Routes>
+      </Suspense>
     </AppShell>
   );
 }
