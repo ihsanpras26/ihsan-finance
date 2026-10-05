@@ -631,8 +631,10 @@ pada direktori berkas pemanggil. Dua jalur absolut `D:\Ihsan Finance\ihsan-finan
 repositori tidak memindahkan repositorinya. Artefak yang bisa dibuat ulang juga dibuang pada
 kesempatan ini: `D:\Ihsan Finance\.smoke-out` (yatim, tidak dirujuk kode mana pun) dan `app/web/dist`.
 
-**Verifikasi:** `pnpm --dir app verify` lulus setelah pemindahan (typecheck, tes server, tes web,
+**Verifikasi:** `pnpm --dir app verify` lulus setelah pemindahan (typecheck, 107 tes server, 5 tes web,
 build produksi); tautan berkas di dalam dokumen diperiksa ulang dan tidak ada rujukan yang menunjuk
-jalur lama.
+jalur lama. Commit `4173ad1` menyala di produksi sebagai deployment `dpl_4j91Uhb6Voa6rMC4Tf3UPoeENP55`
+(READY): `/api/v1/health` 200, `/api/v1/wallets` 401, `/masuk` 200, `/api/v1/internal/tick` 403 tanpa
+token dan 200 dengan `Bearer $CRON_SECRET`.
 
 **Status:** 5 Oktober 2026 · diterapkan.
